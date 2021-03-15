@@ -3,11 +3,9 @@
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum Item {
 	Folder {
-		name: String,
 		content: std::collections::HashMap<String, Box<Item>>,
 	},
 	Document {
-		name: String,
 		content: Vec<u8>,
 	},
 }
@@ -31,37 +29,26 @@ pub mod database {
 			content_c.insert(
 				String::from("d"),
 				Box::new(crate::Item::Document {
-					name: String::from("d"),
 					content: b"TODO".to_vec(),
 				}),
 			);
 			content_c.insert(
 				String::from("e"),
 				Box::new(crate::Item::Folder {
-					name: String::from("e"),
 					content: std::collections::HashMap::new(),
 				}),
 			);
 			content_b.insert(
 				String::from("c"),
-				Box::new(crate::Item::Folder {
-					name: String::from("c"),
-					content: content_c,
-				}),
+				Box::new(crate::Item::Folder { content: content_c }),
 			);
 			content_a.insert(
 				String::from("b"),
-				Box::new(crate::Item::Folder {
-					name: String::from("b"),
-					content: content_b,
-				}),
+				Box::new(crate::Item::Folder { content: content_b }),
 			);
 			content.insert(
 				String::from("a"),
-				Box::new(crate::Item::Folder {
-					name: String::from("a"),
-					content: content_a,
-				}),
+				Box::new(crate::Item::Folder { content: content_a }),
 			);
 
 			return Ok(Self { content });
@@ -72,7 +59,7 @@ pub mod database {
 	}
 
 	impl Database {
-		pub fn get(&self, request: &[&str]) -> Result<Option<crate::Item>, GetError> {
+		pub fn read(&self, request: &[&str]) -> Result<Option<crate::Item>, ReadError> {
 			// TODO : If a document with document_name <x> exists, then no folder with folder_name <x> can exist in the same parent folder, and vice versa.
 
 			return match request.iter().enumerate().fold(true, |acc, (i, &e)| {
@@ -85,16 +72,12 @@ pub mod database {
 						if let Some(item) = result {
 							match &**item {
 								crate::Item::Folder {
-									name: _,
 									content: folder_content,
 								} => {
 									result = folder_content.get(request_name);
 								}
-								crate::Item::Document {
-									name: _,
-									content: _,
-								} => {
-									return Err(GetError::FolderDocumentConflict);
+								crate::Item::Document { content: _ } => {
+									return Err(ReadError::FolderDocumentConflict);
 								}
 							}
 						}
@@ -105,8 +88,63 @@ pub mod database {
 						None => None,
 					})
 				}
-				false => Err(GetError::WrongPath),
+				false => Err(ReadError::WrongPath),
 			};
+		}
+		pub fn update(
+			&mut self,
+			request: &[&str],
+			document_update: crate::Item,
+		) -> Result<String, UpdateError> {
+			if let crate::Item::Document {
+				content: new_content,
+			} = document_update
+			{
+				return match request
+					.iter()
+					.fold(true, |acc, &e| acc && crate::path::is_ok(e, false))
+				{
+					true => {
+						let mut result = self
+							.content
+							.get_mut(&String::from(*request.first().unwrap()));
+						for &request_name in request.iter().skip(1).filter(|&&e| e != "") {
+							if let Some(item) = result {
+								match &mut **item {
+									crate::Item::Folder {
+										content: folder_content,
+									} => {
+										result = folder_content.get_mut(request_name);
+									}
+									crate::Item::Document { content: _ } => {
+										return Err(UpdateError::FolderDocumentConflict);
+									}
+								}
+							}
+						}
+
+						match result {
+							Some(e) => {
+								if let crate::Item::Document {
+									content: old_content,
+								} = &mut **e
+								{
+									// TODO : set/update ETag ?
+									*old_content = new_content;
+
+									Ok(String::from("TODO"))
+								} else {
+									Err(UpdateError::NotFound)
+								}
+							}
+							None => Err(UpdateError::NotFound),
+						}
+					}
+					false => Err(UpdateError::WrongPath),
+				};
+			} else {
+				Err(UpdateError::DoesNotWorksForFolders)
+			}
 		}
 	}
 
@@ -114,9 +152,17 @@ pub mod database {
 	pub enum CreateError {}
 
 	#[derive(Debug)]
-	pub enum GetError {
+	pub enum ReadError {
 		WrongPath,
 		FolderDocumentConflict,
+	}
+
+	#[derive(Debug)]
+	pub enum UpdateError {
+		WrongPath,
+		FolderDocumentConflict,
+		DoesNotWorksForFolders,
+		NotFound,
 	}
 }
 
