@@ -1,5 +1,7 @@
 #![allow(clippy::needless_return)]
 
+mod client;
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum Item {
 	Folder {
@@ -58,6 +60,67 @@ pub mod database {
 		}
 	}
 
+	/*
+	TODO :
+		As a special exceptions, GET and HEAD requests to a document (but
+		not a folder) whose path starts with '/public/' are always allowed.
+		They, as well as OPTIONS requests, can be made without a bearer
+		token.
+	*/
+	impl Database {
+		fn fetch_item(&self, request: &[&str]) -> Result<Option<&Box<crate::Item>>, FetchError> {
+			// TODO : what if request == &[""] or &[] ?
+			let mut result = self
+				.content
+				.get(&String::from(*request.first().unwrap()));
+
+			for &request_name in request.iter().skip(1).filter(|&&e| e != "") {
+				if let Some(item) = result {
+					match &**item {
+						crate::Item::Folder {
+							content: folder_content,
+						} => {
+							result = folder_content.get(request_name);
+						}
+						crate::Item::Document { content: _ } => {
+							return Err(FetchError::FolderDocumentConflict);
+						}
+					}
+				}
+			}
+
+			return Ok(result);
+		}
+		fn fetch_item_mut(&mut self, request: &[&str]) -> Result<Option<&mut Box<crate::Item>>, FetchError> {
+			// TODO : what if request == &[""] or &[] ?
+			let mut result = self
+				.content
+				.get_mut(&String::from(*request.first().unwrap()));
+
+			for &request_name in request.iter().skip(1).filter(|&&e| e != "") {
+				if let Some(item) = result {
+					match &mut **item {
+						crate::Item::Folder {
+							content: folder_content,
+						} => {
+							result = folder_content.get_mut(request_name);
+						}
+						crate::Item::Document { content: _ } => {
+							return Err(FetchError::FolderDocumentConflict);
+						}
+					}
+				}
+			}
+
+			return Ok(result);
+		}
+	}
+
+	#[derive(Debug)]
+	enum FetchError{
+		FolderDocumentConflict,
+	}
+
 	impl Database {
 		pub fn read(&self, request: &[&str]) -> Result<Option<crate::Item>, ReadError> {
 			// TODO : If a document with document_name <x> exists, then no folder with folder_name <x> can exist in the same parent folder, and vice versa.
@@ -66,31 +129,16 @@ pub mod database {
 				acc && crate::path::is_ok(e, i == (request.len() - 1))
 			}) {
 				true => {
-					// TODO : what if request == &[""] or &[] ?
-					let mut result = self.content.get(&String::from(*request.first().unwrap()));
-					for &request_name in request.iter().skip(1).filter(|&&e| e != "") {
-						if let Some(item) = result {
-							match &**item {
-								crate::Item::Folder {
-									content: folder_content,
-								} => {
-									result = folder_content.get(request_name);
-								}
-								crate::Item::Document { content: _ } => {
-									return Err(ReadError::FolderDocumentConflict);
-								}
-							}
-						}
+					match self.fetch_item(request) {
+						Ok(Some(result)) => Ok(Some((**result).clone())),
+						Ok(None) => Ok(None),
+						Err(FetchError::FolderDocumentConflict) => Err(ReadError::FolderDocumentConflict),
 					}
-
-					Ok(match result {
-						Some(result) => Some((**result).clone()),
-						None => None,
-					})
 				}
 				false => Err(ReadError::WrongPath),
 			};
 		}
+
 		pub fn update(
 			&mut self,
 			request: &[&str],
@@ -105,26 +153,8 @@ pub mod database {
 					.fold(true, |acc, &e| acc && crate::path::is_ok(e, false))
 				{
 					true => {
-						let mut result = self
-							.content
-							.get_mut(&String::from(*request.first().unwrap()));
-						for &request_name in request.iter().skip(1).filter(|&&e| e != "") {
-							if let Some(item) = result {
-								match &mut **item {
-									crate::Item::Folder {
-										content: folder_content,
-									} => {
-										result = folder_content.get_mut(request_name);
-									}
-									crate::Item::Document { content: _ } => {
-										return Err(UpdateError::FolderDocumentConflict);
-									}
-								}
-							}
-						}
-
-						match result {
-							Some(e) => {
+						match self.fetch_item_mut(request) {
+							Ok(Some(e)) => {
 								if let crate::Item::Document {
 									content: old_content,
 								} = &mut **e
@@ -137,7 +167,8 @@ pub mod database {
 									Err(UpdateError::NotFound)
 								}
 							}
-							None => Err(UpdateError::NotFound),
+							Ok(None) => Err(UpdateError::NotFound),
+							Err(FetchError::FolderDocumentConflict) => Err(UpdateError::FolderDocumentConflict),
 						}
 					}
 					false => Err(UpdateError::WrongPath),
@@ -145,6 +176,36 @@ pub mod database {
 			} else {
 				Err(UpdateError::DoesNotWorksForFolders)
 			}
+		}
+
+		pub fn delete(
+			&mut self,
+			request: &[&str],
+		) -> Result<String, DeleteError> {
+			/*
+			TODO : option to keep old documents ?
+				A provider MAY offer version rollback functionality to its users,
+				but this specification does not define the interface for that.
+			*/
+			// TODO : restrain to documents only ?
+			/*
+			TODO:
+				* the deletion of that document from the storage, and from its
+					parent folder,
+				* silent deletion of the parent folder if it is left empty by
+					this, and so on for further ancestor folders,
+				* the version of its parent folder being updated, as well as that
+					of further ancestor folders.
+			*/
+
+			return match request.iter().enumerate().fold(true, |acc, (i, &e)| {
+				acc && crate::path::is_ok(e, i == (request.len() - 1))
+			}) {
+				true => {
+					todo!()
+				},
+				false => Err(DeleteError::WrongPath),
+			};
 		}
 	}
 
@@ -159,6 +220,14 @@ pub mod database {
 
 	#[derive(Debug)]
 	pub enum UpdateError {
+		WrongPath,
+		FolderDocumentConflict,
+		DoesNotWorksForFolders,
+		NotFound,
+	}
+
+	#[derive(Debug)]
+	pub enum DeleteError {
 		WrongPath,
 		FolderDocumentConflict,
 		DoesNotWorksForFolders,
@@ -197,3 +266,17 @@ mod path {
 		assert_eq!(is_ok(input, false), false);
 	}
 }
+
+/*
+TODO : Bearer tokens and access control
+	* <module> string SHOULD be lower-case alphanumerical, other
+		than the reserved word 'public'
+	* <level> can be ':r' or ':rw'.
+
+	<module> ':rw') any requests to paths relative to <storage_root>
+					that start with '/' <module> '/' or
+					'/public/' <module> '/',
+	<module> ':r') any GET or HEAD requests to paths relative to
+					<storage_root> that start with
+					'/' <module> '/' or '/public/' <module> '/',
+*/

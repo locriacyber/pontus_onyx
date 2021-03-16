@@ -5,7 +5,7 @@ extern crate pontus_onyx;
 /*
 TODO : continue to :
 	https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-16
-		"A successful DELETE request to a document MUST result in:"
+		"10. Application-first bearer token issuance"
 */
 
 #[cfg(feature = "server")]
@@ -19,6 +19,8 @@ async fn main() -> std::io::Result<()> {
 				pontus_onyx::database::Database::from_bytes(&[]).unwrap(),
 			))
 			.service(get_item)
+			.service(head_item)
+			.service(options_item)
 			.service(put_item)
 			.service(delete_item)
 	})
@@ -27,12 +29,18 @@ async fn main() -> std::io::Result<()> {
 	.await
 }
 
+/*
+TODO :
+	GET requests MAY have a comma-separated list of revisions in an
+	'If-None-Match' header [COND], and SHOULD be responded to with a 304
+	response if that list includes the document or folder's current
+	version.
+*/
 #[cfg(feature = "server")]
-#[actix_web::get("/{requested_item:.*}")]
-async fn get_item(
-	paths: actix_web::web::Path<String>,
+fn get(paths: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
-) -> impl actix_web::Responder {
+	should_have_body: bool,
+) -> actix_web::web::HttpResponse {
 	let paths: Vec<&str> = paths.split("/").collect();
 
 	let should_be_folder = paths.last().unwrap() == &"";
@@ -70,52 +78,115 @@ async fn get_item(
 
 						actix_web::HttpResponse::Ok()
 							.content_type("application/ld+json")
-							.body(format!(
-								"{}",
-								serde_json::json!({
-									"@context": "http://remotestorage.io/spec/folder-description",
-									"items": items_result,
-								})
-								.to_string()
-							))
+							.header("cache-control", "no-cache")
+							.body(if should_have_body {
+								format!(
+									"{}",
+									serde_json::json!({
+										"@context": "http://remotestorage.io/spec/folder-description",
+										"items": items_result,
+									})
+									.to_string()
+								)
+							} else {
+								String::new()
+							})
 					} else {
 						// TODO : help user to say there is a folder with this name ?
 						actix_web::HttpResponse::NotFound()
 							.content_type("application/ld+json")
-							.body(
-								r#"{"http_code":404,"http_description":"requested content not found"}"#,
-							)
+							.body(if should_have_body {
+								r#"{"http_code":404,"http_description":"requested content not found"}"#
+							} else {
+								""
+							})
 					}
 				}
 				pontus_onyx::Item::Document { content } => {
 					if !should_be_folder {
 						actix_web::HttpResponse::Ok()
 							.header("ETag", "TODO")
+							.header("cache-control", "no-cache")
 							.content_type("text/plain") // TODO
-							.body(content)
+							.body(if should_have_body {
+								content
+							} else {
+								vec![]
+							})
 					} else {
 						actix_web::HttpResponse::NotFound()
 							.content_type("application/ld+json")
-							.body(
-								r#"{"http_code":404,"http_description":"requested content not found"}"#,
-							)
+							.body(if should_have_body {
+								r#"{"http_code":404,"http_description":"requested content not found"}"#
+							} else {
+								""
+							})
 					}
 				}
 			}
 		}
 		Ok(None) => actix_web::HttpResponse::NotFound()
 			.content_type("application/ld+json")
-			.body(r#"{"http_code":404,"http_description":"requested content not found"}"#),
+			.body(if should_have_body {
+				r#"{"http_code":404,"http_description":"requested content not found"}"#
+			} else {
+				""
+			}),
 		Err(pontus_onyx::database::ReadError::WrongPath) => actix_web::HttpResponse::BadRequest()
 			.content_type("application/ld+json")
-			.body(r#"{"http_code":400,"http_description":"bad request"}"#),
+			.body(if should_have_body {
+				r#"{"http_code":400,"http_description":"bad request"}"#
+			} else {
+				""
+			}),
 		Err(err) => {
 			println!("ERROR : {:?} : {:?}", paths, err); // TODO
 			actix_web::HttpResponse::InternalServerError()
 				.content_type("application/ld+json")
-				.body(r#"{"http_code":500,"http_description":"internal server error"}"#)
+				.body(if should_have_body {
+					r#"{"http_code":500,"http_description":"internal server error"}"#
+				} else {
+					""
+				})
 		}
 	};
+}
+
+#[cfg(feature = "server")]
+#[actix_web::get("/{requested_item:.*}")]
+async fn get_item(
+	paths: actix_web::web::Path<String>,
+	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+) -> actix_web::web::HttpResponse {
+	return get(paths, database, true);
+}
+
+#[cfg(feature = "server")]
+#[actix_web::head("/{requested_item:.*}")]
+async fn head_item(
+	paths: actix_web::web::Path<String>,
+	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+) -> actix_web::web::HttpResponse {
+	return get(paths, database, false);
+}
+
+/*
+TODO :
+	A successful OPTIONS request SHOULD be responded to as described in
+	the CORS section below.
+*/
+/*
+TODO :
+	The server MUST also
+	reply to preflight OPTIONS requests as per CORS.
+*/
+#[cfg(feature = "server")]
+#[actix_web::options("/{requested_item:.*}")]
+async fn options_item(
+	_paths: actix_web::web::Path<String>,
+	_database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+) -> actix_web::web::HttpResponse {
+	todo!()
 }
 
 /*
@@ -134,6 +205,26 @@ TODO :
 	show up in their parent folder descriptions if and only if their
 	subtree contains at least one document.
 */
+/*
+TODO :
+	PUT and DELETE requests
+	MAY have an 'If-Match' request header [COND], and MUST fail with a
+	412 response code if that does not match the document's current
+	version.
+*/
+/*
+TODO :
+	A PUT request MAY have an 'If-None-Match: *' header [COND],
+	in which case it MUST fail with a 412 response code if the document
+	already exists.
+*/
+/*
+TODO :
+	Unless [KERBEROS] is used (see section 10 below), all other
+	requests SHOULD present a bearer token with sufficient access scope,
+	using a header of the following form (no double quotes here):
+		Authorization: Bearer <access_token>
+*/
 #[cfg(feature = "server")]
 #[actix_web::put("/{requested_item:.*}")]
 async fn put_item(
@@ -141,7 +232,7 @@ async fn put_item(
 	request: actix_web::web::HttpRequest,
 	paths: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
-) -> Result<actix_web::HttpResponse, actix_web::Error> {
+) -> Result<actix_web::web::HttpResponse, actix_web::Error> {
 	let paths: Vec<&str> = paths.split("/").collect();
 
 	let mut body = actix_web::web::BytesMut::new();
@@ -187,9 +278,9 @@ async fn put_item(
 					.body(r#"{"http_code":400,"http_description":"bad request"}"#)
 			}
 			Err(pontus_onyx::database::UpdateError::FolderDocumentConflict) => {
-				actix_web::HttpResponse::BadRequest()
+				actix_web::HttpResponse::Conflict()
 					.content_type("application/ld+json")
-					.body(r#"{"http_code":400,"http_description":"bad request"}"#)
+					.body(r#"{"http_code":409,"http_description":"conflict"}"#)
 			}
 			Err(pontus_onyx::database::UpdateError::NotFound) => {
 				actix_web::HttpResponse::NotFound()
@@ -202,18 +293,47 @@ async fn put_item(
 		},
 	);
 }
+
 #[cfg(feature = "server")]
 #[actix_web::delete("/{requested_item:.*}")]
 async fn delete_item(
-	_payload: actix_web::web::Payload,
-	_request: actix_web::web::HttpRequest,
-	_paths: actix_web::web::Path<String>,
-	_database: actix_web::web::Data<pontus_onyx::database::Database>,
-) -> impl actix_web::Responder {
-	// TODO
-	actix_web::HttpResponse::InternalServerError()
-		.content_type("application/ld+json")
-		.body(r#"{"http_code":500,"http_description":"internal server error"}"#)
+	paths: actix_web::web::Path<String>,
+	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+) -> actix_web::web::HttpResponse {
+	let paths: Vec<&str> = paths.split("/").collect();
+
+	return match database.lock().unwrap().delete(&paths) {
+		Ok(ETag) => {
+			actix_web::HttpResponse::Ok()
+				.content_type("application/ld+json")
+				.header("ETag", ETag)
+				.finish()
+				/*
+				TODO ?
+				.body(
+					format!(r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#, new_ETag),
+				)
+				*/
+		}
+		Err(pontus_onyx::database::DeleteError::WrongPath) => {
+			actix_web::HttpResponse::BadRequest()
+				.content_type("application/ld+json")
+				.body(r#"{"http_code":400,"http_description":"bad request"}"#)
+		}
+		Err(pontus_onyx::database::DeleteError::FolderDocumentConflict) => {
+			actix_web::HttpResponse::Conflict()
+				.content_type("application/ld+json")
+				.body(r#"{"http_code":409,"http_description":"conflict"}"#)
+		}
+		Err(pontus_onyx::database::DeleteError::NotFound) => {
+			actix_web::HttpResponse::NotFound()
+				.content_type("application/ld+json")
+				.body(r#"{"http_code":404,"http_description":"requested content not found"}"#)
+		}
+		Err(_TODO) => actix_web::HttpResponse::InternalServerError()
+			.content_type("application/ld+json")
+			.body(r#"{"http_code":500,"http_description":"internal server error"}"#),
+	};
 }
 
 /*
@@ -222,4 +342,33 @@ TODO ?
 	but whether or not they do SHOULD be announced both through the
 	"http://tools.ietf.org/html/rfc7233" option mentioned below in
 	section 10 and through the HTTP 'Accept-Ranges' response header.
+*/
+
+/*
+TODO :
+* 304 for a conditional GET request whose precondition
+		fails (see "Versioning" below),
+* 401 for all requests that require a valid bearer token and
+		where no valid one was sent (see also [BEARER, section
+		3.1]),
+* 403 for all requests that have insufficient scope, e.g.
+		accessing a <module> for which no scope was obtained, or
+		accessing data outside the user's <storage_root>,
+* 412 for a conditional PUT or DELETE request whose precondition
+		fails (see "Versioning" below),
+* 413 if the payload is too large, e.g. when the server has a
+		maximum upload size for documents
+* 414 if the request URI is too long,
+* 416 if Range requests are supported by the server and the Range
+		request can not be satisfied,
+* 429 if the client makes too frequent requests or is suspected
+		of malicious activity,
+* 4xx for all malformed requests, e.g. reserved characters in the
+		path [URI, section 2.2], as well as for all PUT and DELETE
+		requests to folders,
+* 507 in case the account is over its storage quota,
+*/
+/*
+TODO :
+	All responses MUST carry CORS headers [CORS].
 */
