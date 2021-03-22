@@ -12,9 +12,27 @@ pub enum Item {
 	},
 }
 
+impl Item {
+	fn get_folder_item(&self, key: &str) -> Option<&Item> {
+		match self {
+			Self::Folder { content } => match content.get(key) {
+				Some(b) => Some(&**b),
+				None => None,
+			},
+			Self::Document { content: _ } => None,
+		}
+	}
+	fn get_folder_item_mut(&mut self, key: &str) -> Option<&mut Box<Item>> {
+		match self {
+			Self::Folder { content } => content.get_mut(key),
+			Self::Document { content: _ } => None,
+		}
+	}
+}
+
 pub mod database {
 	pub struct Database {
-		content: std::collections::HashMap<String, Box<crate::Item>>,
+		content: crate::Item,
 	}
 
 	impl Database {
@@ -53,7 +71,9 @@ pub mod database {
 				Box::new(crate::Item::Folder { content: content_a }),
 			);
 
-			return Ok(Self { content });
+			return Ok(Self {
+				content: crate::Item::Folder { content },
+			});
 		}
 		pub fn from_path(_path: &std::path::Path) -> Result<Self, CreateError> {
 			todo!()
@@ -68,19 +88,22 @@ pub mod database {
 		token.
 	*/
 	impl Database {
-		fn fetch_item(&self, request: &[&str]) -> Result<Option<&Box<crate::Item>>, FetchError> {
+		fn fetch_item(&self, request: &[&str]) -> Result<Option<&crate::Item>, FetchError> {
 			// TODO : what if request == &[""] or &[] ?
 			let mut result = self
 				.content
-				.get(&String::from(*request.first().unwrap()));
+				.get_folder_item(&String::from(*request.first().unwrap()));
 
-			for &request_name in request.iter().skip(1).filter(|&&e| e != "") {
+			for &request_name in request.iter().skip(1).filter(|&&e| !e.is_empty()) {
 				if let Some(item) = result {
-					match &**item {
+					match item {
 						crate::Item::Folder {
 							content: folder_content,
 						} => {
-							result = folder_content.get(request_name);
+							result = match folder_content.get(request_name) {
+								Some(b) => Some(&**b),
+								None => None,
+							};
 						}
 						crate::Item::Document { content: _ } => {
 							return Err(FetchError::FolderDocumentConflict);
@@ -91,13 +114,16 @@ pub mod database {
 
 			return Ok(result);
 		}
-		fn fetch_item_mut(&mut self, request: &[&str]) -> Result<Option<&mut Box<crate::Item>>, FetchError> {
+		fn fetch_item_mut(
+			&mut self,
+			request: &[&str],
+		) -> Result<Option<&mut Box<crate::Item>>, FetchError> {
 			// TODO : what if request == &[""] or &[] ?
 			let mut result = self
 				.content
-				.get_mut(&String::from(*request.first().unwrap()));
+				.get_folder_item_mut(&String::from(*request.first().unwrap()));
 
-			for &request_name in request.iter().skip(1).filter(|&&e| e != "") {
+			for &request_name in request.iter().skip(1).filter(|&&e| !e.is_empty()) {
 				if let Some(item) = result {
 					match &mut **item {
 						crate::Item::Folder {
@@ -117,43 +143,45 @@ pub mod database {
 	}
 
 	#[derive(Debug)]
-	enum FetchError{
+	enum FetchError {
 		FolderDocumentConflict,
 	}
 
 	impl Database {
-		pub fn read(&self, request: &[&str]) -> Result<Option<crate::Item>, ReadError> {
+		pub fn read(&self, path: &str) -> Result<Option<crate::Item>, ReadError> {
 			// TODO : If a document with document_name <x> exists, then no folder with folder_name <x> can exist in the same parent folder, and vice versa.
+			let paths: Vec<&str> = path.split('/').collect();
 
-			return match request.iter().enumerate().fold(true, |acc, (i, &e)| {
-				acc && crate::path::is_ok(e, i == (request.len() - 1))
-			}) {
-				true => {
-					match self.fetch_item(request) {
-						Ok(Some(result)) => Ok(Some((**result).clone())),
-						Ok(None) => Ok(None),
-						Err(FetchError::FolderDocumentConflict) => Err(ReadError::FolderDocumentConflict),
+			return match paths
+				.iter()
+				.enumerate()
+				.all(|(i, &e)| crate::path::is_ok(e, i == (paths.len() - 1)))
+			{
+				true => match self.fetch_item(&paths) {
+					Ok(Some(result)) => Ok(Some(result.clone())),
+					Ok(None) => Ok(None),
+					Err(FetchError::FolderDocumentConflict) => {
+						Err(ReadError::FolderDocumentConflict)
 					}
-				}
+				},
 				false => Err(ReadError::WrongPath),
 			};
 		}
 
 		pub fn update(
 			&mut self,
-			request: &[&str],
+			path: &str,
 			document_update: crate::Item,
 		) -> Result<String, UpdateError> {
+			let paths: Vec<&str> = path.split('/').collect();
+
 			if let crate::Item::Document {
 				content: new_content,
 			} = document_update
 			{
-				return match request
-					.iter()
-					.fold(true, |acc, &e| acc && crate::path::is_ok(e, false))
-				{
+				return match paths.iter().all(|e| crate::path::is_ok(e, false)) {
 					true => {
-						match self.fetch_item_mut(request) {
+						match self.fetch_item_mut(&paths) {
 							Ok(Some(e)) => {
 								if let crate::Item::Document {
 									content: old_content,
@@ -168,7 +196,9 @@ pub mod database {
 								}
 							}
 							Ok(None) => Err(UpdateError::NotFound),
-							Err(FetchError::FolderDocumentConflict) => Err(UpdateError::FolderDocumentConflict),
+							Err(FetchError::FolderDocumentConflict) => {
+								Err(UpdateError::FolderDocumentConflict)
+							}
 						}
 					}
 					false => Err(UpdateError::WrongPath),
@@ -178,10 +208,7 @@ pub mod database {
 			}
 		}
 
-		pub fn delete(
-			&mut self,
-			request: &[&str],
-		) -> Result<String, DeleteError> {
+		pub fn delete(&mut self, path: &str) -> Result<String, DeleteError> {
 			/*
 			TODO : option to keep old documents ?
 				A provider MAY offer version rollback functionality to its users,
@@ -197,13 +224,20 @@ pub mod database {
 				* the version of its parent folder being updated, as well as that
 					of further ancestor folders.
 			*/
-
-			return match request.iter().enumerate().fold(true, |acc, (i, &e)| {
-				acc && crate::path::is_ok(e, i == (request.len() - 1))
-			}) {
+			let paths: Vec<&str> = path.split('/').collect();
+			return match paths
+				.iter()
+				.enumerate()
+				.all(|(i, &e)| crate::path::is_ok(e, i == (paths.len() - 1)))
+			{
 				true => {
+					// TODO : what if request == &[""] or &[] ?
+					let mut _result = self
+						.content
+						.get_folder_item_mut(&String::from(*paths.first().unwrap()));
+
 					todo!()
-				},
+				}
 				false => Err(DeleteError::WrongPath),
 			};
 		}
@@ -241,7 +275,7 @@ mod path {
 			"" => is_last,
 			"." => false,
 			".." => false,
-			_ => !path.contains("\0"),
+			_ => !path.contains('\0'),
 		};
 	}
 

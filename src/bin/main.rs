@@ -3,9 +3,14 @@
 extern crate pontus_onyx;
 
 /*
+TODO :
+	actix services tests
+*/
+
+/*
 TODO : continue to :
 	https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-16
-		"10. Application-first bearer token issuance"
+		"12. Example wire transcripts"
 */
 
 #[cfg(feature = "server")]
@@ -15,9 +20,11 @@ async fn main() -> std::io::Result<()> {
 
 	actix_web::HttpServer::new(|| {
 		actix_web::App::new()
+			.wrap(Auth {})
 			.data(std::sync::Mutex::new(
 				pontus_onyx::database::Database::from_bytes(&[]).unwrap(),
 			))
+			.service(webfinger)
 			.service(get_item)
 			.service(head_item)
 			.service(options_item)
@@ -37,15 +44,14 @@ TODO :
 	version.
 */
 #[cfg(feature = "server")]
-fn get(paths: actix_web::web::Path<String>,
+fn get(
+	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
 	should_have_body: bool,
 ) -> actix_web::web::HttpResponse {
-	let paths: Vec<&str> = paths.split("/").collect();
+	let should_be_folder = path.split('/').last().unwrap() == "";
 
-	let should_be_folder = paths.last().unwrap() == &"";
-
-	return match database.lock().unwrap().read(&paths) {
+	return match database.lock().unwrap().read(&path) {
 		Ok(Some(item)) => {
 			match item {
 				pontus_onyx::Item::Folder { content } => {
@@ -80,14 +86,11 @@ fn get(paths: actix_web::web::Path<String>,
 							.content_type("application/ld+json")
 							.header("cache-control", "no-cache")
 							.body(if should_have_body {
-								format!(
-									"{}",
-									serde_json::json!({
-										"@context": "http://remotestorage.io/spec/folder-description",
-										"items": items_result,
-									})
-									.to_string()
-								)
+								serde_json::json!({
+									"@context": "http://remotestorage.io/spec/folder-description",
+									"items": items_result,
+								})
+								.to_string()
 							} else {
 								String::new()
 							})
@@ -108,11 +111,7 @@ fn get(paths: actix_web::web::Path<String>,
 							.header("ETag", "TODO")
 							.header("cache-control", "no-cache")
 							.content_type("text/plain") // TODO
-							.body(if should_have_body {
-								content
-							} else {
-								vec![]
-							})
+							.body(if should_have_body { content } else { vec![] })
 					} else {
 						actix_web::HttpResponse::NotFound()
 							.content_type("application/ld+json")
@@ -140,7 +139,7 @@ fn get(paths: actix_web::web::Path<String>,
 				""
 			}),
 		Err(err) => {
-			println!("ERROR : {:?} : {:?}", paths, err); // TODO
+			println!("ERROR : {:?} : {:?}", path, err); // TODO
 			actix_web::HttpResponse::InternalServerError()
 				.content_type("application/ld+json")
 				.body(if should_have_body {
@@ -153,21 +152,121 @@ fn get(paths: actix_web::web::Path<String>,
 }
 
 #[cfg(feature = "server")]
+struct Auth;
+
+#[cfg(feature = "server")]
+impl<S> actix_web::dev::Transform<S> for Auth
+where
+	S: actix_web::dev::Service<
+		Request = actix_web::dev::ServiceRequest,
+		Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>,
+		Error = actix_web::Error,
+	>,
+	S::Future: 'static,
+{
+	type Request = actix_web::dev::ServiceRequest;
+	type Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>;
+	type Error = actix_web::Error;
+	type InitError = ();
+	type Transform = AuthMiddleware<S>;
+	type Future = futures::future::Ready<Result<Self::Transform, Self::InitError>>;
+
+	fn new_transform(&self, service: S) -> Self::Future {
+		futures::future::ok(Self::Transform { service })
+	}
+}
+
+#[cfg(feature = "server")]
+struct AuthMiddleware<S> {
+	service: S,
+}
+
+#[cfg(feature = "server")]
+impl<S> actix_web::dev::Service for AuthMiddleware<S>
+where
+	S: actix_web::dev::Service<
+		Request = actix_web::dev::ServiceRequest,
+		Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>,
+		Error = actix_web::Error,
+	>,
+	S::Future: 'static,
+{
+	type Request = actix_web::dev::ServiceRequest;
+	type Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>;
+	type Error = actix_web::Error;
+	type Future =
+		std::pin::Pin<Box<dyn futures::Future<Output = Result<Self::Response, Self::Error>>>>;
+
+	fn poll_ready(
+		&mut self,
+		ctx: &mut std::task::Context<'_>,
+	) -> std::task::Poll<Result<(), Self::Error>> {
+		self.service.poll_ready(ctx)
+	}
+
+	fn call(&mut self, service_request: Self::Request) -> Self::Future {
+		match service_request.head().headers().get("Authorization") {
+			Some(auth_value) => {
+				// TODO : check value of the <Authorization> header
+				if auth_value == "Bearer TODO" {
+					let future = self.service.call(service_request);
+					Box::pin(async move { Ok(future.await?) })
+				} else {
+					Box::pin(async move {
+						Ok(actix_web::dev::ServiceResponse::new(
+							service_request.into_parts().0,
+							actix_web::HttpResponse::Unauthorized()
+								.content_type("application/ld+json")
+								.body(r#"{"http_code":401,"http_description":"unauthorized"}"#),
+						))
+					})
+				}
+			}
+			None => {
+				if service_request.path().starts_with("/public/")
+					&& service_request
+						.path()
+						.split('/')
+						.collect::<Vec<&str>>()
+						.last()
+						.unwrap_or(&"") != &""
+					&& (service_request.method() == actix_web::http::Method::GET
+						|| service_request.method() == actix_web::http::Method::HEAD
+						|| service_request.method() == actix_web::http::Method::OPTIONS)
+				{
+					let future = self.service.call(service_request);
+					Box::pin(async move { Ok(future.await?) })
+				} else {
+					Box::pin(async move {
+						Ok(actix_web::dev::ServiceResponse::new(
+							service_request.into_parts().0,
+							actix_web::HttpResponse::Unauthorized()
+								.content_type("application/ld+json")
+								.body(r#"{"http_code":401,"http_description":"unauthorized"}"#),
+						))
+					})
+				}
+			}
+		}
+	}
+}
+
+#[cfg(feature = "server")]
 #[actix_web::get("/{requested_item:.*}")]
 async fn get_item(
-	paths: actix_web::web::Path<String>,
+	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
 ) -> actix_web::web::HttpResponse {
-	return get(paths, database, true);
+	return get(path, database, true);
 }
 
 #[cfg(feature = "server")]
 #[actix_web::head("/{requested_item:.*}")]
 async fn head_item(
-	paths: actix_web::web::Path<String>,
+	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
 ) -> actix_web::web::HttpResponse {
-	return get(paths, database, false);
+	return get(path, database, false);
 }
 
 /*
@@ -183,7 +282,7 @@ TODO :
 #[cfg(feature = "server")]
 #[actix_web::options("/{requested_item:.*}")]
 async fn options_item(
-	_paths: actix_web::web::Path<String>,
+	_path: actix_web::web::Path<String>,
 	_database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
 ) -> actix_web::web::HttpResponse {
 	todo!()
@@ -230,11 +329,9 @@ TODO :
 async fn put_item(
 	mut request_payload: actix_web::web::Payload,
 	request: actix_web::web::HttpRequest,
-	paths: actix_web::web::Path<String>,
+	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
 ) -> Result<actix_web::web::HttpResponse, actix_web::Error> {
-	let paths: Vec<&str> = paths.split("/").collect();
-
 	let mut body = actix_web::web::BytesMut::new();
 	while let Some(content) = futures::StreamExt::next(&mut request_payload).await {
 		let content = content?;
@@ -244,7 +341,7 @@ async fn put_item(
 
 	let content_type = request.headers().get("content-type");
 
-	if let None = content_type {
+	if content_type.is_none() {
 		return Ok(actix_web::HttpResponse::BadRequest()
 			.content_type("application/ld+json")
 			.body(
@@ -262,16 +359,17 @@ async fn put_item(
 
 	return Ok(
 		match database.lock().unwrap().update(
-			&paths,
+			&path,
 			pontus_onyx::Item::Document {
 				content: body.to_vec(),
 			},
 		) {
 			Ok(new_ETag) => actix_web::HttpResponse::Ok()
 				.content_type("application/ld+json")
-				.body(
-					format!(r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#, new_ETag),
-				),
+				.body(format!(
+					r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#,
+					new_ETag
+				)),
 			Err(pontus_onyx::database::UpdateError::WrongPath) => {
 				actix_web::HttpResponse::BadRequest()
 					.content_type("application/ld+json")
@@ -300,8 +398,6 @@ async fn delete_item(
 	paths: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
 ) -> actix_web::web::HttpResponse {
-	let paths: Vec<&str> = paths.split("/").collect();
-
 	return match database.lock().unwrap().delete(&paths) {
 		Ok(ETag) => {
 			actix_web::HttpResponse::Ok()
@@ -315,25 +411,52 @@ async fn delete_item(
 				)
 				*/
 		}
-		Err(pontus_onyx::database::DeleteError::WrongPath) => {
-			actix_web::HttpResponse::BadRequest()
-				.content_type("application/ld+json")
-				.body(r#"{"http_code":400,"http_description":"bad request"}"#)
-		}
+		Err(pontus_onyx::database::DeleteError::WrongPath) => actix_web::HttpResponse::BadRequest()
+			.content_type("application/ld+json")
+			.body(r#"{"http_code":400,"http_description":"bad request"}"#),
 		Err(pontus_onyx::database::DeleteError::FolderDocumentConflict) => {
 			actix_web::HttpResponse::Conflict()
 				.content_type("application/ld+json")
 				.body(r#"{"http_code":409,"http_description":"conflict"}"#)
 		}
-		Err(pontus_onyx::database::DeleteError::NotFound) => {
-			actix_web::HttpResponse::NotFound()
-				.content_type("application/ld+json")
-				.body(r#"{"http_code":404,"http_description":"requested content not found"}"#)
-		}
+		Err(pontus_onyx::database::DeleteError::NotFound) => actix_web::HttpResponse::NotFound()
+			.content_type("application/ld+json")
+			.body(r#"{"http_code":404,"http_description":"requested content not found"}"#),
 		Err(_TODO) => actix_web::HttpResponse::InternalServerError()
 			.content_type("application/ld+json")
 			.body(r#"{"http_code":500,"http_description":"internal server error"}"#),
 	};
+}
+
+#[derive(serde::Deserialize)]
+struct WebfingerQuery {}
+
+#[cfg(feature = "server")]
+#[actix_web::get("/.well-known/webfinger")]
+async fn webfinger(_query: actix_web::web::Query<WebfingerQuery>) -> actix_web::web::HttpResponse {
+	actix_web::HttpResponse::Ok()
+		.content_type("application/ld+json")
+		.body(
+			format!(r#"{{"href":"/","rel":"http://tools.ietf.org/id/draft-dejong-remotestorage","properties":{{"http://remotestorage.io/spec/version":"{}","http://tools.ietf.org/html/rfc6749#section-4.2":{}}}}}"#,
+				"draft-dejong-remotestorage-16",
+				"TODO"
+			)
+		)
+	/*
+	TODO :
+		If <auth-dialog> is a URL, the user can supply their credentials
+		for accessing the account (how, is out of scope), and allow or
+		reject a request by the connecting application to obtain a bearer
+		token for a certain list of access scopes.
+	*/
+	/*
+	TODO :
+		Non-breaking examples that have been proposed so far, include a
+		"http://tools.ietf.org/html/rfc6750#section-2.3" property, set to
+		the string value "true" if the server supports passing the bearer
+		token in the URI query parameter as per section 2.3 of [BEARER],
+		instead of in the request header.
+	*/
 }
 
 /*
@@ -371,4 +494,43 @@ TODO :
 /*
 TODO :
 	All responses MUST carry CORS headers [CORS].
+*/
+/*
+TODO :
+	A "http://remotestorage.io/spec/web-authoring" property has been
+	proposed with a string value of the fully qualified domain name to
+	which web authoring content is published if the server supports web
+	authoring as per [AUTHORING]. Note that this extension is a breaking
+	extension in the sense that it divides users into "haves", whose
+	remoteStorage accounts allow them to author web content, and
+	"have-nots", whose remoteStorage account does not support this
+	functionality.
+*/
+/*
+TODO :
+	The server MAY expire bearer tokens, and MAY require the user to
+	register applications as OAuth clients before first use; if no
+	client registration is required, the server MUST ignore the value of
+	the client_id parameter in favor of relying on the origin of the
+	redirect_uri parameter for unique client identification. See section
+	4 of [ORIGIN] for computing the origin.
+*/
+/*
+TODO :
+	11. Storage-first bearer token issuance
+
+	To request that the application connects to the user account
+	<account> ' ' <host>, providers MAY redirect to applications with a
+	'remotestorage' field in the URL fragment, with the user account as
+	value.
+
+	The appplication MUST make sure this request is intended by the
+	user. It SHOULD ask for confirmation from the user whether they want
+	to connect to the given provider account. After confirmation, it
+	SHOULD connect to the given provider account, as defined in Section
+	10.
+
+	If the 'remotestorage' field exists in the URL fragment, the
+	application SHOULD ignore any other parameters such as
+	'access_token' or 'state'
 */
