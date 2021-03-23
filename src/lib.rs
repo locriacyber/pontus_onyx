@@ -5,9 +5,11 @@ mod client;
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum Item {
 	Folder {
+		etag: String,
 		content: std::collections::HashMap<String, Box<Item>>,
 	},
 	Document {
+		etag: String,
 		content: Vec<u8>,
 	},
 }
@@ -15,17 +17,26 @@ pub enum Item {
 impl Item {
 	fn get_folder_item(&self, key: &str) -> Option<&Item> {
 		match self {
-			Self::Folder { content } => match content.get(key) {
+			Self::Folder { etag: _, content } => match content.get(key) {
 				Some(b) => Some(&**b),
 				None => None,
 			},
-			Self::Document { content: _ } => None,
+			Self::Document {
+				etag: _,
+				content: _,
+			} => None,
 		}
 	}
-	fn get_folder_item_mut(&mut self, key: &str) -> Option<&mut Box<Item>> {
+	fn get_folder_item_mut(&mut self, key: &str) -> Option<&mut Item> {
 		match self {
-			Self::Folder { content } => content.get_mut(key),
-			Self::Document { content: _ } => None,
+			Self::Folder { etag: _, content } => match content.get_mut(key) {
+				Some(b) => Some(&mut **b),
+				None => None,
+			},
+			Self::Document {
+				etag: _,
+				content: _,
+			} => None,
 		}
 	}
 }
@@ -49,30 +60,60 @@ pub mod database {
 			content_c.insert(
 				String::from("d"),
 				Box::new(crate::Item::Document {
+					etag: ulid::Ulid::new().to_string(),
 					content: b"TODO".to_vec(),
 				}),
 			);
 			content_c.insert(
 				String::from("e"),
 				Box::new(crate::Item::Folder {
+					etag: ulid::Ulid::new().to_string(),
 					content: std::collections::HashMap::new(),
 				}),
 			);
 			content_b.insert(
 				String::from("c"),
-				Box::new(crate::Item::Folder { content: content_c }),
+				Box::new(crate::Item::Folder {
+					etag: ulid::Ulid::new().to_string(),
+					content: content_c,
+				}),
 			);
 			content_a.insert(
 				String::from("b"),
-				Box::new(crate::Item::Folder { content: content_b }),
+				Box::new(crate::Item::Folder {
+					etag: ulid::Ulid::new().to_string(),
+					content: content_b,
+				}),
 			);
 			content.insert(
 				String::from("a"),
-				Box::new(crate::Item::Folder { content: content_a }),
+				Box::new(crate::Item::Folder {
+					etag: ulid::Ulid::new().to_string(),
+					content: content_a,
+				}),
+			);
+
+			let mut content_0 = std::collections::HashMap::new();
+			content_0.insert(
+				String::from("1"),
+				Box::new(crate::Item::Document {
+					etag: ulid::Ulid::new().to_string(),
+					content: b"01010101".to_vec(),
+				}),
+			);
+			content.insert(
+				String::from("0"),
+				Box::new(crate::Item::Folder {
+					etag: ulid::Ulid::new().to_string(),
+					content: content_0,
+				}),
 			);
 
 			return Ok(Self {
-				content: crate::Item::Folder { content },
+				content: crate::Item::Folder {
+					etag: ulid::Ulid::new().to_string(),
+					content,
+				},
 			});
 		}
 		pub fn from_path(_path: &std::path::Path) -> Result<Self, CreateError> {
@@ -91,6 +132,7 @@ pub mod database {
 				if let Some(item) = result {
 					match item {
 						crate::Item::Folder {
+							etag: _,
 							content: folder_content,
 						} => {
 							result = match folder_content.get(request_name) {
@@ -98,7 +140,10 @@ pub mod database {
 								None => None,
 							};
 						}
-						crate::Item::Document { content: _ } => {
+						crate::Item::Document {
+							etag: _,
+							content: _,
+						} => {
 							return Err(FetchError::FolderDocumentConflict);
 						}
 					}
@@ -110,7 +155,7 @@ pub mod database {
 		fn fetch_item_mut(
 			&mut self,
 			request: &[&str],
-		) -> Result<Option<&mut Box<crate::Item>>, FetchError> {
+		) -> Result<Option<&mut crate::Item>, FetchError> {
 			// TODO : what if request == &[""] or &[] ?
 			let mut result = self
 				.content
@@ -118,13 +163,20 @@ pub mod database {
 
 			for &request_name in request.iter().skip(1).filter(|&&e| !e.is_empty()) {
 				if let Some(item) = result {
-					match &mut **item {
+					match item {
 						crate::Item::Folder {
+							etag: _,
 							content: folder_content,
 						} => {
-							result = folder_content.get_mut(request_name);
+							result = match folder_content.get_mut(request_name) {
+								Some(b) => Some(&mut **b),
+								None => None,
+							};
 						}
-						crate::Item::Document { content: _ } => {
+						crate::Item::Document {
+							etag: _,
+							content: _,
+						} => {
 							return Err(FetchError::FolderDocumentConflict);
 						}
 					}
@@ -168,22 +220,23 @@ pub mod database {
 		) -> Result<String, UpdateError> {
 			let paths: Vec<&str> = path.split('/').collect();
 
-			if let crate::Item::Document {
-				content: new_content,
-			} = document_update
-			{
-				return match paths.iter().all(|e| crate::path::is_ok(e, false)) {
-					true => {
+			match document_update {
+				crate::Item::Document {
+					etag: new_etag,
+					content: new_content,
+				} => {
+					if paths.iter().all(|e| crate::path::is_ok(e, false)) {
 						match self.fetch_item_mut(&paths) {
 							Ok(Some(e)) => {
 								if let crate::Item::Document {
+									etag: old_etag,
 									content: old_content,
-								} = &mut **e
+								} = e
 								{
-									// TODO : set/update ETag ?
+									*old_etag = new_etag.clone();
 									*old_content = new_content;
 
-									Ok(String::from("TODO"))
+									Ok(new_etag)
 								} else {
 									Err(UpdateError::NotFound)
 								}
@@ -193,11 +246,14 @@ pub mod database {
 								Err(UpdateError::FolderDocumentConflict)
 							}
 						}
+					} else {
+						Err(UpdateError::WrongPath)
 					}
-					false => Err(UpdateError::WrongPath),
-				};
-			} else {
-				Err(UpdateError::DoesNotWorksForFolders)
+				}
+				crate::Item::Folder {
+					etag: _,
+					content: _,
+				} => Err(UpdateError::DoesNotWorksForFolders),
 			}
 		}
 

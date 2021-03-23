@@ -18,12 +18,14 @@ TODO : continue to :
 async fn main() -> std::io::Result<()> {
 	println!("starting to listen to http://localhost:7541/");
 
-	actix_web::HttpServer::new(|| {
+	let database = std::sync::Arc::new(std::sync::Mutex::new(
+		pontus_onyx::database::Database::from_bytes(&[]).unwrap(),
+	));
+
+	actix_web::HttpServer::new(move || {
 		actix_web::App::new()
 			.wrap(Auth {})
-			.data(std::sync::Mutex::new(
-				pontus_onyx::database::Database::from_bytes(&[]).unwrap(),
-			))
+			.data(database.clone())
 			.service(webfinger)
 			.service(get_item)
 			.service(head_item)
@@ -46,7 +48,9 @@ TODO :
 #[cfg(feature = "server")]
 fn get(
 	path: actix_web::web::Path<String>,
-	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+	database: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+	>,
 	should_have_body: bool,
 ) -> actix_web::web::HttpResponse {
 	let should_be_folder = path.split('/').last().unwrap() == "";
@@ -54,26 +58,30 @@ fn get(
 	return match database.lock().unwrap().read(&path) {
 		Ok(Some(item)) => {
 			match item {
-				pontus_onyx::Item::Folder { content } => {
+				pontus_onyx::Item::Folder { etag: _, content } => {
 					if should_be_folder {
 						let mut items_result = serde_json::json!({});
 						for (child_name, child) in content.iter().filter(|(_, e)| match &***e {
-							pontus_onyx::Item::Document { content: _ } => true,
-							pontus_onyx::Item::Folder { content } => {
+							pontus_onyx::Item::Document {
+								etag: _,
+								content: _,
+							} => true,
+							pontus_onyx::Item::Folder { etag: _, content } => {
 								!content.is_empty() // TODO : recursive if child is also empty ?
 							}
 						}) {
 							match &**child {
-								pontus_onyx::Item::Folder { content: _ } => {
+								pontus_onyx::Item::Folder { etag, content: _ } => {
 									items_result[format!("{}/", child_name)] = serde_json::json!({
-										"ETag": "TODO",
+										"ETag": etag,
 									});
 								}
 								pontus_onyx::Item::Document {
+									etag,
 									content: document_content,
 								} => {
 									items_result[child_name] = serde_json::json!({
-										"ETag": "TODO",
+										"ETag": etag,
 										"Content-Type": "TODO",
 										"Content-Length": document_content.len(),
 										"Last-Modified": "TODO",
@@ -105,10 +113,10 @@ fn get(
 							})
 					}
 				}
-				pontus_onyx::Item::Document { content } => {
+				pontus_onyx::Item::Document { etag, content } => {
 					if !should_be_folder {
 						actix_web::HttpResponse::Ok()
-							.header("ETag", "TODO")
+							.header("ETag", etag)
 							.header("cache-control", "no-cache")
 							.content_type("text/plain") // TODO
 							.body(if should_have_body { content } else { vec![] })
@@ -255,7 +263,9 @@ where
 #[actix_web::get("/{requested_item:.*}")]
 async fn get_item(
 	path: actix_web::web::Path<String>,
-	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+	database: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+	>,
 ) -> actix_web::web::HttpResponse {
 	return get(path, database, true);
 }
@@ -264,7 +274,9 @@ async fn get_item(
 #[actix_web::head("/{requested_item:.*}")]
 async fn head_item(
 	path: actix_web::web::Path<String>,
-	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+	database: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+	>,
 ) -> actix_web::web::HttpResponse {
 	return get(path, database, false);
 }
@@ -283,7 +295,9 @@ TODO :
 #[actix_web::options("/{requested_item:.*}")]
 async fn options_item(
 	_path: actix_web::web::Path<String>,
-	_database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+	_database: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+	>,
 ) -> actix_web::web::HttpResponse {
 	todo!()
 }
@@ -330,7 +344,9 @@ async fn put_item(
 	mut request_payload: actix_web::web::Payload,
 	request: actix_web::web::HttpRequest,
 	path: actix_web::web::Path<String>,
-	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+	database: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+	>,
 ) -> Result<actix_web::web::HttpResponse, actix_web::Error> {
 	let mut body = actix_web::web::BytesMut::new();
 	while let Some(content) = futures::StreamExt::next(&mut request_payload).await {
@@ -355,20 +371,20 @@ async fn put_item(
 			and further ancestor folders, using a strong validator [HTTP,
 			section 7.2].
 	*/
-	let ETag = "TODO";
-
 	return Ok(
 		match database.lock().unwrap().update(
 			&path,
 			pontus_onyx::Item::Document {
+				etag: ulid::Ulid::new().to_string(),
 				content: body.to_vec(),
 			},
 		) {
-			Ok(new_ETag) => actix_web::HttpResponse::Ok()
+			Ok(new_etag) => actix_web::HttpResponse::Ok()
 				.content_type("application/ld+json")
+				.header("ETag", new_etag.clone())
 				.body(format!(
 					r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#,
-					new_ETag
+					new_etag
 				)),
 			Err(pontus_onyx::database::UpdateError::WrongPath) => {
 				actix_web::HttpResponse::BadRequest()
@@ -396,20 +412,22 @@ async fn put_item(
 #[actix_web::delete("/{requested_item:.*}")]
 async fn delete_item(
 	paths: actix_web::web::Path<String>,
-	database: actix_web::web::Data<std::sync::Mutex<pontus_onyx::database::Database>>,
+	database: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+	>,
 ) -> actix_web::web::HttpResponse {
 	return match database.lock().unwrap().delete(&paths) {
-		Ok(ETag) => {
+		Ok(etag) => {
 			actix_web::HttpResponse::Ok()
 				.content_type("application/ld+json")
-				.header("ETag", ETag)
+				.header("ETag", etag)
 				.finish()
-				/*
-				TODO ?
-				.body(
-					format!(r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#, new_ETag),
-				)
-				*/
+			/*
+			TODO ?
+			.body(
+				format!(r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#, etag),
+			)
+			*/
 		}
 		Err(pontus_onyx::database::DeleteError::WrongPath) => actix_web::HttpResponse::BadRequest()
 			.content_type("application/ld+json")
