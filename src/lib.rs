@@ -13,30 +13,15 @@ pub enum Item {
 		content: Vec<u8>,
 	},
 }
-
 impl Item {
-	fn get_folder_item(&self, key: &str) -> Option<&Item> {
-		match self {
-			Self::Folder { etag: _, content } => match content.get(key) {
-				Some(b) => Some(&**b),
-				None => None,
-			},
-			Self::Document {
-				etag: _,
-				content: _,
-			} => None,
-		}
-	}
-	fn get_folder_item_mut(&mut self, key: &str) -> Option<&mut Item> {
-		match self {
-			Self::Folder { etag: _, content } => match content.get_mut(key) {
-				Some(b) => Some(&mut **b),
-				None => None,
-			},
-			Self::Document {
-				etag: _,
-				content: _,
-			} => None,
+	fn get_etag(&self) -> String {
+		return match self {
+			Self::Folder{
+				etag, content: _
+			} => etag.clone(),
+			Self::Document{
+				etag, content: _
+			} => etag.clone(),
 		}
 	}
 }
@@ -123,12 +108,9 @@ pub mod database {
 
 	impl Database {
 		fn fetch_item(&self, request: &[&str]) -> Result<Option<&crate::Item>, FetchError> {
-			// TODO : what if request == &[""] or &[] ?
-			let mut result = self
-				.content
-				.get_folder_item(&String::from(*request.first().unwrap()));
+			let mut result = Some(&self.content);
 
-			for &request_name in request.iter().skip(1).filter(|&&e| !e.is_empty()) {
+			for &request_name in request.iter().filter(|&&e| !e.is_empty()) {
 				if let Some(item) = result {
 					match item {
 						crate::Item::Folder {
@@ -156,12 +138,9 @@ pub mod database {
 			&mut self,
 			request: &[&str],
 		) -> Result<Option<&mut crate::Item>, FetchError> {
-			// TODO : what if request == &[""] or &[] ?
-			let mut result = self
-				.content
-				.get_folder_item_mut(&String::from(*request.first().unwrap()));
+			let mut result = Some(&mut self.content);
 
-			for &request_name in request.iter().skip(1).filter(|&&e| !e.is_empty()) {
+			for &request_name in request.iter().filter(|&&e| !e.is_empty()) {
 				if let Some(item) = result {
 					match item {
 						crate::Item::Folder {
@@ -274,21 +253,38 @@ pub mod database {
 					of further ancestor folders.
 			*/
 			let paths: Vec<&str> = path.split('/').collect();
-			return match paths
+
+			if paths
 				.iter()
 				.enumerate()
 				.all(|(i, &e)| crate::path::is_ok(e, i == (paths.len() - 1)))
 			{
-				true => {
-					// TODO : what if request == &[""] or &[] ?
-					let mut _result = self
-						.content
-						.get_folder_item_mut(&String::from(*paths.first().unwrap()));
+				let should_be_document = paths.last().unwrap() != &"";
 
-					todo!()
+				if should_be_document {
+					let parent = self.fetch_item_mut(
+						&paths
+							.clone()
+							.iter()
+							.take(paths.len() - 1)
+							.cloned()
+							.collect::<Vec<&str>>(),
+					);
+
+					if let Ok(Some(crate::Item::Folder { etag: _, content })) = parent {
+						match content.remove(*paths.last().unwrap()) {
+							Some(old_version) => Ok(String::from(old_version.get_etag())),
+							None => Err(DeleteError::NotFound),
+						}
+					} else {
+						Err(DeleteError::NotFound)
+					}
+				} else {
+					Err(DeleteError::DoesNotWorksForFolders)
 				}
-				false => Err(DeleteError::WrongPath),
-			};
+			} else {
+				Err(DeleteError::WrongPath)
+			}
 		}
 	}
 
