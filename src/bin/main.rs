@@ -38,125 +38,156 @@ async fn main() -> std::io::Result<()> {
 	.await
 }
 
-/*
-TODO :
-	GET requests MAY have a comma-separated list of revisions in an
-	'If-None-Match' header [COND], and SHOULD be responded to with a 304
-	response if that list includes the document or folder's current
-	version.
-*/
 #[cfg(feature = "server")]
-fn get(
-	path: actix_web::web::Path<String>,
-	database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
-	>,
-	should_have_body: bool,
-) -> actix_web::web::HttpResponse {
-	let should_be_folder = path.split('/').last().unwrap() == "";
+mod utils {
+	pub fn get(
+		path: actix_web::web::Path<String>,
+		request: actix_web::web::HttpRequest,
+		database: actix_web::web::Data<
+			std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+		>,
+		should_have_body: bool,
+	) -> actix_web::web::HttpResponse {
+		let should_be_folder = path.split('/').last().unwrap() == "";
 
-	return match database.lock().unwrap().read(&path) {
-		Ok(Some(item)) => {
-			match item {
-				pontus_onyx::Item::Folder { etag: _, content } => {
-					if should_be_folder {
-						let mut items_result = serde_json::json!({});
-						for (child_name, child) in content.iter().filter(|(_, e)| match &***e {
-							pontus_onyx::Item::Document {
-								etag: _,
-								content: _,
-							} => true,
-							pontus_onyx::Item::Folder { etag: _, content } => {
-								!content.is_empty() // TODO : recursive if child is also empty ?
-							}
-						}) {
-							match &**child {
-								pontus_onyx::Item::Folder { etag, content: _ } => {
-									items_result[format!("{}/", child_name)] = serde_json::json!({
-										"ETag": etag,
-									});
+		match database.lock().unwrap().read(&path) {
+			Ok(Some(item)) => {
+				match item {
+					pontus_onyx::Item::Folder {
+						etag: folder_etag,
+						content,
+					} => {
+						if should_be_folder {
+							if let Some(none_match) = request.headers().get("If-None-Match") {
+								let mut none_match = none_match
+									.to_str()
+									.unwrap()
+									.split(',')
+									.map(|s| s.trim().replace('"', ""));
+
+								if none_match.any(|s| s == folder_etag || s == "*") {
+									return actix_web::HttpResponse::NotModified().finish();
 								}
+							}
+
+							let mut items_result = serde_json::json!({});
+							for (child_name, child) in content.iter().filter(|(_, e)| match &***e {
 								pontus_onyx::Item::Document {
-									etag,
-									content: document_content,
-								} => {
-									items_result[child_name] = serde_json::json!({
-										"ETag": etag,
-										"Content-Type": "TODO",
-										"Content-Length": document_content.len(),
-										"Last-Modified": "TODO",
-									});
+									etag: _,
+									content: _,
+								} => true,
+								pontus_onyx::Item::Folder { etag: _, content } => {
+									!content.is_empty() // TODO : recursive if child is also empty ?
+								}
+							}) {
+								match &**child {
+									pontus_onyx::Item::Folder { etag, content: _ } => {
+										items_result[format!("{}/", child_name)] = serde_json::json!({
+											"ETag": etag,
+										});
+									}
+									pontus_onyx::Item::Document {
+										etag,
+										content: document_content,
+									} => {
+										items_result[child_name] = serde_json::json!({
+											"ETag": etag,
+											"Content-Type": "TODO",
+											"Content-Length": document_content.len(),
+											"Last-Modified": "TODO",
+										});
+									}
 								}
 							}
-						}
 
-						actix_web::HttpResponse::Ok()
-							.content_type("application/ld+json")
-							.header("cache-control", "no-cache")
-							.body(if should_have_body {
-								serde_json::json!({
-									"@context": "http://remotestorage.io/spec/folder-description",
-									"items": items_result,
-								})
-								.to_string()
-							} else {
-								String::new()
-							})
-					} else {
-						// TODO : help user to say there is a folder with this name ?
-						actix_web::HttpResponse::NotFound()
-							.content_type("application/ld+json")
-							.body(if should_have_body {
-								r#"{"http_code":404,"http_description":"requested content not found"}"#
-							} else {
-								""
-							})
+							return actix_web::HttpResponse::Ok()
+								.content_type("application/ld+json")
+								.header("ETag", folder_etag)
+								.header("Cache-Control", "no-cache")
+								.body(if should_have_body {
+									serde_json::json!({
+										"@context": "http://remotestorage.io/spec/folder-description",
+										"items": items_result,
+									})
+									.to_string()
+								} else {
+									String::new()
+								});
+						} else {
+							// TODO : help user to say there is a folder with this name ?
+							return actix_web::HttpResponse::NotFound()
+								.content_type("application/ld+json")
+								.body(if should_have_body {
+									r#"{"http_code":404,"http_description":"requested content not found"}"#
+								} else {
+									""
+								});
+						}
 					}
-				}
-				pontus_onyx::Item::Document { etag, content } => {
-					if !should_be_folder {
-						actix_web::HttpResponse::Ok()
-							.header("ETag", etag)
-							.header("cache-control", "no-cache")
-							.content_type("text/plain") // TODO
-							.body(if should_have_body { content } else { vec![] })
-					} else {
-						actix_web::HttpResponse::NotFound()
-							.content_type("application/ld+json")
-							.body(if should_have_body {
-								r#"{"http_code":404,"http_description":"requested content not found"}"#
-							} else {
-								""
-							})
+					pontus_onyx::Item::Document {
+						etag: document_etag,
+						content,
+					} => {
+						if !should_be_folder {
+							if let Some(none_match) = request.headers().get("If-None-Match") {
+								let mut none_match = none_match
+									.to_str()
+									.unwrap()
+									.split(',')
+									.map(|s| s.trim().replace('"', ""));
+
+								if none_match.any(|s| s == document_etag || s == "*") {
+									return actix_web::HttpResponse::NotModified().finish();
+								}
+							}
+
+							return actix_web::HttpResponse::Ok()
+								.header("ETag", document_etag)
+								.header("Cache-Control", "no-cache")
+								.content_type("text/plain") // TODO
+								.body(if should_have_body { content } else { vec![] });
+						} else {
+							return actix_web::HttpResponse::NotFound()
+								.content_type("application/ld+json")
+								.body(if should_have_body {
+									r#"{"http_code":404,"http_description":"requested content not found"}"#
+								} else {
+									""
+								});
+						}
 					}
 				}
 			}
-		}
-		Ok(None) => actix_web::HttpResponse::NotFound()
-			.content_type("application/ld+json")
-			.body(if should_have_body {
-				r#"{"http_code":404,"http_description":"requested content not found"}"#
-			} else {
-				""
-			}),
-		Err(pontus_onyx::database::ReadError::WrongPath) => actix_web::HttpResponse::BadRequest()
-			.content_type("application/ld+json")
-			.body(if should_have_body {
-				r#"{"http_code":400,"http_description":"bad request"}"#
-			} else {
-				""
-			}),
-		Err(err) => {
-			println!("ERROR : {:?} : {:?}", path, err); // TODO
-			actix_web::HttpResponse::InternalServerError()
-				.content_type("application/ld+json")
-				.body(if should_have_body {
-					r#"{"http_code":500,"http_description":"internal server error"}"#
-				} else {
-					""
-				})
-		}
-	};
+			Ok(None) => {
+				return actix_web::HttpResponse::NotFound()
+					.content_type("application/ld+json")
+					.body(if should_have_body {
+						r#"{"http_code":404,"http_description":"requested content not found"}"#
+					} else {
+						""
+					});
+			}
+			Err(pontus_onyx::database::ReadError::WrongPath) => {
+				return actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(if should_have_body {
+						r#"{"http_code":400,"http_description":"bad request"}"#
+					} else {
+						""
+					});
+			}
+			Err(err) => {
+				println!("ERROR : {:?} : {:?}", path, err); // TODO
+				return actix_web::HttpResponse::InternalServerError()
+					.content_type("application/ld+json")
+					.body(if should_have_body {
+						r#"{"http_code":500,"http_description":"internal server error"}"#
+					} else {
+						""
+					});
+			}
+		};
+	}
 }
 
 #[cfg(feature = "server")]
@@ -263,22 +294,24 @@ where
 #[actix_web::get("/{requested_item:.*}")]
 async fn get_item(
 	path: actix_web::web::Path<String>,
+	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
 	>,
 ) -> actix_web::web::HttpResponse {
-	return get(path, database, true);
+	return utils::get(path, request, database, true);
 }
 
 #[cfg(feature = "server")]
 #[actix_web::head("/{requested_item:.*}")]
 async fn head_item(
 	path: actix_web::web::Path<String>,
+	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
 	>,
 ) -> actix_web::web::HttpResponse {
-	return get(path, database, false);
+	return utils::get(path, request, database, false);
 }
 
 /*
@@ -293,12 +326,8 @@ TODO :
 */
 #[cfg(feature = "server")]
 #[actix_web::options("/{requested_item:.*}")]
-async fn options_item(
-	_path: actix_web::web::Path<String>,
-	_database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
-	>,
-) -> actix_web::web::HttpResponse {
+async fn options_item(_path: actix_web::web::Path<String>) -> actix_web::web::HttpResponse {
+	// TODO ; build at the end of the implementation.
 	todo!()
 }
 
@@ -317,19 +346,6 @@ TODO :
 	will make that whole subtree become empty. Folders will therefore
 	show up in their parent folder descriptions if and only if their
 	subtree contains at least one document.
-*/
-/*
-TODO :
-	PUT and DELETE requests
-	MAY have an 'If-Match' request header [COND], and MUST fail with a
-	412 response code if that does not match the document's current
-	version.
-*/
-/*
-TODO :
-	A PUT request MAY have an 'If-None-Match: *' header [COND],
-	in which case it MUST fail with a 412 response code if the document
-	already exists.
 */
 /*
 TODO :
@@ -365,13 +381,52 @@ async fn put_item(
 			));
 	}
 
+	let found = database.lock().unwrap().read(&path)?;
+	if let Some(none_match) = request.headers().get("If-None-Match") {
+		let mut none_match = none_match
+			.to_str()
+			.unwrap()
+			.split(',')
+			.map(|s| s.trim().replace('"', ""));
+
+		if let Some(pontus_onyx::Item::Document {
+			etag: document_etag,
+			content: _,
+		}) = &found
+		{
+			if none_match.any(|s| &s == document_etag || s == "*") {
+				return Ok(actix_web::HttpResponse::PreconditionFailed().finish());
+			}
+		}
+	}
+
 	/*
 	TODO :
 		* its version being updated, as well as that of its parent folder
 			and further ancestor folders, using a strong validator [HTTP,
 			section 7.2].
 	*/
-	return Ok(
+	if found.is_some() {
+		let if_match_result = if let Some(find_match) = request.headers().get("If-Match") {
+			let find_match = find_match.to_str().unwrap().trim().replace('"', "");
+
+			if let Some(pontus_onyx::Item::Document {
+				etag: document_etag,
+				content: _,
+			}) = &found
+			{
+				document_etag == &find_match
+			} else {
+				true
+			}
+		} else {
+			true
+		};
+
+		if !if_match_result {
+			return Ok(actix_web::HttpResponse::PreconditionFailed().finish());
+		}
+
 		match database.lock().unwrap().update(
 			&path,
 			pontus_onyx::Item::Document {
@@ -379,71 +434,137 @@ async fn put_item(
 				content: body.to_vec(),
 			},
 		) {
-			Ok(new_etag) => actix_web::HttpResponse::Ok()
-				.content_type("application/ld+json")
-				.header("ETag", new_etag.clone())
-				.body(format!(
-					r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#,
-					new_etag
-				)),
-			Err(pontus_onyx::database::UpdateError::WrongPath) => {
-				actix_web::HttpResponse::BadRequest()
+			Ok(new_etag) => {
+				return Ok(actix_web::HttpResponse::Ok()
 					.content_type("application/ld+json")
-					.body(r#"{"http_code":400,"http_description":"bad request"}"#)
+					.header("ETag", new_etag.clone())
+					.body(format!(
+						r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#,
+						new_etag
+					)))
+			}
+			Err(pontus_onyx::database::UpdateError::WrongPath) => {
+				return Ok(actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#))
 			}
 			Err(pontus_onyx::database::UpdateError::FolderDocumentConflict) => {
-				actix_web::HttpResponse::Conflict()
+				return Ok(actix_web::HttpResponse::Conflict()
 					.content_type("application/ld+json")
-					.body(r#"{"http_code":409,"http_description":"conflict"}"#)
+					.body(r#"{"http_code":409,"http_description":"conflict"}"#))
 			}
 			Err(pontus_onyx::database::UpdateError::NotFound) => {
-				actix_web::HttpResponse::NotFound()
+				return Ok(actix_web::HttpResponse::NotFound()
 					.content_type("application/ld+json")
-					.body(r#"{"http_code":404,"http_description":"requested content not found"}"#)
+					.body(r#"{"http_code":404,"http_description":"requested content not found"}"#))
 			}
-			Err(_TODO) => actix_web::HttpResponse::InternalServerError()
-				.content_type("application/ld+json")
-				.body(r#"{"http_code":500,"http_description":"internal server error"}"#),
-		},
-	);
+			Err(_todo) => {
+				return Ok(actix_web::HttpResponse::InternalServerError()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":500,"http_description":"internal server error"}"#))
+			}
+		}
+	} else {
+		match database.lock().unwrap().create(&path, &body) {
+			Ok(new_etag) => {
+				return Ok(actix_web::HttpResponse::Created()
+					.content_type("application/ld+json")
+					.header("ETag", new_etag.clone())
+					.body(format!(
+						r#"{{"http_code":201,"http_description":"created","ETag":"{}"}}"#,
+						new_etag
+					)));
+			}
+			Err(pontus_onyx::database::CreateError::AlreadyExists) => {
+				return Ok(actix_web::HttpResponse::PreconditionFailed()
+					.content_type("application/ld+json")
+					.body(r#"{{"http_code":412,"http_description":"precondition failed"}}"#));
+			}
+			Err(pontus_onyx::database::CreateError::WrongPath) => {
+				return Ok(actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#));
+			}
+			Err(pontus_onyx::database::CreateError::FolderDocumentConflict) => {
+				return Ok(actix_web::HttpResponse::Conflict()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":409,"http_description":"conflict"}"#));
+			}
+			Err(pontus_onyx::database::CreateError::NotFound) => {
+				return Ok(actix_web::HttpResponse::NotFound()
+					.content_type("application/ld+json")
+					.body(
+						r#"{"http_code":404,"http_description":"requested content not found"}"#,
+					));
+			}
+			Err(_todo) => {
+				return Ok(actix_web::HttpResponse::InternalServerError()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":500,"http_description":"internal server error"}"#));
+			}
+		}
+	}
 }
 
 #[cfg(feature = "server")]
 #[actix_web::delete("/{requested_item:.*}")]
 async fn delete_item(
-	paths: actix_web::web::Path<String>,
+	path: actix_web::web::Path<String>,
+	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
 	>,
 ) -> actix_web::web::HttpResponse {
-	return match database.lock().unwrap().delete(&paths) {
-		Ok(etag) => {
-			actix_web::HttpResponse::Ok()
-				.content_type("application/ld+json")
-				.header("ETag", etag)
-				.finish()
-			/*
-			TODO ?
-			.body(
-				format!(r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#, etag),
-			)
-			*/
+	let if_match_result = if let Some(find_match) = request.headers().get("If-Match") {
+		let find_match = find_match.to_str().unwrap().trim().replace('"', "");
+
+		if let Ok(Some(pontus_onyx::Item::Document {
+			etag: document_etag,
+			content: _,
+		})) = database.lock().unwrap().read(&path)
+		{
+			document_etag == find_match
+		} else {
+			true
 		}
-		Err(pontus_onyx::database::DeleteError::WrongPath) => actix_web::HttpResponse::BadRequest()
-			.content_type("application/ld+json")
-			.body(r#"{"http_code":400,"http_description":"bad request"}"#),
-		Err(pontus_onyx::database::DeleteError::FolderDocumentConflict) => {
-			actix_web::HttpResponse::Conflict()
-				.content_type("application/ld+json")
-				.body(r#"{"http_code":409,"http_description":"conflict"}"#)
-		}
-		Err(pontus_onyx::database::DeleteError::NotFound) => actix_web::HttpResponse::NotFound()
-			.content_type("application/ld+json")
-			.body(r#"{"http_code":404,"http_description":"requested content not found"}"#),
-		Err(_TODO) => actix_web::HttpResponse::InternalServerError()
-			.content_type("application/ld+json")
-			.body(r#"{"http_code":500,"http_description":"internal server error"}"#),
+	} else {
+		true
 	};
+
+	if if_match_result {
+		match database.lock().unwrap().delete(&path) {
+			Ok(etag) => {
+				return actix_web::HttpResponse::Ok()
+					.content_type("application/ld+json")
+					.header("ETag", etag)
+					.finish();
+			}
+			Err(pontus_onyx::database::DeleteError::WrongPath) => {
+				return actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#);
+			}
+			Err(pontus_onyx::database::DeleteError::FolderDocumentConflict) => {
+				return actix_web::HttpResponse::Conflict()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":409,"http_description":"conflict"}"#);
+			}
+			Err(pontus_onyx::database::DeleteError::NotFound) => {
+				return actix_web::HttpResponse::NotFound()
+					.content_type("application/ld+json")
+					.body(
+						r#"{"http_code":404,"http_description":"requested content not found"}"#,
+					);
+			}
+			Err(_todo) => {
+				return actix_web::HttpResponse::InternalServerError()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":500,"http_description":"internal server error"}"#);
+			}
+		}
+	} else {
+		return actix_web::HttpResponse::PreconditionFailed().finish();
+	}
 }
 
 #[derive(serde::Deserialize)]

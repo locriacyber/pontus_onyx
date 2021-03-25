@@ -16,13 +16,9 @@ pub enum Item {
 impl Item {
 	fn get_etag(&self) -> String {
 		return match self {
-			Self::Folder{
-				etag, content: _
-			} => etag.clone(),
-			Self::Document{
-				etag, content: _
-			} => etag.clone(),
-		}
+			Self::Folder { etag, content: _ } => etag.clone(),
+			Self::Document { etag, content: _ } => etag.clone(),
+		};
 	}
 }
 
@@ -172,24 +168,67 @@ pub mod database {
 	}
 
 	impl Database {
+		pub fn create(&mut self, path: &str, new_content: &[u8]) -> Result<String, CreateError> {
+			let paths: Vec<&str> = path.split('/').collect();
+
+			if paths.iter().all(|e| crate::path::is_ok(e, false)) {
+				match self.fetch_item_mut(&paths) {
+					Ok(Some(_e)) => Err(CreateError::AlreadyExists),
+					Ok(None) => {
+						let folder_path: Vec<&str> =
+							paths.iter().take(paths.len() - 1).cloned().collect();
+
+						match self.fetch_item_mut(&folder_path) {
+							Ok(Some(crate::Item::Folder {
+								etag: _,
+								content: folder_content,
+							})) => {
+								let etag = ulid::Ulid::new().to_string();
+
+								// TODO : build parent folders if not exists
+								// TODO : update etag of parent folders
+								// TODO : check content of paths.last()
+								folder_content.insert(
+									String::from(*paths.last().unwrap()),
+									Box::new(crate::Item::Document {
+										etag: etag.clone(),
+										content: new_content.to_vec(),
+									}),
+								);
+
+								Ok(etag)
+							}
+							_ => todo!(),
+						}
+					}
+					Err(FetchError::FolderDocumentConflict) => {
+						Err(CreateError::FolderDocumentConflict)
+					}
+				}
+			} else {
+				Err(CreateError::WrongPath)
+			}
+		}
+
 		pub fn read(&self, path: &str) -> Result<Option<crate::Item>, ReadError> {
 			// TODO : If a document with document_name <x> exists, then no folder with folder_name <x> can exist in the same parent folder, and vice versa.
 			let paths: Vec<&str> = path.split('/').collect();
 
-			return match paths
+			if paths
 				.iter()
 				.enumerate()
 				.all(|(i, &e)| crate::path::is_ok(e, i == (paths.len() - 1)))
 			{
-				true => match self.fetch_item(&paths) {
+				match self.fetch_item(&paths) {
 					Ok(Some(result)) => Ok(Some(result.clone())),
 					Ok(None) => Ok(None),
 					Err(FetchError::FolderDocumentConflict) => {
 						Err(ReadError::FolderDocumentConflict)
 					}
-				},
-				false => Err(ReadError::WrongPath),
-			};
+				}
+			} else {
+				Err(ReadError::WrongPath)
+			}
 		}
 
 		pub fn update(
@@ -273,7 +312,7 @@ pub mod database {
 
 					if let Ok(Some(crate::Item::Folder { etag: _, content })) = parent {
 						match content.remove(*paths.last().unwrap()) {
-							Some(old_version) => Ok(String::from(old_version.get_etag())),
+							Some(old_version) => Ok(old_version.get_etag()),
 							None => Err(DeleteError::NotFound),
 						}
 					} else {
@@ -289,12 +328,25 @@ pub mod database {
 	}
 
 	#[derive(Debug)]
-	pub enum CreateError {}
+	pub enum CreateError {
+		AlreadyExists,
+		WrongPath,
+		FolderDocumentConflict,
+		DoesNotWorksForFolders,
+		NotFound,
+	}
 
 	#[derive(Debug)]
 	pub enum ReadError {
 		WrongPath,
 		FolderDocumentConflict,
+	}
+
+	#[cfg(feature = "server")]
+	impl std::convert::From<ReadError> for actix_web::Error {
+		fn from(_error: ReadError) -> Self {
+			todo!()
+		}
 	}
 
 	#[derive(Debug)]
