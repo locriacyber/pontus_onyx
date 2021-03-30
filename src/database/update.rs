@@ -22,7 +22,15 @@ impl super::Database {
 								*old_etag = new_etag.clone();
 								*old_content = new_content;
 
-								Ok(new_etag)
+								// TODO : check if not modified
+
+								match Self::update_folders_etags(
+									&mut self.content,
+									&mut paths.iter().cloned().take(paths.len()),
+								) {
+									Ok(()) => Ok(new_etag),
+									Err(e) => Err(UpdateError::UpdateFoldersEtagsError(e)),
+								}
 							} else {
 								Err(UpdateError::NotFound)
 							}
@@ -50,4 +58,6 @@ pub enum UpdateError {
 	FolderDocumentConflict,
 	DoesNotWorksForFolders,
 	NotFound,
+	InternalError,
+	UpdateFoldersEtagsError(crate::database::UpdateFoldersEtagsError),
 }

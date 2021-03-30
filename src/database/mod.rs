@@ -8,6 +8,7 @@ pub use delete::DeleteError;
 pub use read::ReadError;
 pub use update::UpdateError;
 
+#[derive(Debug)]
 pub struct Database {
 	content: crate::Item,
 }
@@ -142,11 +143,95 @@ impl Database {
 
 		return Ok(result);
 	}
+	fn build_folders(
+		content: &mut std::collections::HashMap<String, Box<crate::Item>>,
+		path: &mut dyn std::iter::Iterator<Item = &str>,
+	) -> Result<(), FolderBuildError> {
+		return match path.next() {
+			Some(needed) => {
+				if needed.trim().is_empty() {
+					Err(FolderBuildError::WrongFolderName)
+				} else {
+					match content.get_mut(needed) {
+						Some(item) => match &mut **item {
+							crate::Item::Folder {
+								etag: _,
+								content: folder_content,
+							} => Self::build_folders(folder_content, path),
+							crate::Item::Document {
+								etag: _,
+								content: _,
+							} => Err(FolderBuildError::FolderDocumentConflict),
+						},
+						None => {
+							let mut child_content = std::collections::HashMap::new();
+
+							let res = Self::build_folders(&mut child_content, path);
+
+							content.insert(
+								String::from(needed),
+								Box::new(crate::Item::Folder {
+									etag: ulid::Ulid::new().to_string(),
+									content: child_content,
+								}),
+							);
+
+							res
+						}
+					}
+				}
+			}
+			None => Ok(()),
+		};
+	}
+	fn update_folders_etags(
+		folder: &mut crate::Item,
+		path: &mut dyn std::iter::Iterator<Item = &str>,
+	) -> Result<(), UpdateFoldersEtagsError> {
+		return match path.next() {
+			Some(needed) => {
+				if needed.trim().is_empty() {
+					Err(UpdateFoldersEtagsError::WrongFolderName)
+				} else {
+					match folder {
+						crate::Item::Folder {
+							etag: folder_etag,
+							content: folder_content,
+						} => {
+							*folder_etag = ulid::Ulid::new().to_string();
+							match folder_content.get_mut(needed) {
+								Some(item) => Self::update_folders_etags(&mut **item, path),
+								None => Err(UpdateFoldersEtagsError::MissingFolder),
+							}
+						}
+						crate::Item::Document {
+							etag: _,
+							content: _,
+						} => Err(UpdateFoldersEtagsError::FolderDocumentConflict),
+					}
+				}
+			}
+			None => Ok(()),
+		};
+	}
 }
 
 #[derive(Debug)]
 enum FetchError {
 	FolderDocumentConflict,
+}
+
+#[derive(Debug)]
+pub enum FolderBuildError {
+	FolderDocumentConflict,
+	WrongFolderName,
+}
+
+#[derive(Debug)]
+pub enum UpdateFoldersEtagsError {
+	FolderDocumentConflict,
+	WrongFolderName,
+	MissingFolder,
 }
 
 mod path {

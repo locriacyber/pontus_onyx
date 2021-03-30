@@ -45,7 +45,9 @@ pub async fn put_item(
 			));
 	}
 
-	let found = database.lock().unwrap().read(&path)?;
+	let mut db = database.lock().unwrap();
+
+	let found = db.read(&path)?;
 	if let Some(none_match) = request.headers().get("If-None-Match") {
 		let mut none_match = none_match
 			.to_str()
@@ -91,7 +93,7 @@ pub async fn put_item(
 			return Ok(actix_web::HttpResponse::PreconditionFailed().finish());
 		}
 
-		match database.lock().unwrap().update(
+		match db.update(
 			&path,
 			pontus_onyx::Item::Document {
 				etag: ulid::Ulid::new().to_string(),
@@ -129,7 +131,7 @@ pub async fn put_item(
 			}
 		}
 	} else {
-		match database.lock().unwrap().create(&path, &body) {
+		match db.create(&path, &body) {
 			Ok(new_etag) => {
 				return Ok(actix_web::HttpResponse::Created()
 					.content_type("application/ld+json")

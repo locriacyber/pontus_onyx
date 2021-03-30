@@ -4,13 +4,15 @@ pub async fn delete_item(
 	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
 ) -> actix_web::web::HttpResponse {
+	let mut db = database.lock().unwrap();
+
 	let if_match_result = if let Some(find_match) = request.headers().get("If-Match") {
 		let find_match = find_match.to_str().unwrap().trim().replace('"', "");
 
 		if let Ok(Some(pontus_onyx::Item::Document {
 			etag: document_etag,
 			content: _,
-		})) = database.lock().unwrap().read(&path)
+		})) = db.read(&path)
 		{
 			document_etag == find_match
 		} else {
@@ -21,7 +23,7 @@ pub async fn delete_item(
 	};
 
 	if if_match_result {
-		match database.lock().unwrap().delete(&path) {
+		match db.delete(&path) {
 			Ok(etag) => {
 				return actix_web::HttpResponse::Ok()
 					.content_type("application/ld+json")

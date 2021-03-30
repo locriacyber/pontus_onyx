@@ -25,7 +25,9 @@ mod utils {
 	) -> actix_web::web::HttpResponse {
 		let should_be_folder = path.split('/').last().unwrap() == "";
 
-		match database.lock().unwrap().read(&path) {
+		let db = database.lock().unwrap();
+
+		match db.read(&path) {
 			Ok(Some(item)) => {
 				match item {
 					pontus_onyx::Item::Folder {

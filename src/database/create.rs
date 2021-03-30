@@ -3,38 +3,58 @@ impl super::Database {
 		let paths: Vec<&str> = path.split('/').collect();
 
 		if paths.iter().all(|e| super::path::is_ok(e, false)) {
-			match self.fetch_item_mut(&paths) {
-				Ok(Some(_e)) => Err(CreateError::AlreadyExists),
-				Ok(None) => {
-					let folder_path: Vec<&str> =
-						paths.iter().take(paths.len() - 1).cloned().collect();
+			if let crate::Item::Folder {
+				etag: _,
+				content: root_folder_content,
+			} = &mut self.content
+			{
+				match Self::build_folders(
+					root_folder_content,
+					&mut paths.iter().cloned().take(paths.len() - 1),
+				) {
+					Ok(()) => {
+						match self.fetch_item_mut(&paths) {
+							Ok(Some(_e)) => Err(CreateError::AlreadyExists),
+							Ok(None) => {
+								let folder_path: Vec<&str> =
+									paths.iter().take(paths.len() - 1).cloned().collect();
 
-					match self.fetch_item_mut(&folder_path) {
-						Ok(Some(crate::Item::Folder {
-							etag: _,
-							content: folder_content,
-						})) => {
-							let etag = ulid::Ulid::new().to_string();
+								match self.fetch_item_mut(&folder_path) {
+									Ok(Some(crate::Item::Folder {
+										etag: _,
+										content: folder_content,
+									})) => {
+										let etag = ulid::Ulid::new().to_string();
 
-							// TODO : build parent folders if not exists
-							// TODO : update etag of parent folders
-							// TODO : check content of paths.last()
-							folder_content.insert(
-								String::from(*paths.last().unwrap()),
-								Box::new(crate::Item::Document {
-									etag: etag.clone(),
-									content: new_content.to_vec(),
-								}),
-							);
+										// TODO : check content of paths.last()
+										folder_content.insert(
+											String::from(*paths.last().unwrap()),
+											Box::new(crate::Item::Document {
+												etag: etag.clone(),
+												content: new_content.to_vec(),
+											}),
+										);
 
-							Ok(etag)
+										match Self::update_folders_etags(
+											&mut self.content,
+											&mut paths.iter().cloned().take(paths.len() - 1),
+										) {
+											Ok(()) => Ok(etag),
+											Err(e) => Err(CreateError::UpdateFoldersEtagsError(e)),
+										}
+									}
+									_ => todo!(),
+								}
+							}
+							Err(super::FetchError::FolderDocumentConflict) => {
+								Err(CreateError::FolderDocumentConflict)
+							}
 						}
-						_ => todo!(),
 					}
+					Err(e) => Err(CreateError::FolderBuildError(e)),
 				}
-				Err(super::FetchError::FolderDocumentConflict) => {
-					Err(CreateError::FolderDocumentConflict)
-				}
+			} else {
+				Err(CreateError::InternalError)
 			}
 		} else {
 			Err(CreateError::WrongPath)
@@ -49,4 +69,7 @@ pub enum CreateError {
 	FolderDocumentConflict,
 	DoesNotWorksForFolders,
 	NotFound,
+	InternalError,
+	FolderBuildError(crate::database::FolderBuildError),
+	UpdateFoldersEtagsError(crate::database::UpdateFoldersEtagsError),
 }

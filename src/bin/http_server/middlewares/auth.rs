@@ -53,7 +53,7 @@ where
 				// TODO : check value of the <Authorization> header
 				if auth_value == "Bearer TODO" {
 					let future = self.service.call(service_request);
-					Box::pin(async move { Ok(future.await?) })
+					Box::pin(async move { future.await })
 				} else {
 					Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
@@ -78,7 +78,7 @@ where
 						|| service_request.method() == actix_web::http::Method::OPTIONS)
 				{
 					let future = self.service.call(service_request);
-					Box::pin(async move { Ok(future.await?) })
+					Box::pin(async move { future.await })
 				} else {
 					Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(

@@ -27,9 +27,19 @@ pub enum ReadError {
 	FolderDocumentConflict,
 }
 
+// TODO : return hints ?
 #[cfg(feature = "server")]
 impl std::convert::From<ReadError> for actix_web::Error {
-	fn from(_error: ReadError) -> Self {
-		todo!()
+	fn from(error: ReadError) -> Self {
+		match error {
+			ReadError::WrongPath => actix_web::HttpResponse::BadRequest()
+				.content_type("application/ld+json")
+				.body(r#"{"http_code":400,"http_description":"bad request"}"#)
+				.into(),
+			ReadError::FolderDocumentConflict => actix_web::HttpResponse::Conflict()
+				.content_type("application/ld+json")
+				.body(r#"{"http_code":409,"http_description":"conflict"}"#)
+				.into(),
+		}
 	}
 }
