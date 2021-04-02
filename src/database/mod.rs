@@ -33,9 +33,9 @@ impl Database {
 		);
 		content_c.insert(
 			String::from("e"),
-			Box::new(crate::Item::Folder {
+			Box::new(crate::Item::Document {
 				etag: ulid::Ulid::new().to_string(),
-				content: std::collections::HashMap::new(),
+				content: b"HELLO?".to_vec(),
 			}),
 		);
 		content_b.insert(
@@ -143,6 +143,43 @@ impl Database {
 
 		return Ok(result);
 	}
+	fn cleanup_empty_folders(&mut self, path: &str) -> Result<(), CleanupFolderError> {
+		let splitted_path: Vec<&str> = path.split('/').collect();
+
+		match self.fetch_item_mut(&splitted_path) {
+			Ok(Some(crate::Item::Folder { etag: _, content })) => {
+				if content.is_empty() && splitted_path.len() > 1 {
+					let temp = self.fetch_item_mut(
+						&splitted_path
+							.iter()
+							.take(splitted_path.len() - 1 - 1)
+							.cloned()
+							.collect::<Vec<&str>>(),
+					);
+
+					if let Ok(Some(crate::Item::Folder {
+						etag: _,
+						content: parent_content,
+					})) = temp
+					{
+						parent_content.remove(
+							*splitted_path
+								.iter()
+								.filter(|p| !p.is_empty())
+								.last()
+								.unwrap(),
+						);
+					}
+				}
+
+				Ok(())
+			}
+			_ => Err(CleanupFolderError::NotAFolder),
+		}
+	}
+}
+
+impl Database {
 	fn build_folders(
 		content: &mut std::collections::HashMap<String, Box<crate::Item>>,
 		path: &mut dyn std::iter::Iterator<Item = &str>,
@@ -188,30 +225,36 @@ impl Database {
 		folder: &mut crate::Item,
 		path: &mut dyn std::iter::Iterator<Item = &str>,
 	) -> Result<(), UpdateFoldersEtagsError> {
-		return match path.next() {
-			Some(needed) => {
-				if needed.trim().is_empty() {
-					Err(UpdateFoldersEtagsError::WrongFolderName)
-				} else {
-					match folder {
-						crate::Item::Folder {
-							etag: folder_etag,
-							content: folder_content,
-						} => {
-							*folder_etag = ulid::Ulid::new().to_string();
+		let next = path.next();
+
+		return match folder {
+			crate::Item::Folder {
+				etag: folder_etag,
+				content: folder_content,
+			} => {
+				*folder_etag = ulid::Ulid::new().to_string();
+
+				match next {
+					Some(needed) => {
+						if needed.trim().is_empty() {
+							Err(UpdateFoldersEtagsError::WrongFolderName)
+						} else {
 							match folder_content.get_mut(needed) {
 								Some(item) => Self::update_folders_etags(&mut **item, path),
 								None => Err(UpdateFoldersEtagsError::MissingFolder),
 							}
 						}
-						crate::Item::Document {
-							etag: _,
-							content: _,
-						} => Err(UpdateFoldersEtagsError::FolderDocumentConflict),
 					}
+					None => Ok(()),
 				}
 			}
-			None => Ok(()),
+			crate::Item::Document {
+				etag: _,
+				content: _,
+			} => match next {
+				Some(_) => Err(UpdateFoldersEtagsError::FolderDocumentConflict),
+				None => Ok(()),
+			},
 		};
 	}
 }
@@ -232,6 +275,10 @@ pub enum UpdateFoldersEtagsError {
 	FolderDocumentConflict,
 	WrongFolderName,
 	MissingFolder,
+}
+
+enum CleanupFolderError {
+	NotAFolder,
 }
 
 mod path {
