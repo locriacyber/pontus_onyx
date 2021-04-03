@@ -5,6 +5,8 @@ extern crate pontus_onyx;
 #[cfg(feature = "server")]
 mod http_server;
 
+pub static RFC5322: &str = "%a, %d %b %Y %H:%M:%S %Z";
+
 /*
 TODO :
 	actix services tests

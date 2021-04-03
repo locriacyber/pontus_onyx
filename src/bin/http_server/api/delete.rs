@@ -12,6 +12,8 @@ pub async fn delete_item(
 		if let Ok(Some(pontus_onyx::Item::Document {
 			etag: document_etag,
 			content: _,
+			content_type: _,
+			last_modified: _,
 		})) = db.read(&path)
 		{
 			document_etag == find_match

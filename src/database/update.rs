@@ -10,6 +10,8 @@ impl super::Database {
 			crate::Item::Document {
 				etag: new_etag,
 				content: new_content,
+				content_type: new_content_type,
+				last_modified: _,
 			} => {
 				if paths.iter().all(|e| super::path::is_ok(e, false)) {
 					match self.fetch_item_mut(&paths) {
@@ -17,10 +19,14 @@ impl super::Database {
 							if let crate::Item::Document {
 								etag: old_etag,
 								content: old_content,
+								content_type: old_content_type,
+								last_modified: old_last_modified,
 							} = e
 							{
 								*old_etag = new_etag.clone();
 								*old_content = new_content;
+								*old_content_type = new_content_type;
+								*old_last_modified = chrono::Utc::now();
 
 								// TODO : check if not modified
 

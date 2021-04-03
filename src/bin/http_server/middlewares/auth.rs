@@ -93,3 +93,38 @@ where
 		}
 	}
 }
+
+#[actix_rt::test]
+async fn hsv5femo2qgu80gbad0ov5() {
+	let mut app = actix_web::test::init_service(
+		actix_web::App::new()
+			.wrap(super::Auth {})
+			.service(crate::http_server::api::get_item)
+			.service(crate::http_server::webfinger_handle),
+	)
+	.await;
+
+	let tests: Vec<(&str, bool)> = vec![
+		("/", true),
+		("/folder/", true),
+		("/document", true),
+		("/webfinger", true),
+		("/folder/document", true),
+		("/public/folder/", true),
+		("/public/document", false),
+		("/public/folder/document", false),
+	];
+
+	for test in tests {
+		println!("request to {}", test.0);
+
+		let request = actix_web::test::TestRequest::get().uri(test.0).to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		if test.1 {
+			assert_eq!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+		} else {
+			assert_ne!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+		}
+	}
+}

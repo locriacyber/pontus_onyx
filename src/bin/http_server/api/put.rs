@@ -58,6 +58,8 @@ pub async fn put_item(
 		if let Some(pontus_onyx::Item::Document {
 			etag: document_etag,
 			content: _,
+			content_type: _,
+			last_modified: _,
 		}) = &found
 		{
 			if none_match.any(|s| &s == document_etag || s == "*") {
@@ -79,6 +81,8 @@ pub async fn put_item(
 			if let Some(pontus_onyx::Item::Document {
 				etag: document_etag,
 				content: _,
+				content_type: _,
+				last_modified: _,
 			}) = &found
 			{
 				document_etag == &find_match
@@ -98,6 +102,8 @@ pub async fn put_item(
 			pontus_onyx::Item::Document {
 				etag: ulid::Ulid::new().to_string(),
 				content: body.to_vec(),
+				content_type: String::from(actix_web::HttpMessage::content_type(&request)),
+				last_modified: chrono::Utc::now(),
 			},
 		) {
 			Ok(new_etag) => {
@@ -131,7 +137,7 @@ pub async fn put_item(
 			}
 		}
 	} else {
-		match db.create(&path, &body) {
+		match db.create(&path, &body, actix_web::HttpMessage::content_type(&request)) {
 			Ok(new_etag) => {
 				return Ok(actix_web::HttpResponse::Created()
 					.content_type("application/ld+json")

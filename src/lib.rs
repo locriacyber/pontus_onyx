@@ -14,13 +14,20 @@ pub enum Item {
 	Document {
 		etag: String,
 		content: Vec<u8>,
+		content_type: String,
+		last_modified: chrono::DateTime<chrono::offset::Utc>,
 	},
 }
 impl Item {
 	fn get_etag(&self) -> String {
 		return match self {
 			Self::Folder { etag, content: _ } => etag.clone(),
-			Self::Document { etag, content: _ } => etag.clone(),
+			Self::Document {
+				etag,
+				content: _,
+				content_type: _,
+				last_modified: _,
+			} => etag.clone(),
 		};
 	}
 }

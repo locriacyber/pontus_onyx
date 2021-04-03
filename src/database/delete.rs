@@ -46,7 +46,8 @@ impl super::Database {
 												.iter()
 												.take(paths.len() - i)
 												.fold(String::new(), |acc, e| acc + *e + "/"),
-										).ok(); // errors are not important here
+										)
+										.ok(); // errors are not important here
 									}
 
 									Ok(old_version.get_etag())

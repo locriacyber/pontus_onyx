@@ -29,6 +29,8 @@ impl Database {
 			Box::new(crate::Item::Document {
 				etag: ulid::Ulid::new().to_string(),
 				content: b"TODO".to_vec(),
+				content_type: String::from("text/plain"),
+				last_modified: chrono::Utc::now(),
 			}),
 		);
 		content_c.insert(
@@ -36,6 +38,8 @@ impl Database {
 			Box::new(crate::Item::Document {
 				etag: ulid::Ulid::new().to_string(),
 				content: b"HELLO?".to_vec(),
+				content_type: String::from("text/plain"),
+				last_modified: chrono::Utc::now(),
 			}),
 		);
 		content_b.insert(
@@ -66,6 +70,8 @@ impl Database {
 			Box::new(crate::Item::Document {
 				etag: ulid::Ulid::new().to_string(),
 				content: b"01010101".to_vec(),
+				content_type: String::from("text/plain"),
+				last_modified: chrono::Utc::now(),
 			}),
 		);
 		content.insert(
@@ -107,6 +113,8 @@ impl Database {
 					crate::Item::Document {
 						etag: _,
 						content: _,
+						content_type: _,
+						last_modified: _,
 					} => {
 						return Err(FetchError::FolderDocumentConflict);
 					}
@@ -134,6 +142,8 @@ impl Database {
 					crate::Item::Document {
 						etag: _,
 						content: _,
+						content_type: _,
+						last_modified: _,
 					} => {
 						return Err(FetchError::FolderDocumentConflict);
 					}
@@ -198,6 +208,8 @@ impl Database {
 							crate::Item::Document {
 								etag: _,
 								content: _,
+								content_type: _,
+								last_modified: _,
 							} => Err(FolderBuildError::FolderDocumentConflict),
 						},
 						None => {
@@ -251,6 +263,8 @@ impl Database {
 			crate::Item::Document {
 				etag: _,
 				content: _,
+				content_type: _,
+				last_modified: _,
 			} => match next {
 				Some(_) => Err(UpdateFoldersEtagsError::FolderDocumentConflict),
 				None => Ok(()),

@@ -1,5 +1,10 @@
 impl super::Database {
-	pub fn create(&mut self, path: &str, new_content: &[u8]) -> Result<String, CreateError> {
+	pub fn create(
+		&mut self,
+		path: &str,
+		new_content: &[u8],
+		content_type: &str,
+	) -> Result<String, CreateError> {
 		let paths: Vec<&str> = path.split('/').collect();
 
 		if paths.iter().all(|e| super::path::is_ok(e, false)) {
@@ -32,6 +37,8 @@ impl super::Database {
 											Box::new(crate::Item::Document {
 												etag: etag.clone(),
 												content: new_content.to_vec(),
+												content_type: String::from(content_type),
+												last_modified: chrono::Utc::now(),
 											}),
 										);
 

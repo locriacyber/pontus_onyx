@@ -52,6 +52,8 @@ mod utils {
 								pontus_onyx::Item::Document {
 									etag: _,
 									content: _,
+									content_type: _,
+									last_modified: _,
 								} => true,
 								pontus_onyx::Item::Folder { etag: _, content } => {
 									!content.is_empty() // TODO : recursive if child is also empty ?
@@ -66,12 +68,14 @@ mod utils {
 									pontus_onyx::Item::Document {
 										etag,
 										content: document_content,
+										content_type,
+										last_modified,
 									} => {
 										items_result[child_name] = serde_json::json!({
 											"ETag": etag,
-											"Content-Type": "TODO",
+											"Content-Type": content_type,
 											"Content-Length": document_content.len(),
-											"Last-Modified": "TODO",
+											"Last-Modified": last_modified.format(crate::RFC5322).to_string(),
 										});
 									}
 								}
@@ -104,6 +108,8 @@ mod utils {
 					pontus_onyx::Item::Document {
 						etag: document_etag,
 						content,
+						content_type,
+						last_modified: _,
 					} => {
 						if !should_be_folder {
 							if let Some(none_match) = request.headers().get("If-None-Match") {
@@ -121,7 +127,7 @@ mod utils {
 							return actix_web::HttpResponse::Ok()
 								.header("ETag", document_etag)
 								.header("Cache-Control", "no-cache")
-								.content_type("text/plain") // TODO
+								.content_type(content_type)
 								.body(if should_have_body { content } else { vec![] });
 						} else {
 							return actix_web::HttpResponse::NotFound()
