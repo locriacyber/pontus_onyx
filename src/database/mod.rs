@@ -14,6 +14,20 @@ pub struct Database {
 }
 
 impl Database {
+	pub fn from_item_folder(content: crate::Item) -> Result<Self, CreateError> {
+		match content {
+			crate::Item::Folder {
+				etag: _,
+				content: _,
+			} => Ok(Self { content }),
+			crate::Item::Document {
+				etag: _,
+				content: _,
+				content_type: _,
+				last_modified: _,
+			} => Err(CreateError::ShouldBeFolder),
+		}
+	}
 	pub fn from_bytes(_bytes: &[u8]) -> Result<Self, CreateError> {
 		// TODO : cleanup
 		let mut content: std::collections::HashMap<String, Box<crate::Item>> =

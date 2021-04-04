@@ -19,6 +19,19 @@ pub enum Item {
 	},
 }
 impl Item {
+	pub fn new_folder(easy_content: Vec<(&str, Self)>) -> Self {
+		let mut content = std::collections::HashMap::new();
+		for (name, item) in easy_content {
+			content.insert(String::from(name), Box::new(item));
+		}
+
+		return Self::Folder {
+			etag: ulid::Ulid::new().to_string(),
+			content,
+		};
+	}
+}
+impl Item {
 	fn get_etag(&self) -> String {
 		return match self {
 			Self::Folder { etag, content: _ } => etag.clone(),

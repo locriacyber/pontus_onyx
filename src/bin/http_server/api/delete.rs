@@ -57,3 +57,144 @@ pub async fn delete_item(
 		return actix_web::HttpResponse::PreconditionFailed().finish();
 	}
 }
+
+mod tests {
+	use actix_web::http::{header::EntityTag, Method, StatusCode};
+
+	#[actix_rt::test]
+	async fn gku78q30mb1kz5u2() {
+		let database = std::sync::Arc::new(std::sync::Mutex::new(
+			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
+				"a",
+				pontus_onyx::Item::new_folder(vec![(
+					"b",
+					pontus_onyx::Item::new_folder(vec![(
+						"c",
+						pontus_onyx::Item::Document {
+							etag: ulid::Ulid::new().to_string(),
+							content: b"HELLO".to_vec(),
+							content_type: String::from("text/plain"),
+							last_modified: chrono::Utc::now(),
+						},
+					)]),
+				)]),
+			)]))
+			.unwrap(),
+		));
+
+		let mut app = actix_web::test::init_service(
+			actix_web::App::new()
+				.data(database)
+				.service(crate::http_server::api::get_item)
+				.service(super::delete_item),
+		)
+		.await;
+
+		let tests = vec![
+			(Method::GET, "/a/b/c", StatusCode::OK),
+			(Method::DELETE, "/a/b", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/a/b/", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/a/b/c", StatusCode::OK),
+			(Method::GET, "/a/b/c", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/a/b/c", StatusCode::NOT_FOUND),
+			(Method::GET, "/a/b/", StatusCode::NOT_FOUND),
+			(Method::GET, "/a/", StatusCode::NOT_FOUND),
+			(Method::GET, "/", StatusCode::OK),
+		];
+
+		for test in tests {
+			print!("{} request to {} : ", test.0, test.1);
+
+			let request = actix_web::test::TestRequest::with_uri(test.1)
+				.method(test.0)
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), test.2);
+			println!("OK");
+		}
+	}
+
+	#[actix_rt::test]
+	async fn t3xtajyz004juvx8nc() {
+		let database = std::sync::Arc::new(std::sync::Mutex::new(
+			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
+				"a",
+				pontus_onyx::Item::new_folder(vec![(
+					"b",
+					pontus_onyx::Item::new_folder(vec![(
+						"c",
+						pontus_onyx::Item::Document {
+							etag: String::from("A"),
+							content: b"HELLO".to_vec(),
+							content_type: String::from("text/plain"),
+							last_modified: chrono::Utc::now(),
+						},
+					)]),
+				)]),
+			)]))
+			.unwrap(),
+		));
+
+		let mut app = actix_web::test::init_service(
+			actix_web::App::new()
+				.data(database)
+				.service(crate::http_server::api::get_item)
+				.service(super::delete_item),
+		)
+		.await;
+
+		let tests = vec![
+			(Method::GET, "/a/b/c", vec![], StatusCode::OK),
+			(
+				Method::DELETE,
+				"/a/b/c",
+				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
+				StatusCode::PRECONDITION_FAILED,
+			),
+			(Method::GET, "/a/b/c", vec![], StatusCode::OK),
+			(
+				Method::DELETE,
+				"/a/b/c",
+				vec![
+					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
+					EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
+				],
+				StatusCode::PRECONDITION_FAILED,
+			),
+			(Method::GET, "/a/b/c", vec![], StatusCode::OK),
+			(
+				Method::DELETE,
+				"/a/b/c",
+				vec![
+					EntityTag::new(false, String::from("A")),
+					EntityTag::new(false, String::from("ANOTHER_ETAG")),
+				],
+				StatusCode::OK,
+			),
+			(Method::GET, "/a/b/c", vec![], StatusCode::NOT_FOUND),
+			(
+				Method::DELETE,
+				"/a/b/c",
+				vec![EntityTag::new(false, String::from("A"))],
+				StatusCode::NOT_FOUND,
+			),
+		];
+
+		for test in tests {
+			print!(
+				"{} request to {} with If-Match = {:?} : ",
+				test.0, test.1, test.2
+			);
+
+			let request = actix_web::test::TestRequest::with_uri(test.1)
+				.method(test.0)
+				.set(actix_web::http::header::IfMatch::Items(test.2))
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), test.3);
+			println!("OK");
+		}
+	}
+}

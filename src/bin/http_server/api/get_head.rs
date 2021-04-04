@@ -35,6 +35,7 @@ mod utils {
 						content,
 					} => {
 						if should_be_folder {
+							// TODO : weak headers ?
 							if let Some(none_match) = request.headers().get("If-None-Match") {
 								let mut none_match = none_match
 									.to_str()
@@ -170,5 +171,160 @@ mod utils {
 					});
 			}
 		};
+	}
+}
+
+mod tests {
+	use actix_web::http::{header::EntityTag, Method, StatusCode};
+
+	#[actix_rt::test]
+	async fn jz8dn8zxmvnessjlke8() {
+		let database = std::sync::Arc::new(std::sync::Mutex::new(
+			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![
+				(
+					"a",
+					pontus_onyx::Item::new_folder(vec![(
+						"b",
+						pontus_onyx::Item::new_folder(vec![(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: ulid::Ulid::new().to_string(),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
+					)]),
+				),
+				(
+					"public",
+					pontus_onyx::Item::new_folder(vec![(
+						"0",
+						pontus_onyx::Item::new_folder(vec![(
+							"1",
+							pontus_onyx::Item::new_folder(vec![(
+								"2",
+								pontus_onyx::Item::Document {
+									etag: ulid::Ulid::new().to_string(),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
+						)]),
+					)]),
+				),
+			]))
+			.unwrap(),
+		));
+
+		let mut app = actix_web::test::init_service(
+			actix_web::App::new()
+				.data(database)
+				.service(super::get_item),
+		)
+		.await;
+
+		let tests = vec![
+			(Method::GET, "/not/exists/document", StatusCode::NOT_FOUND),
+			(Method::GET, "/not/exists/folder/", StatusCode::NOT_FOUND),
+			(Method::GET, "/a", StatusCode::NOT_FOUND),
+			(Method::GET, "/a/b", StatusCode::NOT_FOUND),
+			(Method::GET, "/a/b/c/", StatusCode::NOT_FOUND),
+			(Method::GET, "/a/", StatusCode::OK),
+			(Method::GET, "/a/b/", StatusCode::OK),
+			(Method::GET, "/a/b/c", StatusCode::OK),
+			(Method::GET, "/public", StatusCode::NOT_FOUND),
+			(Method::GET, "/public/", StatusCode::NOT_FOUND),
+			(Method::GET, "/public/0", StatusCode::NOT_FOUND),
+			(Method::GET, "/public/0/1", StatusCode::NOT_FOUND),
+			(Method::GET, "/public/0/1/2", StatusCode::OK),
+			(Method::GET, "/public/0/", StatusCode::NOT_FOUND),
+			(Method::GET, "/public/0/1/", StatusCode::NOT_FOUND),
+			(Method::GET, "/public/0/1/2/", StatusCode::NOT_FOUND),
+		];
+
+		for test in tests {
+			print!("{} request to {} : ", test.0, test.1);
+
+			let request = actix_web::test::TestRequest::with_uri(test.1)
+				.method(test.0)
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), test.2);
+			println!("OK");
+		}
+	}
+
+	#[actix_rt::test]
+	async fn e0b1v0mbw0l6rm() {
+		let database = std::sync::Arc::new(std::sync::Mutex::new(
+			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
+				"a",
+				pontus_onyx::Item::new_folder(vec![(
+					"b",
+					pontus_onyx::Item::new_folder(vec![(
+						"c",
+						pontus_onyx::Item::Document {
+							etag: String::from("A"),
+							content: b"HELLO".to_vec(),
+							content_type: String::from("text/plain"),
+							last_modified: chrono::Utc::now(),
+						},
+					)]),
+				)]),
+			)]))
+			.unwrap(),
+		));
+
+		let mut app = actix_web::test::init_service(
+			actix_web::App::new()
+				.data(database)
+				.service(super::get_item),
+		)
+		.await;
+
+		let tests = vec![
+			(
+				vec![EntityTag::new(false, String::from("A"))],
+				StatusCode::NOT_MODIFIED,
+			),
+			(
+				vec![
+					EntityTag::new(false, String::from("A")),
+					EntityTag::new(false, String::from("B")),
+				],
+				StatusCode::NOT_MODIFIED,
+			),
+			(
+				vec![EntityTag::new(false, String::from("*"))],
+				StatusCode::NOT_MODIFIED,
+			),
+			(
+				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
+				StatusCode::OK,
+			),
+			(
+				vec![
+					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
+					EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
+				],
+				StatusCode::OK,
+			),
+		];
+
+		for test in tests {
+			print!("GET request to /a/b/c with If-None-Match = {:?} : ", test.0);
+
+			let request = actix_web::test::TestRequest::get()
+				.uri("/a/b/c")
+				.set(actix_web::http::header::IfNoneMatch::Items(test.0))
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), test.1);
+			println!("OK");
+		}
 	}
 }

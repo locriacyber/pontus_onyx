@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
 	println!("starting to listen to http://localhost:7541/");
 
 	let database = std::sync::Arc::new(std::sync::Mutex::new(
-		pontus_onyx::Database::from_bytes(&[]).unwrap(),
+		pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![])).unwrap(),
 	));
 
 	actix_web::HttpServer::new(move || {

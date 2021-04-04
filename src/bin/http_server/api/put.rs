@@ -177,3 +177,163 @@ pub async fn put_item(
 		}
 	}
 }
+
+mod tests {
+	use actix_web::http::{header::EntityTag, StatusCode};
+
+	#[actix_rt::test]
+	async fn k7ip00aqdgtrjdt() {
+		let database = std::sync::Arc::new(std::sync::Mutex::new(
+			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![])).unwrap(),
+		));
+
+		let mut app = actix_web::test::init_service(
+			actix_web::App::new()
+				.data(database)
+				.service(crate::http_server::api::get_item)
+				.service(super::put_item),
+		)
+		.await;
+
+		{
+			let request = actix_web::test::TestRequest::get()
+				.uri("/a/b/c")
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::NOT_FOUND);
+		}
+
+		{
+			let request = actix_web::test::TestRequest::put()
+				.uri("/a/b/c")
+				.set(actix_web::http::header::ContentType::plaintext())
+				.set_payload(b"EVERYONE".to_vec())
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::CREATED);
+		}
+
+		{
+			let request = actix_web::test::TestRequest::get()
+				.uri("/a/b/c")
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::OK);
+		}
+
+		{
+			let request = actix_web::test::TestRequest::put()
+				.uri("/a/b/c")
+				.set(actix_web::http::header::ContentType::plaintext())
+				.set_payload(b"SOMEONE HERE ?".to_vec())
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::OK);
+		}
+
+		{
+			let request = actix_web::test::TestRequest::get()
+				.uri("/a/b/c")
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::OK);
+		}
+	}
+
+	#[actix_rt::test]
+	async fn ddj0vihc3rvc0zd() {
+		let database = std::sync::Arc::new(std::sync::Mutex::new(
+			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
+				"a",
+				pontus_onyx::Item::new_folder(vec![(
+					"b",
+					pontus_onyx::Item::new_folder(vec![(
+						"c",
+						pontus_onyx::Item::Document {
+							etag: String::from("A"),
+							content: b"HELLO".to_vec(),
+							content_type: String::from("text/plain"),
+							last_modified: chrono::Utc::now(),
+						},
+					)]),
+				)]),
+			)]))
+			.unwrap(),
+		));
+
+		let mut app = actix_web::test::init_service(
+			actix_web::App::new()
+				.data(database)
+				.service(super::put_item),
+		)
+		.await;
+
+		let tests = vec![
+			(
+				"/a/b/c",
+				vec![EntityTag::new(false, String::from("A"))],
+				StatusCode::PRECONDITION_FAILED,
+			),
+			(
+				"/a/b/c",
+				vec![
+					EntityTag::new(false, String::from("A")),
+					EntityTag::new(false, String::from("B")),
+				],
+				StatusCode::PRECONDITION_FAILED,
+			),
+			(
+				"/a/b/c",
+				vec![EntityTag::new(false, String::from("*"))],
+				StatusCode::PRECONDITION_FAILED,
+			),
+			(
+				"/a/b/c",
+				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
+				StatusCode::OK,
+			),
+			(
+				"/a/b/c",
+				vec![
+					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
+					EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
+				],
+				StatusCode::OK,
+			),
+			(
+				"/new/a",
+				vec![EntityTag::new(false, String::from("*"))],
+				StatusCode::CREATED,
+			),
+			(
+				"/new/a",
+				vec![EntityTag::new(false, String::from("*"))],
+				StatusCode::PRECONDITION_FAILED,
+			),
+		];
+
+		for test in tests {
+			print!(
+				"PUT request to {} with If-None-Math = {:?} : ",
+				test.0, test.1
+			);
+
+			let request = actix_web::test::TestRequest::put()
+				.uri(test.0)
+				.set(actix_web::http::header::IfNoneMatch::Items(test.1))
+				.set_json(&serde_json::json!({"value": "C"}))
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), test.2);
+			println!("OK");
+		}
+	}
+
+	// TODO : test If-Match here
+}

@@ -77,6 +77,7 @@ pub enum CreateError {
 	DoesNotWorksForFolders,
 	NotFound,
 	InternalError,
+	ShouldBeFolder,
 	FolderBuildError(crate::database::FolderBuildError),
 	UpdateFoldersEtagsError(crate::database::UpdateFoldersEtagsError),
 }
