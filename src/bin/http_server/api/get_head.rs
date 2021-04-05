@@ -35,66 +35,79 @@ mod utils {
 						content,
 					} => {
 						if should_be_folder {
-							// TODO : weak headers ?
-							if let Some(none_match) = request.headers().get("If-None-Match") {
-								let mut none_match = none_match
-									.to_str()
-									.unwrap()
-									.split(',')
-									.map(|s| s.trim().replace('"', ""));
+							if path.starts_with("public") {
+								return actix_web::HttpResponse::NotFound()
+									.content_type("application/ld+json")
+									.header("Cache-Control", "no-cache")
+									.body(if should_have_body {
+										// TODO : add an hint for user ?
+										r#"{"http_code":404,"http_description":"requested content not found"}"#
+									} else {
+										""
+									});
+							} else {
+								// TODO : weak headers ?
+								if let Some(none_match) = request.headers().get("If-None-Match") {
+									let mut none_match = none_match
+										.to_str()
+										.unwrap()
+										.split(',')
+										.map(|s| s.trim().replace('"', ""));
 
-								if none_match.any(|s| s == folder_etag || s == "*") {
-									return actix_web::HttpResponse::NotModified().finish();
-								}
-							}
-
-							let mut items_result = serde_json::json!({});
-							for (child_name, child) in content.iter().filter(|(_, e)| match &***e {
-								pontus_onyx::Item::Document {
-									etag: _,
-									content: _,
-									content_type: _,
-									last_modified: _,
-								} => true,
-								pontus_onyx::Item::Folder { etag: _, content } => {
-									!content.is_empty() // TODO : recursive if child is also empty ?
-								}
-							}) {
-								match &**child {
-									pontus_onyx::Item::Folder { etag, content: _ } => {
-										items_result[format!("{}/", child_name)] = serde_json::json!({
-											"ETag": etag,
-										});
-									}
-									pontus_onyx::Item::Document {
-										etag,
-										content: document_content,
-										content_type,
-										last_modified,
-									} => {
-										items_result[child_name] = serde_json::json!({
-											"ETag": etag,
-											"Content-Type": content_type,
-											"Content-Length": document_content.len(),
-											"Last-Modified": last_modified.format(crate::RFC5322).to_string(),
-										});
+									if none_match.any(|s| s == folder_etag || s == "*") {
+										return actix_web::HttpResponse::NotModified().finish();
 									}
 								}
-							}
 
-							return actix_web::HttpResponse::Ok()
-								.content_type("application/ld+json")
-								.header("ETag", folder_etag)
-								.header("Cache-Control", "no-cache")
-								.body(if should_have_body {
-									serde_json::json!({
-										"@context": "http://remotestorage.io/spec/folder-description",
-										"items": items_result,
-									})
-									.to_string()
-								} else {
-									String::new()
-								});
+								let mut items_result = serde_json::json!({});
+								for (child_name, child) in
+									content.iter().filter(|(_, e)| match &***e {
+										pontus_onyx::Item::Document {
+											etag: _,
+											content: _,
+											content_type: _,
+											last_modified: _,
+										} => true,
+										pontus_onyx::Item::Folder { etag: _, content } => {
+											!content.is_empty() // TODO : recursive if child is also empty ?
+										}
+									}) {
+									match &**child {
+										pontus_onyx::Item::Folder { etag, content: _ } => {
+											items_result[format!("{}/", child_name)] = serde_json::json!({
+												"ETag": etag,
+											});
+										}
+										pontus_onyx::Item::Document {
+											etag,
+											content: document_content,
+											content_type,
+											last_modified,
+										} => {
+											items_result[child_name] = serde_json::json!({
+												"ETag": etag,
+												"Content-Type": content_type,
+												"Content-Length": document_content.len(),
+												"Last-Modified": last_modified.format(crate::RFC5322).to_string(),
+											});
+										}
+									}
+								}
+
+								return actix_web::HttpResponse::Ok()
+									.content_type("application/ld+json")
+									.header("ETag", folder_etag)
+									.header("Cache-Control", "no-cache")
+									.body(if should_have_body {
+										serde_json::json!({
+											"@context": "http://remotestorage.io/spec/folder-description",
+											"items": items_result,
+										})
+										.to_string()
+									} else {
+										String::new()
+									});
+							}
 						} else {
 							// TODO : help user to say there is a folder with this name ?
 							return actix_web::HttpResponse::NotFound()
@@ -178,7 +191,7 @@ mod tests {
 	use actix_web::http::{header::EntityTag, Method, StatusCode};
 
 	#[actix_rt::test]
-	async fn jz8dn8zxmvnessjlke8() {
+	async fn basics() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![
 				(
@@ -258,7 +271,7 @@ mod tests {
 	}
 
 	#[actix_rt::test]
-	async fn e0b1v0mbw0l6rm() {
+	async fn if_none_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
 				"a",

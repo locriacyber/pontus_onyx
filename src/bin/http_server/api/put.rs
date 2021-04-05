@@ -182,7 +182,7 @@ mod tests {
 	use actix_web::http::{header::EntityTag, StatusCode};
 
 	#[actix_rt::test]
-	async fn k7ip00aqdgtrjdt() {
+	async fn basics() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![])).unwrap(),
 		));
@@ -246,7 +246,7 @@ mod tests {
 	}
 
 	#[actix_rt::test]
-	async fn ddj0vihc3rvc0zd() {
+	async fn if_none_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
 				"a",
@@ -335,5 +335,68 @@ mod tests {
 		}
 	}
 
-	// TODO : test If-Match here
+	#[actix_rt::test]
+	async fn if_match() {
+		let database = std::sync::Arc::new(std::sync::Mutex::new(
+			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
+				"a",
+				pontus_onyx::Item::new_folder(vec![(
+					"b",
+					pontus_onyx::Item::new_folder(vec![(
+						"c",
+						pontus_onyx::Item::Document {
+							etag: String::from("A"),
+							content: b"HELLO".to_vec(),
+							content_type: String::from("text/plain"),
+							last_modified: chrono::Utc::now(),
+						},
+					)]),
+				)]),
+			)]))
+			.unwrap(),
+		));
+
+		let mut app = actix_web::test::init_service(
+			actix_web::App::new()
+				.data(database)
+				.service(crate::http_server::api::get_item)
+				.service(super::put_item),
+		)
+		.await;
+
+		{
+			let request = actix_web::test::TestRequest::get()
+				.uri("/a/b/c")
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::OK);
+		}
+
+		{
+			let request = actix_web::test::TestRequest::put()
+				.uri("/a/b/c")
+				.set(actix_web::http::header::IfMatch::Items(vec![
+					EntityTag::new(false, String::from("ANOTHER_ETAG")),
+				]))
+				.set_json(&serde_json::json!({"value": "C"}))
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::PRECONDITION_FAILED);
+		}
+
+		{
+			let request = actix_web::test::TestRequest::put()
+				.uri("/a/b/c")
+				.set(actix_web::http::header::IfMatch::Items(vec![
+					EntityTag::new(false, String::from("A")),
+				]))
+				.set_json(&serde_json::json!({"value": "C"}))
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::OK);
+		}
+	}
 }

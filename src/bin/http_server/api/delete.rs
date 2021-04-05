@@ -9,52 +9,77 @@ pub async fn delete_item(
 	let if_match_result = if let Some(find_match) = request.headers().get("If-Match") {
 		let find_match = find_match.to_str().unwrap().trim().replace('"', "");
 
-		if let Ok(Some(pontus_onyx::Item::Document {
-			etag: document_etag,
-			content: _,
-			content_type: _,
-			last_modified: _,
-		})) = db.read(&path)
-		{
-			document_etag == find_match
-		} else {
-			true
+		match db.read(&path) {
+			Ok(Some(pontus_onyx::Item::Document {
+				etag: document_etag,
+				content: _,
+				content_type: _,
+				last_modified: _,
+			})) => Ok(document_etag == find_match),
+			Ok(Some(pontus_onyx::Item::Folder {
+				etag: _,
+				content: _,
+			})) => Err(actix_web::HttpResponse::BadRequest()
+				.content_type("application/ld+json")
+				.body(r#"{"http_code":400,"http_description":"bad request"}"#)),
+			Ok(None) => Err(actix_web::HttpResponse::NotFound()
+				.content_type("application/ld+json")
+				.body(r#"{"http_code":404,"http_description":"requested content not found"}"#)),
+			Err(_) => Err(actix_web::HttpResponse::InternalServerError()
+				.content_type("application/ld+json")
+				.body(r#"{"http_code":500,"http_description":"internal server error"}"#)),
 		}
 	} else {
-		true
+		Ok(true)
 	};
 
-	if if_match_result {
-		match db.delete(&path) {
-			Ok(etag) => {
-				return actix_web::HttpResponse::Ok()
-					.content_type("application/ld+json")
-					.header("ETag", etag)
-					.finish();
-			}
-			Err(pontus_onyx::DeleteError::WrongPath) => {
-				return actix_web::HttpResponse::BadRequest()
-					.content_type("application/ld+json")
-					.body(r#"{"http_code":400,"http_description":"bad request"}"#);
-			}
-			Err(pontus_onyx::DeleteError::FolderDocumentConflict) => {
-				return actix_web::HttpResponse::Conflict()
-					.content_type("application/ld+json")
-					.body(r#"{"http_code":409,"http_description":"conflict"}"#);
-			}
-			Err(pontus_onyx::DeleteError::NotFound) => {
-				return actix_web::HttpResponse::NotFound()
-					.content_type("application/ld+json")
-					.body(r#"{"http_code":404,"http_description":"requested content not found"}"#);
-			}
-			Err(_todo) => {
-				return actix_web::HttpResponse::InternalServerError()
-					.content_type("application/ld+json")
-					.body(r#"{"http_code":500,"http_description":"internal server error"}"#);
+	match if_match_result {
+		Ok(if_match_result) => {
+			if if_match_result {
+				match db.delete(&path) {
+					Ok(etag) => {
+						return actix_web::HttpResponse::Ok()
+							.content_type("application/ld+json")
+							.header("ETag", etag)
+							.finish();
+					}
+					Err(pontus_onyx::DeleteError::WrongPath) => {
+						return actix_web::HttpResponse::BadRequest()
+							.content_type("application/ld+json")
+							.body(r#"{"http_code":400,"http_description":"bad request"}"#);
+					}
+					Err(pontus_onyx::DeleteError::DoesNotWorksForFolders) => {
+						return actix_web::HttpResponse::BadRequest()
+							.content_type("application/ld+json")
+							.body(r#"{"http_code":400,"http_description":"bad request"}"#);
+					}
+					Err(pontus_onyx::DeleteError::FolderDocumentConflict) => {
+						return actix_web::HttpResponse::Conflict()
+							.content_type("application/ld+json")
+							.body(r#"{"http_code":409,"http_description":"conflict"}"#);
+					}
+					Err(pontus_onyx::DeleteError::NotFound) => {
+						return actix_web::HttpResponse::NotFound()
+							.content_type("application/ld+json")
+							.body(
+								r#"{"http_code":404,"http_description":"requested content not found"}"#,
+							);
+					}
+					Err(_todo) => {
+						return actix_web::HttpResponse::InternalServerError()
+							.content_type("application/ld+json")
+							.body(
+								r#"{"http_code":500,"http_description":"internal server error"}"#,
+							);
+					}
+				}
+			} else {
+				return actix_web::HttpResponse::PreconditionFailed().finish();
 			}
 		}
-	} else {
-		return actix_web::HttpResponse::PreconditionFailed().finish();
+		Err(e) => {
+			return e;
+		}
 	}
 }
 
@@ -62,7 +87,7 @@ mod tests {
 	use actix_web::http::{header::EntityTag, Method, StatusCode};
 
 	#[actix_rt::test]
-	async fn gku78q30mb1kz5u2() {
+	async fn basics() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
 				"a",
@@ -91,9 +116,21 @@ mod tests {
 		.await;
 
 		let tests = vec![
+			(
+				Method::DELETE,
+				"/should/not/exists/document",
+				StatusCode::NOT_FOUND,
+			),
+			(
+				Method::DELETE,
+				"/should/not/exists/folder/",
+				StatusCode::BAD_REQUEST,
+			),
 			(Method::GET, "/a/b/c", StatusCode::OK),
+			(Method::DELETE, "/a", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/a/", StatusCode::BAD_REQUEST),
 			(Method::DELETE, "/a/b", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/a/b/", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/a/b/", StatusCode::BAD_REQUEST),
 			(Method::DELETE, "/a/b/c", StatusCode::OK),
 			(Method::GET, "/a/b/c", StatusCode::NOT_FOUND),
 			(Method::DELETE, "/a/b/c", StatusCode::NOT_FOUND),
@@ -116,7 +153,7 @@ mod tests {
 	}
 
 	#[actix_rt::test]
-	async fn t3xtajyz004juvx8nc() {
+	async fn if_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
 				"a",
@@ -153,23 +190,11 @@ mod tests {
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(Method::GET, "/a/b/c", vec![], StatusCode::OK),
-			(
-				Method::DELETE,
-				"/a/b/c",
-				vec![
-					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
-					EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
-				],
-				StatusCode::PRECONDITION_FAILED,
-			),
 			(Method::GET, "/a/b/c", vec![], StatusCode::OK),
 			(
 				Method::DELETE,
 				"/a/b/c",
-				vec![
-					EntityTag::new(false, String::from("A")),
-					EntityTag::new(false, String::from("ANOTHER_ETAG")),
-				],
+				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::OK,
 			),
 			(Method::GET, "/a/b/c", vec![], StatusCode::NOT_FOUND),
@@ -177,6 +202,12 @@ mod tests {
 				Method::DELETE,
 				"/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
+				StatusCode::NOT_FOUND,
+			),
+			(
+				Method::DELETE,
+				"/a/b/c",
+				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::NOT_FOUND,
 			),
 		];
