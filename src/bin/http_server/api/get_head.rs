@@ -68,9 +68,10 @@ mod utils {
 											content_type: _,
 											last_modified: _,
 										} => true,
-										pontus_onyx::Item::Folder { etag: _, content } => {
-											!content.is_empty() // TODO : recursive if child is also empty ?
-										}
+										pontus_onyx::Item::Folder {
+											etag: _,
+											content: _,
+										} => !e.is_empty(),
 									}) {
 									match &**child {
 										pontus_onyx::Item::Folder { etag, content: _ } => {
@@ -173,12 +174,11 @@ mod utils {
 						""
 					});
 			}
-			Err(err) => {
-				println!("ERROR : {:?} : {:?}", path, err); // TODO
-				return actix_web::HttpResponse::InternalServerError()
+			Err(pontus_onyx::ReadError::FolderDocumentConflict) => {
+				return actix_web::HttpResponse::Conflict()
 					.content_type("application/ld+json")
 					.body(if should_have_body {
-						r#"{"http_code":500,"http_description":"internal server error"}"#
+						r#"{"http_code":409,"http_description":"conflict"}"#
 					} else {
 						""
 					});

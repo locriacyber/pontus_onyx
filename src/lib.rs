@@ -43,6 +43,12 @@ impl Item {
 			} => etag.clone(),
 		};
 	}
+	pub fn is_empty(&self) -> bool {
+		return match self {
+			Self::Document{ etag: _, content: _, content_type: _, last_modified: _ } => false,
+			Self::Folder{ etag: _, content } => content.iter().all(|(_, item)| item.is_empty()),
+		};
+	}
 }
 
 /*

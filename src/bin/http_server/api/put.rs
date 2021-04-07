@@ -1,21 +1,5 @@
 /*
 TODO :
-	A request is considered successful if the HTTP response code is in
-	the 2xx range (e.g. 200 OK, 201 Created), and unsuccessful if an
-	error occurred or a condition was not met, e.g. response code 404
-	Not Found, 304 Not Modified.
-*/
-/*
-TODO :
-	PUT and DELETE requests only need to be made to documents, and never
-	to folders. A document PUT will make all ancestor folders along its
-	path become non-empty; deleting the last document from a subtree
-	will make that whole subtree become empty. Folders will therefore
-	show up in their parent folder descriptions if and only if their
-	subtree contains at least one document.
-*/
-/*
-TODO :
 	Unless [KERBEROS] is used (see section 10 below), all other
 	requests SHOULD present a bearer token with sufficient access scope,
 	using a header of the following form (no double quotes here):
@@ -113,30 +97,64 @@ pub async fn put_item(
 					.body(format!(
 						r#"{{"http_code":200,"http_description":"success","ETag":"{}"}}"#,
 						new_etag
-					)))
+					)));
 			}
 			Err(pontus_onyx::UpdateError::WrongPath) => {
 				return Ok(actix_web::HttpResponse::BadRequest()
 					.content_type("application/ld+json")
-					.body(r#"{"http_code":400,"http_description":"bad request"}"#))
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#));
 			}
 			Err(pontus_onyx::UpdateError::FolderDocumentConflict) => {
 				return Ok(actix_web::HttpResponse::Conflict()
 					.content_type("application/ld+json")
-					.body(r#"{"http_code":409,"http_description":"conflict"}"#))
+					.body(r#"{"http_code":409,"http_description":"conflict"}"#));
 			}
 			Err(pontus_onyx::UpdateError::NotFound) => {
 				return Ok(actix_web::HttpResponse::NotFound()
 					.content_type("application/ld+json")
-					.body(r#"{"http_code":404,"http_description":"requested content not found"}"#))
+					.body(
+						r#"{"http_code":404,"http_description":"requested content not found"}"#,
+					));
 			}
-			Err(_todo) => {
+			Err(pontus_onyx::UpdateError::NotModified) => {
+				return Ok(actix_web::HttpResponse::NotModified()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":304,"http_description":"content not modified"}"#));
+			}
+			Err(pontus_onyx::UpdateError::DoesNotWorksForFolders) => {
+				return Ok(actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#));
+			}
+			Err(pontus_onyx::UpdateError::InternalError) => {
 				return Ok(actix_web::HttpResponse::InternalServerError()
 					.content_type("application/ld+json")
-					.body(r#"{"http_code":500,"http_description":"internal server error"}"#))
+					.body(r#"{"http_code":500,"http_description":"internal server error"}"#));
+			}
+			Err(pontus_onyx::UpdateError::UpdateFoldersEtagsError(
+				pontus_onyx::UpdateFoldersEtagsError::FolderDocumentConflict,
+			)) => {
+				return Ok(actix_web::HttpResponse::Conflict()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":409,"http_description":"conflict"}"#));
+			}
+			Err(pontus_onyx::UpdateError::UpdateFoldersEtagsError(
+				pontus_onyx::UpdateFoldersEtagsError::MissingFolder,
+			)) => {
+				return Ok(actix_web::HttpResponse::InternalServerError()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":500,"http_description":"internal server error"}"#));
+			}
+			Err(pontus_onyx::UpdateError::UpdateFoldersEtagsError(
+				pontus_onyx::UpdateFoldersEtagsError::WrongFolderName,
+			)) => {
+				return Ok(actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#));
 			}
 		}
 	} else {
+		// TODO : create a factory for this JSON error responses
 		match db.create(&path, &body, actix_web::HttpMessage::content_type(&request)) {
 			Ok(new_etag) => {
 				return Ok(actix_web::HttpResponse::Created()
@@ -169,10 +187,55 @@ pub async fn put_item(
 						r#"{"http_code":404,"http_description":"requested content not found"}"#,
 					));
 			}
-			Err(_todo) => {
+			Err(pontus_onyx::CreateError::InternalError) => {
 				return Ok(actix_web::HttpResponse::InternalServerError()
 					.content_type("application/ld+json")
 					.body(r#"{"http_code":500,"http_description":"internal server error"}"#));
+			}
+			Err(pontus_onyx::CreateError::DoesNotWorksForFolders) => {
+				return Ok(actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#));
+			}
+			Err(pontus_onyx::CreateError::ShouldBeFolder) => {
+				return Ok(actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#));
+			}
+			Err(pontus_onyx::CreateError::FolderBuildError(
+				pontus_onyx::FolderBuildError::FolderDocumentConflict,
+			)) => {
+				return Ok(actix_web::HttpResponse::Conflict()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":409,"http_description":"conflict"}"#));
+			}
+			Err(pontus_onyx::CreateError::FolderBuildError(
+				pontus_onyx::FolderBuildError::WrongFolderName,
+			)) => {
+				return Ok(actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#));
+			}
+			Err(pontus_onyx::CreateError::UpdateFoldersEtagsError(
+				pontus_onyx::UpdateFoldersEtagsError::FolderDocumentConflict,
+			)) => {
+				return Ok(actix_web::HttpResponse::Conflict()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":409,"http_description":"conflict"}"#));
+			}
+			Err(pontus_onyx::CreateError::UpdateFoldersEtagsError(
+				pontus_onyx::UpdateFoldersEtagsError::MissingFolder,
+			)) => {
+				return Ok(actix_web::HttpResponse::InternalServerError()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":500,"http_description":"internal server error"}"#));
+			}
+			Err(pontus_onyx::CreateError::UpdateFoldersEtagsError(
+				pontus_onyx::UpdateFoldersEtagsError::WrongFolderName,
+			)) => {
+				return Ok(actix_web::HttpResponse::BadRequest()
+					.content_type("application/ld+json")
+					.body(r#"{"http_code":400,"http_description":"bad request"}"#));
 			}
 		}
 	}
@@ -243,6 +306,17 @@ mod tests {
 
 			assert_eq!(response.status(), StatusCode::OK);
 		}
+
+		{
+			let request = actix_web::test::TestRequest::put()
+				.uri("/a/b/c")
+				.set(actix_web::http::header::ContentType::plaintext())
+				.set_payload(b"SOMEONE HERE ?".to_vec())
+				.to_request();
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+		}
 	}
 
 	#[actix_rt::test]
@@ -252,15 +326,26 @@ mod tests {
 				"a",
 				pontus_onyx::Item::new_folder(vec![(
 					"b",
-					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: String::from("A"),
-							content: b"HELLO".to_vec(),
-							content_type: String::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
-					)]),
+					pontus_onyx::Item::new_folder(vec![
+						(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: String::from("A"),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						),
+						(
+							"d",
+							pontus_onyx::Item::Document {
+								etag: String::from("A"),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						),
+					]),
 				)]),
 			)]))
 			.unwrap(),
@@ -268,7 +353,7 @@ mod tests {
 
 		let mut app = actix_web::test::init_service(
 			actix_web::App::new()
-				.data(database)
+				.data(database.clone())
 				.service(super::put_item),
 		)
 		.await;
@@ -298,7 +383,7 @@ mod tests {
 				StatusCode::OK,
 			),
 			(
-				"/a/b/c",
+				"/a/b/d",
 				vec![
 					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
 					EntityTag::new(false, String::from("ANOTHER_ETAG_2")),

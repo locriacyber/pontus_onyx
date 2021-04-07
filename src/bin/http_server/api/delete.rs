@@ -65,12 +65,40 @@ pub async fn delete_item(
 								r#"{"http_code":404,"http_description":"requested content not found"}"#,
 							);
 					}
-					Err(_todo) => {
+					Err(pontus_onyx::DeleteError::UpdateFoldersEtagsError(
+						pontus_onyx::UpdateFoldersEtagsError::FolderDocumentConflict,
+					)) => {
+						return actix_web::HttpResponse::Conflict()
+							.content_type("application/ld+json")
+							.body(r#"{"http_code":409,"http_description":"conflict"}"#);
+					}
+					Err(pontus_onyx::DeleteError::UpdateFoldersEtagsError(
+						pontus_onyx::UpdateFoldersEtagsError::MissingFolder,
+					)) => {
 						return actix_web::HttpResponse::InternalServerError()
 							.content_type("application/ld+json")
 							.body(
 								r#"{"http_code":500,"http_description":"internal server error"}"#,
 							);
+					}
+					Err(pontus_onyx::DeleteError::UpdateFoldersEtagsError(
+						pontus_onyx::UpdateFoldersEtagsError::WrongFolderName,
+					)) => {
+						return actix_web::HttpResponse::BadRequest()
+							.content_type("application/ld+json")
+							.body(r#"{"http_code":400,"http_description":"bad request"}"#);
+					}
+					Err(pontus_onyx::DeleteError::ReadError(
+						pontus_onyx::ReadError::FolderDocumentConflict,
+					)) => {
+						return actix_web::HttpResponse::Conflict()
+							.content_type("application/ld+json")
+							.body(r#"{"http_code":409,"http_description":"conflict"}"#);
+					}
+					Err(pontus_onyx::DeleteError::ReadError(pontus_onyx::ReadError::WrongPath)) => {
+						return actix_web::HttpResponse::BadRequest()
+							.content_type("application/ld+json")
+							.body(r#"{"http_code":400,"http_description":"bad request"}"#);
 					}
 				}
 			} else {

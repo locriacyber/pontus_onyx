@@ -23,22 +23,26 @@ impl super::Database {
 								last_modified: old_last_modified,
 							} = e
 							{
-								*old_etag = new_etag.clone();
-								*old_content = new_content;
-								*old_content_type = new_content_type;
-								*old_last_modified = chrono::Utc::now();
+								if *old_content != new_content {
+									*old_etag = new_etag.clone();
+									*old_content = new_content;
+									*old_content_type = new_content_type;
+									*old_last_modified = chrono::Utc::now();
 
-								// TODO : check if not modified
+									// TODO : check if not modified
 
-								match Self::update_folders_etags(
-									&mut self.content,
-									&mut paths.iter().cloned().take(paths.len()),
-								) {
-									Ok(()) => Ok(new_etag),
-									Err(e) => Err(UpdateError::UpdateFoldersEtagsError(e)),
+									match Self::update_folders_etags(
+										&mut self.content,
+										&mut paths.iter().cloned().take(paths.len()),
+									) {
+										Ok(()) => Ok(new_etag),
+										Err(e) => Err(UpdateError::UpdateFoldersEtagsError(e)),
+									}
+								} else {
+									Err(UpdateError::NotModified)
 								}
 							} else {
-								Err(UpdateError::NotFound)
+								Err(UpdateError::FolderDocumentConflict)
 							}
 						}
 						Ok(None) => Err(UpdateError::NotFound),
@@ -65,5 +69,6 @@ pub enum UpdateError {
 	DoesNotWorksForFolders,
 	NotFound,
 	InternalError,
+	NotModified,
 	UpdateFoldersEtagsError(crate::database::UpdateFoldersEtagsError),
 }
