@@ -8,11 +8,6 @@ mod http_server;
 pub static RFC5322: &str = "%a, %d %b %Y %H:%M:%S %Z";
 
 /*
-TODO :
-	actix services tests
-*/
-
-/*
 TODO : continue to :
 	https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-16
 		"12. Example wire transcripts"

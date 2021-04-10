@@ -58,9 +58,12 @@ where
 					Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
-							actix_web::HttpResponse::Unauthorized()
-								.content_type("application/ld+json")
-								.body(r#"{"http_code":401,"http_description":"unauthorized"}"#),
+							super::super::api::build_response(
+								actix_web::http::StatusCode::UNAUTHORIZED,
+								None,
+								None,
+								true,
+							),
 						))
 					})
 				}
@@ -83,9 +86,12 @@ where
 					Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
-							actix_web::HttpResponse::Unauthorized()
-								.content_type("application/ld+json")
-								.body(r#"{"http_code":401,"http_description":"unauthorized"}"#),
+							super::super::api::build_response(
+								actix_web::http::StatusCode::UNAUTHORIZED,
+								None,
+								None,
+								true,
+							),
 						))
 					})
 				}

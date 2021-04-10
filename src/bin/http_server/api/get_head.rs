@@ -36,15 +36,12 @@ mod utils {
 					} => {
 						if should_be_folder {
 							if path.starts_with("public") {
-								return actix_web::HttpResponse::NotFound()
-									.content_type("application/ld+json")
-									.header("Cache-Control", "no-cache")
-									.body(if should_have_body {
-										// TODO : add an hint for user ?
-										r#"{"http_code":404,"http_description":"requested content not found"}"#
-									} else {
-										""
-									});
+								return super::super::build_response(
+									actix_web::http::StatusCode::NOT_FOUND,
+									None,
+									None,
+									should_have_body,
+								);
 							} else {
 								// TODO : weak headers ?
 								if let Some(none_match) = request.headers().get("If-None-Match") {
@@ -55,7 +52,12 @@ mod utils {
 										.map(|s| s.trim().replace('"', ""));
 
 									if none_match.any(|s| s == folder_etag || s == "*") {
-										return actix_web::HttpResponse::NotModified().finish();
+										return super::super::build_response(
+											actix_web::http::StatusCode::NOT_MODIFIED,
+											None,
+											None,
+											should_have_body,
+										);
 									}
 								}
 
@@ -110,14 +112,12 @@ mod utils {
 									});
 							}
 						} else {
-							// TODO : help user to say there is a folder with this name ?
-							return actix_web::HttpResponse::NotFound()
-								.content_type("application/ld+json")
-								.body(if should_have_body {
-									r#"{"http_code":404,"http_description":"requested content not found"}"#
-								} else {
-									""
-								});
+							return super::super::build_response(
+								actix_web::http::StatusCode::NOT_FOUND,
+								None,
+								Some("a folder exists with this name"),
+								should_have_body,
+							);
 						}
 					}
 					pontus_onyx::Item::Document {
@@ -135,7 +135,12 @@ mod utils {
 									.map(|s| s.trim().replace('"', ""));
 
 								if none_match.any(|s| s == document_etag || s == "*") {
-									return actix_web::HttpResponse::NotModified().finish();
+									return super::super::build_response(
+										actix_web::http::StatusCode::NOT_MODIFIED,
+										None,
+										None,
+										should_have_body,
+									);
 								}
 							}
 
@@ -145,43 +150,39 @@ mod utils {
 								.content_type(content_type)
 								.body(if should_have_body { content } else { vec![] });
 						} else {
-							return actix_web::HttpResponse::NotFound()
-								.content_type("application/ld+json")
-								.body(if should_have_body {
-									r#"{"http_code":404,"http_description":"requested content not found"}"#
-								} else {
-									""
-								});
+							return super::super::build_response(
+								actix_web::http::StatusCode::NOT_FOUND,
+								None,
+								None,
+								should_have_body,
+							);
 						}
 					}
 				}
 			}
 			Ok(None) => {
-				return actix_web::HttpResponse::NotFound()
-					.content_type("application/ld+json")
-					.body(if should_have_body {
-						r#"{"http_code":404,"http_description":"requested content not found"}"#
-					} else {
-						""
-					});
+				return super::super::build_response(
+					actix_web::http::StatusCode::NOT_FOUND,
+					None,
+					None,
+					should_have_body,
+				);
 			}
 			Err(pontus_onyx::ReadError::WrongPath) => {
-				return actix_web::HttpResponse::BadRequest()
-					.content_type("application/ld+json")
-					.body(if should_have_body {
-						r#"{"http_code":400,"http_description":"bad request"}"#
-					} else {
-						""
-					});
+				return super::super::build_response(
+					actix_web::http::StatusCode::BAD_REQUEST,
+					None,
+					None,
+					should_have_body,
+				);
 			}
 			Err(pontus_onyx::ReadError::FolderDocumentConflict) => {
-				return actix_web::HttpResponse::Conflict()
-					.content_type("application/ld+json")
-					.body(if should_have_body {
-						r#"{"http_code":409,"http_description":"conflict"}"#
-					} else {
-						""
-					});
+				return super::super::build_response(
+					actix_web::http::StatusCode::CONFLICT,
+					None,
+					None,
+					should_have_body,
+				);
 			}
 		};
 	}
