@@ -18,6 +18,13 @@ pub fn build_response(
 	let mut response = actix_web::HttpResponse::build(code);
 	response.content_type("application/ld+json");
 	response.header("Cache-Control", "no-cache");
+	response.header("Access-Control-Allow-Origin", "*");
+
+	let mut expose_headers = String::from("Content-Length, Content-Type");
+	if etag.is_some() {
+		expose_headers += ", ETag";
+	}
+	response.header("Access-Control-Expose-Headers", expose_headers);
 
 	if let Some(etag) = &etag {
 		response.header("ETag", etag.clone());

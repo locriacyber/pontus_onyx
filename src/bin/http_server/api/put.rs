@@ -5,7 +5,7 @@ TODO :
 	using a header of the following form (no double quotes here):
 		Authorization: Bearer <access_token>
 */
-#[actix_web::put("/{requested_item:.*}")]
+#[actix_web::put("/storage/{requested_item:.*}")]
 pub async fn put_item(
 	mut request_payload: actix_web::web::Payload,
 	request: actix_web::web::HttpRequest,
@@ -50,7 +50,7 @@ pub async fn put_item(
 			if none_match.any(|s| &s == document_etag || s == "*") {
 				return Ok(super::build_response(
 					actix_web::http::StatusCode::PRECONDITION_FAILED,
-					None,
+					Some(document_etag.clone()),
 					None,
 					true,
 				));
@@ -308,6 +308,7 @@ pub async fn put_item(
 	}
 }
 
+#[cfg(test)]
 mod tests {
 	use actix_web::http::{header::EntityTag, StatusCode};
 
@@ -327,7 +328,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::get()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -336,7 +337,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.set(actix_web::http::header::ContentType::plaintext())
 				.set_payload(b"EVERYONE".to_vec())
 				.to_request();
@@ -347,7 +348,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::get()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -356,7 +357,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.set(actix_web::http::header::ContentType::plaintext())
 				.set_payload(b"SOMEONE HERE ?".to_vec())
 				.to_request();
@@ -367,7 +368,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::get()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -376,7 +377,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.set(actix_web::http::header::ContentType::plaintext())
 				.set_payload(b"SOMEONE HERE ?".to_vec())
 				.to_request();
@@ -427,12 +428,12 @@ mod tests {
 
 		let tests = vec![
 			(
-				"/a/b/c",
+				"/storage/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
-				"/a/b/c",
+				"/storage/a/b/c",
 				vec![
 					EntityTag::new(false, String::from("A")),
 					EntityTag::new(false, String::from("B")),
@@ -440,17 +441,17 @@ mod tests {
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
-				"/a/b/c",
+				"/storage/a/b/c",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
-				"/a/b/c",
+				"/storage/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::OK,
 			),
 			(
-				"/a/b/d",
+				"/storage/a/b/d",
 				vec![
 					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
 					EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
@@ -458,12 +459,12 @@ mod tests {
 				StatusCode::OK,
 			),
 			(
-				"/new/a",
+				"/storage/new/a",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::CREATED,
 			),
 			(
-				"/new/a",
+				"/storage/new/a",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
@@ -518,7 +519,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::get()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -527,7 +528,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.set(actix_web::http::header::IfMatch::Items(vec![
 					EntityTag::new(false, String::from("ANOTHER_ETAG")),
 				]))
@@ -540,7 +541,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.set(actix_web::http::header::IfMatch::Items(vec![
 					EntityTag::new(false, String::from("A")),
 				]))

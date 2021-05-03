@@ -1,3 +1,6 @@
+use rand::seq::IteratorRandom;
+use rand::Rng;
+
 pub struct Auth;
 
 impl<S> actix_web::dev::Transform<S> for Auth
@@ -50,12 +53,29 @@ where
 	fn call(&mut self, service_request: Self::Request) -> Self::Future {
 		match service_request.head().headers().get("Authorization") {
 			Some(auth_value) => {
-				// TODO : check value of the <Authorization> header
-				if auth_value == "Bearer TODO" {
-					let future = self.service.call(service_request);
-					Box::pin(async move { future.await })
-				} else {
-					Box::pin(async move {
+				let search_token = auth_value
+					.to_str()
+					.unwrap()
+					.strip_prefix("Bearer ")
+					.unwrap()
+					.trim();
+				let tokens = service_request
+					.app_data::<actix_web::web::Data<
+						std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>>,
+					>>()
+					.unwrap()
+					.lock()
+					.unwrap()
+					.clone();
+
+				match tokens.iter().find(|e| e.name() == search_token) {
+					Some(token) => {
+						// TODO : check token validity
+						// TODO : check token scopes
+						let future = self.service.call(service_request);
+						Box::pin(async move { future.await })
+					}
+					None => Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
 							super::super::api::build_response(
@@ -65,11 +85,11 @@ where
 								true,
 							),
 						))
-					})
+					}),
 				}
 			}
 			None => {
-				if service_request.path().starts_with("/public/")
+				if service_request.path().starts_with("/storage/public/")
 					&& service_request
 						.path()
 						.split('/')
@@ -80,6 +100,27 @@ where
 						|| service_request.method() == actix_web::http::Method::HEAD
 						|| service_request.method() == actix_web::http::Method::OPTIONS)
 				{
+					let future = self.service.call(service_request);
+					Box::pin(async move { future.await })
+				} else if service_request.path().starts_with("/.well-known/webfinger")
+					&& (service_request.method() == actix_web::http::Method::GET
+						|| service_request.method() == actix_web::http::Method::HEAD
+						|| service_request.method() == actix_web::http::Method::OPTIONS)
+				{
+					let future = self.service.call(service_request);
+					Box::pin(async move { future.await })
+				} else if service_request.path().starts_with("/oauth")
+					&& (service_request.method() == actix_web::http::Method::GET
+						|| service_request.method() == actix_web::http::Method::POST)
+				{
+					let future = self.service.call(service_request);
+					Box::pin(async move { future.await })
+				} else if service_request.path() == "/favicon.ico"
+					&& service_request.method() == actix_web::http::Method::GET
+				{
+					let future = self.service.call(service_request);
+					Box::pin(async move { future.await })
+				} else if service_request.method() == actix_web::http::Method::OPTIONS {
 					let future = self.service.call(service_request);
 					Box::pin(async move { future.await })
 				} else {
@@ -100,25 +141,81 @@ where
 	}
 }
 
+#[derive(Clone, Debug)]
+pub struct OauthFormToken {
+	ip: std::net::SocketAddr,
+	forged: std::time::Instant,
+	value: String,
+}
+impl OauthFormToken {
+	pub fn new(ip: std::net::SocketAddr) -> Self {
+		let forged = std::time::Instant::now();
+		let mut value = String::new();
+
+		let mut rng_limit = rand::thread_rng();
+		for _ in 1..rng_limit.gen_range(32, 64) {
+			let mut rng_item = rand::thread_rng();
+			value.push(
+				crate::FORM_TOKEN_ALPHABET
+					.chars()
+					.choose(&mut rng_item)
+					.unwrap(),
+			);
+		}
+
+		Self { ip, forged, value }
+	}
+}
+impl OauthFormToken {
+	pub fn ip(&self) -> std::net::SocketAddr {
+		return self.ip;
+	}
+	pub fn forged(&self) -> std::time::Instant {
+		return self.forged;
+	}
+	pub fn value(&self) -> String {
+		return self.value.clone();
+	}
+	pub fn has_expirated(&self) -> bool {
+		(std::time::Instant::now() - self.forged) == std::time::Duration::from_secs(5 * 60)
+	}
+	pub fn should_be_cleaned(&self, ip: &std::net::SocketAddr) -> bool {
+		if self.has_expirated() {
+			return true;
+		}
+
+		if &self.ip == ip {
+			return true;
+		}
+
+		return false;
+	}
+}
+
 #[actix_rt::test]
 async fn hsv5femo2qgu80gbad0ov5() {
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
 			.wrap(super::Auth {})
+			.service(crate::http_server::favicon)
 			.service(crate::http_server::api::get_item)
-			.service(crate::http_server::webfinger_handle),
+			.service(crate::http_server::webfinger_handle)
+			.service(crate::http_server::get_oauth)
+			.service(crate::http_server::post_oauth),
 	)
 	.await;
 
 	let tests: Vec<(&str, bool)> = vec![
-		("/", true),
-		("/folder/", true),
-		("/document", true),
-		("/webfinger", true),
-		("/folder/document", true),
-		("/public/folder/", true),
-		("/public/document", false),
-		("/public/folder/document", false),
+		("/storage/", true),
+		("/storage/folder/", true),
+		("/storage/document", true),
+		("/storage/folder/document", true),
+		("/storage/public/folder/", true),
+		("/.well-known/webfinger", false),
+		("/storage/public/document", false),
+		("/storage/public/folder/document", false),
+		("/oauth", false),
+		("/favicon.ico", false),
 	];
 
 	for test in tests {

@@ -1,4 +1,4 @@
-#[actix_web::get("/{requested_item:.*}")]
+#[actix_web::get("/storage/{requested_item:.*}")]
 pub async fn get_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::web::HttpRequest,
@@ -7,7 +7,7 @@ pub async fn get_item(
 	return utils::get(path, request, database, true);
 }
 
-#[actix_web::head("/{requested_item:.*}")]
+#[actix_web::head("/storage/{requested_item:.*}")]
 pub async fn head_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::web::HttpRequest,
@@ -101,6 +101,7 @@ mod utils {
 									.content_type("application/ld+json")
 									.header("ETag", folder_etag)
 									.header("Cache-Control", "no-cache")
+									.header("Access-Control-Allow-Origin", "*")
 									.body(if should_have_body {
 										serde_json::json!({
 											"@context": "http://remotestorage.io/spec/folder-description",
@@ -147,6 +148,7 @@ mod utils {
 							return actix_web::HttpResponse::Ok()
 								.header("ETag", document_etag)
 								.header("Cache-Control", "no-cache")
+								.header("Access-Control-Allow-Origin", "*")
 								.content_type(content_type)
 								.body(if should_have_body { content } else { vec![] });
 						} else {
@@ -188,6 +190,7 @@ mod utils {
 	}
 }
 
+#[cfg(test)]
 mod tests {
 	use actix_web::http::{header::EntityTag, Method, StatusCode};
 
@@ -240,22 +243,30 @@ mod tests {
 		.await;
 
 		let tests = vec![
-			(Method::GET, "/not/exists/document", StatusCode::NOT_FOUND),
-			(Method::GET, "/not/exists/folder/", StatusCode::NOT_FOUND),
-			(Method::GET, "/a", StatusCode::NOT_FOUND),
-			(Method::GET, "/a/b", StatusCode::NOT_FOUND),
-			(Method::GET, "/a/b/c/", StatusCode::NOT_FOUND),
-			(Method::GET, "/a/", StatusCode::OK),
-			(Method::GET, "/a/b/", StatusCode::OK),
-			(Method::GET, "/a/b/c", StatusCode::OK),
-			(Method::GET, "/public", StatusCode::NOT_FOUND),
-			(Method::GET, "/public/", StatusCode::NOT_FOUND),
-			(Method::GET, "/public/0", StatusCode::NOT_FOUND),
-			(Method::GET, "/public/0/1", StatusCode::NOT_FOUND),
-			(Method::GET, "/public/0/1/2", StatusCode::OK),
-			(Method::GET, "/public/0/", StatusCode::NOT_FOUND),
-			(Method::GET, "/public/0/1/", StatusCode::NOT_FOUND),
-			(Method::GET, "/public/0/1/2/", StatusCode::NOT_FOUND),
+			(
+				Method::GET,
+				"/storage/not/exists/document",
+				StatusCode::NOT_FOUND,
+			),
+			(
+				Method::GET,
+				"/storage/not/exists/folder/",
+				StatusCode::NOT_FOUND,
+			),
+			(Method::GET, "/storage/a", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/a/b", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/a/b/c/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/a/", StatusCode::OK),
+			(Method::GET, "/storage/a/b/", StatusCode::OK),
+			(Method::GET, "/storage/a/b/c", StatusCode::OK),
+			(Method::GET, "/storage/public", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/public/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/public/0", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/public/0/1", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/public/0/1/2", StatusCode::OK),
+			(Method::GET, "/storage/public/0/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/public/0/1/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/public/0/1/2/", StatusCode::NOT_FOUND),
 		];
 
 		for test in tests {
@@ -329,10 +340,13 @@ mod tests {
 		];
 
 		for test in tests {
-			print!("GET request to /a/b/c with If-None-Match = {:?} : ", test.0);
+			print!(
+				"GET request to /storage/a/b/c with If-None-Match = {:?} : ",
+				test.0
+			);
 
 			let request = actix_web::test::TestRequest::get()
-				.uri("/a/b/c")
+				.uri("/storage/a/b/c")
 				.set(actix_web::http::header::IfNoneMatch::Items(test.0))
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;

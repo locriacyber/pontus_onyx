@@ -1,0 +1,179 @@
+use rand::seq::IteratorRandom;
+use rand::Rng;
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Scope {
+	pub right_type: ScopeRightType,
+	pub module: String,
+}
+impl std::convert::TryFrom<&str> for Scope {
+	type Error = ScopeParsingError;
+
+	fn try_from(input: &str) -> Result<Self, Self::Error> {
+		let mut temp = input.split(':');
+
+		let module = temp.next();
+		let right = temp.next();
+		let remaining = temp.next();
+
+		match remaining {
+			None => {
+				if module.is_some() && right.is_some() {
+					let module = module.unwrap().trim();
+					let right = right.unwrap().trim();
+
+					if module == "public" {
+						return Err(ScopeParsingError::IncorrectModule(String::from(module)));
+					}
+
+					let regex = regex::Regex::new("^[a-z0-9]+$").unwrap();
+					if module != "*" && regex.is_match(module) || module == "*" {
+						let right_type = ScopeRightType::try_from(right)?;
+						let module = String::from(module);
+
+						return Ok(Self { right_type, module });
+					} else {
+						return Err(ScopeParsingError::IncorrectModule(String::from(module)));
+					}
+				} else {
+					return Err(ScopeParsingError::IncorrectFormat(String::from(input)));
+				}
+			}
+			Some(_) => {
+				return Err(ScopeParsingError::IncorrectFormat(String::from(input)));
+			}
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct AccessBearer {
+	name: String,
+	scopes: Vec<Scope>,
+	client_id: String,
+	username: String,
+	emit_time: std::time::Instant,
+}
+impl AccessBearer {
+	pub fn new(scopes: Vec<Scope>, client_id: &str, username: &str) -> Self {
+		let mut name = String::new();
+
+		let mut rng_limit = rand::thread_rng();
+		for _ in 1..rng_limit.gen_range(128, 256) {
+			let mut rng_item = rand::thread_rng();
+			name.push(
+				crate::ACCESS_TOKEN_ALPHABET
+					.chars()
+					.choose(&mut rng_item)
+					.unwrap(),
+			);
+		}
+		name.push('=');
+
+		Self {
+			name,
+			scopes,
+			client_id: String::from(client_id),
+			username: String::from(username),
+			emit_time: std::time::Instant::now(),
+		}
+	}
+}
+impl AccessBearer {
+	pub fn name(&self) -> &str {
+		&self.name
+	}
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ScopeRightType {
+	Read,
+	ReadWrite,
+}
+impl std::convert::TryFrom<&str> for ScopeRightType {
+	type Error = ScopeParsingError;
+
+	fn try_from(input: &str) -> Result<Self, Self::Error> {
+		let input = input.trim();
+
+		if input == "rw" {
+			Ok(Self::ReadWrite)
+		} else if input == "r" {
+			Ok(Self::Read)
+		} else {
+			Err(ScopeParsingError::IncorrectRight(String::from(input)))
+		}
+	}
+}
+impl std::fmt::Display for ScopeRightType {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+		f.write_str(match &self {
+			Self::Read => "read only",
+			Self::ReadWrite => "read and write",
+		})
+	}
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ScopeParsingError {
+	IncorrectFormat(String),
+	IncorrectModule(String),
+	IncorrectRight(String),
+}
+
+#[cfg(test)]
+mod tests {
+	use std::convert::TryFrom;
+
+	#[test]
+	fn c0ok0eil7m3() {
+		assert_eq!(
+			super::Scope::try_from("*:rw"),
+			Ok(super::Scope {
+				right_type: super::ScopeRightType::ReadWrite,
+				module: String::from("*")
+			})
+		);
+	}
+
+	#[test]
+	fn kn76nin3ppdf25t3p7zao() {
+		assert_eq!(
+			super::Scope::try_from("random:r"),
+			Ok(super::Scope {
+				right_type: super::ScopeRightType::Read,
+				module: String::from("random")
+			})
+		);
+	}
+
+	#[test]
+	fn sllj3xshcq266faixwpa() {
+		assert_eq!(
+			super::Scope::try_from("public:rw"),
+			Err(super::ScopeParsingError::IncorrectModule(String::from(
+				"public"
+			)))
+		);
+	}
+
+	#[test]
+	fn mt1ns651q04kfc() {
+		assert_eq!(
+			super::Scope::try_from("wrong_char:rw"),
+			Err(super::ScopeParsingError::IncorrectModule(String::from(
+				"wrong_char"
+			)))
+		);
+	}
+
+	#[test]
+	fn jrx3s6biaha6ztxvollgn() {
+		assert_eq!(
+			super::Scope::try_from("random:wrong_right"),
+			Err(super::ScopeParsingError::IncorrectRight(String::from(
+				"wrong_right"
+			)))
+		);
+	}
+}

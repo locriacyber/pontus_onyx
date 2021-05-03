@@ -1,15 +1,54 @@
 #[actix_web::get("/.well-known/webfinger")]
 pub async fn webfinger_handle(
-	_query: actix_web::web::Query<WebfingerQuery>,
+	request: actix_web::web::HttpRequest,
+	query: actix_web::web::Query<WebfingerQuery>,
 ) -> actix_web::web::HttpResponse {
-	actix_web::HttpResponse::Ok()
-		.content_type("application/ld+json")
-		.body(
-			format!(r#"{{"href":"/","rel":"http://tools.ietf.org/id/draft-dejong-remotestorage","properties":{{"http://remotestorage.io/spec/version":"{}","http://tools.ietf.org/html/rfc6749#section-4.2":{}}}}}"#,
-				"draft-dejong-remotestorage-16",
-				"TODO"
-			)
-		)
+	let default_body = format!(
+		r#"{{"href":"/","rel":"http://tools.ietf.org/id/draft-dejong-remotestorage","properties":{{"http://remotestorage.io/spec/version":"{}","http://tools.ietf.org/html/rfc6749#section-4.2":"{}"}}}}"#,
+		"draft-dejong-remotestorage-16", "TODO"
+	);
+
+	let _host = request.headers().get("host");
+
+	match &query.resource {
+		Some(resource) if resource.starts_with("acct:") => {
+			let resource = resource.strip_prefix("acct:").unwrap();
+			let items = resource.split('@').collect::<Vec<&str>>();
+			if items.len() == 2 {
+				let user = items.get(0).unwrap();
+				let _domain = items.get(1).unwrap();
+				// todo : check if user exists ?
+				// todo : check domain & host header ?
+				// todo : change http://localhost:7541/ to real server address !
+				actix_web::HttpResponse::Ok()
+					.header("Access-Control-Allow-Origin", "*")
+					.content_type("application/ld+json")
+					.body(format!(
+						r#"{{"links":[{{"href":"{}","rel":"{}","properties":{{"{}":"{}","{}":"{}","{}":{},"{}":{},"{}":{}}}}}]}}"#,
+						format!("http://localhost:7541/storage/{}", user),
+						"http://tools.ietf.org/id/draft-dejong-remotestorage",
+						"http://remotestorage.io/spec/version",
+						"draft-dejong-remotestorage-16",
+						"http://tools.ietf.org/html/rfc6749#section-4.2",
+						format!("http://localhost:7541/oauth/{}", user),
+						"http://tools.ietf.org/html/rfc6750#section-2.3", "null",
+						"http://tools.ietf.org/html/rfc7233", "null",
+						"http://remotestorage.io/spec/web-authoring", "null"
+					))
+			} else {
+				actix_web::HttpResponse::Ok()
+					.content_type("application/ld+json")
+					.body(default_body)
+			}
+		}
+		Some(_) => actix_web::HttpResponse::Ok()
+			.content_type("application/ld+json")
+			.body(default_body),
+		None => actix_web::HttpResponse::Ok()
+			.content_type("application/ld+json")
+			.body(default_body),
+	}
+
 	/*
 	TODO :
 		If <auth-dialog> is a URL, the user can supply their credentials
@@ -28,4 +67,6 @@ pub async fn webfinger_handle(
 }
 
 #[derive(serde::Deserialize)]
-pub struct WebfingerQuery {}
+pub struct WebfingerQuery {
+	resource: Option<String>,
+}

@@ -6,6 +6,9 @@ extern crate pontus_onyx;
 mod http_server;
 
 pub static RFC5322: &str = "%a, %d %b %Y %H:%M:%S %Z";
+const FORM_TOKEN_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
+const ACCESS_TOKEN_ALPHABET: &str =
+	"abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ!+*";
 
 /*
 TODO : continue to :
@@ -13,19 +16,40 @@ TODO : continue to :
 		"12. Example wire transcripts"
 */
 
+// TODO : anti brute-force for auth & /public/
+
 #[cfg(feature = "server")]
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+	std::env::set_var(
+		"RUST_LOG",
+		"actix_example=debug,actix_web=debug,actix_http=debug,actix_service=debug",
+	);
+	env_logger::init();
+
 	println!("starting to listen to http://localhost:7541/");
 
 	let database = std::sync::Arc::new(std::sync::Mutex::new(
 		pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![])).unwrap(),
 	));
 
+	let oauth_form_tokens: std::sync::Arc<
+		std::sync::Mutex<Vec<crate::http_server::OauthFormToken>>,
+	> = std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+
+	let access_tokens: std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>> =
+		std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+
 	actix_web::HttpServer::new(move || {
 		actix_web::App::new()
-			.wrap(http_server::Auth {})
 			.data(database.clone())
+			.data(oauth_form_tokens.clone())
+			.data(access_tokens.clone())
+			.wrap(http_server::Auth {})
+			.wrap(actix_web::middleware::Logger::default())
+			.service(http_server::favicon)
+			.service(http_server::get_oauth)
+			.service(http_server::post_oauth)
 			.service(http_server::webfinger_handle)
 			.service(http_server::get_item)
 			.service(http_server::head_item)
@@ -48,16 +72,12 @@ TODO ?
 
 /*
 TODO :
-* 304 for a conditional GET request whose precondition
-		fails (see "Versioning" below),
 * 401 for all requests that require a valid bearer token and
 		where no valid one was sent (see also [BEARER, section
 		3.1]),
 * 403 for all requests that have insufficient scope, e.g.
 		accessing a <module> for which no scope was obtained, or
 		accessing data outside the user's <storage_root>,
-* 412 for a conditional PUT or DELETE request whose precondition
-		fails (see "Versioning" below),
 * 413 if the payload is too large, e.g. when the server has a
 		maximum upload size for documents
 * 414 if the request URI is too long,
@@ -116,5 +136,5 @@ TODO :
 
 #[cfg(not(feature = "server"))]
 fn main() {
-	eprintln!(r#"ERROR : please build this binary with `--features "server"`"#);
+	eprintln!(r#"WARNING : please build this binary at least with `--features "server"`"#);
 }

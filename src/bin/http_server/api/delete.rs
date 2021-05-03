@@ -1,4 +1,4 @@
-#[actix_web::delete("/{requested_item:.*}")]
+#[actix_web::delete("/storage/{requested_item:.*}")]
 pub async fn delete_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::web::HttpRequest,
@@ -150,6 +150,7 @@ pub async fn delete_item(
 	}
 }
 
+#[cfg(test)]
 mod tests {
 	use actix_web::http::{header::EntityTag, Method, StatusCode};
 
@@ -185,25 +186,25 @@ mod tests {
 		let tests = vec![
 			(
 				Method::DELETE,
-				"/should/not/exists/document",
+				"/storage/should/not/exists/document",
 				StatusCode::NOT_FOUND,
 			),
 			(
 				Method::DELETE,
-				"/should/not/exists/folder/",
+				"/storage/should/not/exists/folder/",
 				StatusCode::BAD_REQUEST,
 			),
-			(Method::GET, "/a/b/c", StatusCode::OK),
-			(Method::DELETE, "/a", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/a/", StatusCode::BAD_REQUEST),
-			(Method::DELETE, "/a/b", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/a/b/", StatusCode::BAD_REQUEST),
-			(Method::DELETE, "/a/b/c", StatusCode::OK),
-			(Method::GET, "/a/b/c", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/a/b/c", StatusCode::NOT_FOUND),
-			(Method::GET, "/a/b/", StatusCode::NOT_FOUND),
-			(Method::GET, "/a/", StatusCode::NOT_FOUND),
-			(Method::GET, "/", StatusCode::OK),
+			(Method::GET, "/storage/a/b/c", StatusCode::OK),
+			(Method::DELETE, "/storage/a", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/storage/a/", StatusCode::BAD_REQUEST),
+			(Method::DELETE, "/storage/a/b", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/storage/a/b/", StatusCode::BAD_REQUEST),
+			(Method::DELETE, "/storage/a/b/c", StatusCode::OK),
+			(Method::GET, "/storage/a/b/c", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/storage/a/b/c", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/a/b/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/a/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/", StatusCode::OK),
 		];
 
 		for test in tests {
@@ -249,31 +250,31 @@ mod tests {
 		.await;
 
 		let tests = vec![
-			(Method::GET, "/a/b/c", vec![], StatusCode::OK),
+			(Method::GET, "/storage/a/b/c", vec![], StatusCode::OK),
 			(
 				Method::DELETE,
-				"/a/b/c",
+				"/storage/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
-			(Method::GET, "/a/b/c", vec![], StatusCode::OK),
-			(Method::GET, "/a/b/c", vec![], StatusCode::OK),
+			(Method::GET, "/storage/a/b/c", vec![], StatusCode::OK),
+			(Method::GET, "/storage/a/b/c", vec![], StatusCode::OK),
 			(
 				Method::DELETE,
-				"/a/b/c",
+				"/storage/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::OK,
 			),
-			(Method::GET, "/a/b/c", vec![], StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/a/b/c", vec![], StatusCode::NOT_FOUND),
 			(
 				Method::DELETE,
-				"/a/b/c",
+				"/storage/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::NOT_FOUND,
 			),
 			(
 				Method::DELETE,
-				"/a/b/c",
+				"/storage/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::NOT_FOUND,
 			),
