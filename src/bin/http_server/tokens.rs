@@ -6,6 +6,24 @@ pub struct Scope {
 	pub right_type: ScopeRightType,
 	pub module: String,
 }
+impl Scope {
+	pub fn allowed_methods(&self) -> Vec<actix_web::http::Method> {
+		match self.right_type {
+			ScopeRightType::Read => vec![
+				actix_web::http::Method::GET,
+				actix_web::http::Method::HEAD,
+				actix_web::http::Method::OPTIONS,
+			],
+			ScopeRightType::ReadWrite => vec![
+				actix_web::http::Method::GET,
+				actix_web::http::Method::HEAD,
+				actix_web::http::Method::PUT,
+				actix_web::http::Method::DELETE,
+				actix_web::http::Method::OPTIONS,
+			],
+		}
+	}
+}
 impl std::convert::TryFrom<&str> for Scope {
 	type Error = ScopeParsingError;
 
@@ -82,6 +100,15 @@ impl AccessBearer {
 impl AccessBearer {
 	pub fn name(&self) -> &str {
 		&self.name
+	}
+	pub fn scopes(&self) -> &[Scope] {
+		&self.scopes
+	}
+	pub fn client_id(&self) -> &str {
+		&self.client_id
+	}
+	pub fn username(&self) -> &str {
+		&self.username
 	}
 }
 

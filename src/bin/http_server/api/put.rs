@@ -328,7 +328,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::get()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -337,7 +337,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.set(actix_web::http::header::ContentType::plaintext())
 				.set_payload(b"EVERYONE".to_vec())
 				.to_request();
@@ -348,7 +348,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::get()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -357,7 +357,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.set(actix_web::http::header::ContentType::plaintext())
 				.set_payload(b"SOMEONE HERE ?".to_vec())
 				.to_request();
@@ -368,7 +368,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::get()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -377,7 +377,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.set(actix_web::http::header::ContentType::plaintext())
 				.set_payload(b"SOMEONE HERE ?".to_vec())
 				.to_request();
@@ -391,29 +391,32 @@ mod tests {
 	async fn if_none_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"a",
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
-					pontus_onyx::Item::new_folder(vec![
-						(
-							"c",
-							pontus_onyx::Item::Document {
-								etag: String::from("A"),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						),
-						(
-							"d",
-							pontus_onyx::Item::Document {
-								etag: String::from("A"),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						),
-					]),
+					"a",
+					pontus_onyx::Item::new_folder(vec![(
+						"b",
+						pontus_onyx::Item::new_folder(vec![
+							(
+								"c",
+								pontus_onyx::Item::Document {
+									etag: String::from("A"),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							),
+							(
+								"d",
+								pontus_onyx::Item::Document {
+									etag: String::from("A"),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							),
+						]),
+					)]),
 				)]),
 			)]))
 			.unwrap(),
@@ -428,12 +431,12 @@ mod tests {
 
 		let tests = vec![
 			(
-				"/storage/a/b/c",
+				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
-				"/storage/a/b/c",
+				"/storage/user/a/b/c",
 				vec![
 					EntityTag::new(false, String::from("A")),
 					EntityTag::new(false, String::from("B")),
@@ -441,17 +444,17 @@ mod tests {
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
-				"/storage/a/b/c",
+				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
-				"/storage/a/b/c",
+				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::OK,
 			),
 			(
-				"/storage/a/b/d",
+				"/storage/user/a/b/d",
 				vec![
 					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
 					EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
@@ -459,12 +462,12 @@ mod tests {
 				StatusCode::OK,
 			),
 			(
-				"/storage/new/a",
+				"/storage/user/new/a",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::CREATED,
 			),
 			(
-				"/storage/new/a",
+				"/storage/user/new/a",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
@@ -472,7 +475,7 @@ mod tests {
 
 		for test in tests {
 			print!(
-				"PUT request to {} with If-None-Math = {:?} : ",
+				"PUT request to {} with If-None-Math = {:?} ... ",
 				test.0, test.1
 			);
 
@@ -484,6 +487,7 @@ mod tests {
 			let response = actix_web::test::call_service(&mut app, request).await;
 
 			assert_eq!(response.status(), test.2);
+
 			println!("OK");
 		}
 	}
@@ -492,17 +496,20 @@ mod tests {
 	async fn if_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"a",
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: String::from("A"),
-							content: b"HELLO".to_vec(),
-							content_type: String::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
+						"b",
+						pontus_onyx::Item::new_folder(vec![(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: String::from("A"),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
 					)]),
 				)]),
 			)]))
@@ -519,7 +526,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::get()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -528,7 +535,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.set(actix_web::http::header::IfMatch::Items(vec![
 					EntityTag::new(false, String::from("ANOTHER_ETAG")),
 				]))
@@ -541,7 +548,7 @@ mod tests {
 
 		{
 			let request = actix_web::test::TestRequest::put()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.set(actix_web::http::header::IfMatch::Items(vec![
 					EntityTag::new(false, String::from("A")),
 				]))

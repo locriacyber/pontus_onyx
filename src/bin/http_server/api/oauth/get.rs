@@ -37,8 +37,8 @@ pub async fn get_oauth(
 			};
 
 			format!(
-				"{} on /storage/{} and /storage/public/{}",
-				scope.right_type, module, module
+				r#"{} on <a href="../storage/{}/{}/">/storage/{}/{}/</a> and <a href="../storage/public/{}/{}/">/storage/public/{}/{}/</a>"#,
+				scope.right_type, username, module, username, module, username, module, username, module
 			)
 		})
 		.fold(String::new(), |acc, scope| {

@@ -158,17 +158,20 @@ mod tests {
 	async fn basics() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"a",
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: ulid::Ulid::new().to_string(),
-							content: b"HELLO".to_vec(),
-							content_type: String::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
+						"b",
+						pontus_onyx::Item::new_folder(vec![(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: ulid::Ulid::new().to_string(),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
 					)]),
 				)]),
 			)]))
@@ -186,29 +189,33 @@ mod tests {
 		let tests = vec![
 			(
 				Method::DELETE,
-				"/storage/should/not/exists/document",
+				"/storage/user/should/not/exists/document",
 				StatusCode::NOT_FOUND,
 			),
 			(
 				Method::DELETE,
-				"/storage/should/not/exists/folder/",
+				"/storage/user/should/not/exists/folder/",
 				StatusCode::BAD_REQUEST,
 			),
-			(Method::GET, "/storage/a/b/c", StatusCode::OK),
-			(Method::DELETE, "/storage/a", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/storage/a/", StatusCode::BAD_REQUEST),
-			(Method::DELETE, "/storage/a/b", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/storage/a/b/", StatusCode::BAD_REQUEST),
-			(Method::DELETE, "/storage/a/b/c", StatusCode::OK),
-			(Method::GET, "/storage/a/b/c", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/storage/a/b/c", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/a/b/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/a/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/", StatusCode::OK),
+			(Method::GET, "/storage/user/a/b/c", StatusCode::OK),
+			(Method::DELETE, "/storage/user/a", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/storage/user/a/", StatusCode::BAD_REQUEST),
+			(Method::DELETE, "/storage/user/a/b", StatusCode::NOT_FOUND),
+			(
+				Method::DELETE,
+				"/storage/user/a/b/",
+				StatusCode::BAD_REQUEST,
+			),
+			(Method::DELETE, "/storage/user/a/b/c", StatusCode::OK),
+			(Method::GET, "/storage/user/a/b/c", StatusCode::NOT_FOUND),
+			(Method::DELETE, "/storage/user/a/b/c", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/user/a/b/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/user/a/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/user/", StatusCode::NOT_FOUND),
 		];
 
 		for test in tests {
-			print!("{} request to {} : ", test.0, test.1);
+			print!("{} request to {} ... ", test.0, test.1);
 
 			let request = actix_web::test::TestRequest::with_uri(test.1)
 				.method(test.0)
@@ -216,6 +223,7 @@ mod tests {
 			let response = actix_web::test::call_service(&mut app, request).await;
 
 			assert_eq!(response.status(), test.2);
+
 			println!("OK");
 		}
 	}
@@ -224,17 +232,20 @@ mod tests {
 	async fn if_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"a",
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: String::from("A"),
-							content: b"HELLO".to_vec(),
-							content_type: String::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
+						"b",
+						pontus_onyx::Item::new_folder(vec![(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: String::from("A"),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
 					)]),
 				)]),
 			)]))
@@ -250,31 +261,36 @@ mod tests {
 		.await;
 
 		let tests = vec![
-			(Method::GET, "/storage/a/b/c", vec![], StatusCode::OK),
+			(Method::GET, "/storage/user/a/b/c", vec![], StatusCode::OK),
 			(
 				Method::DELETE,
-				"/storage/a/b/c",
+				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
-			(Method::GET, "/storage/a/b/c", vec![], StatusCode::OK),
-			(Method::GET, "/storage/a/b/c", vec![], StatusCode::OK),
+			(Method::GET, "/storage/user/a/b/c", vec![], StatusCode::OK),
+			(Method::GET, "/storage/user/a/b/c", vec![], StatusCode::OK),
 			(
 				Method::DELETE,
-				"/storage/a/b/c",
+				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::OK,
 			),
-			(Method::GET, "/storage/a/b/c", vec![], StatusCode::NOT_FOUND),
+			(
+				Method::GET,
+				"/storage/user/a/b/c",
+				vec![],
+				StatusCode::NOT_FOUND,
+			),
 			(
 				Method::DELETE,
-				"/storage/a/b/c",
+				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::NOT_FOUND,
 			),
 			(
 				Method::DELETE,
-				"/storage/a/b/c",
+				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::NOT_FOUND,
 			),
@@ -282,7 +298,7 @@ mod tests {
 
 		for test in tests {
 			print!(
-				"{} request to {} with If-Match = {:?} : ",
+				"{} request to {} with If-Match = {:?} ... ",
 				test.0, test.1, test.2
 			);
 
@@ -293,6 +309,7 @@ mod tests {
 			let response = actix_web::test::call_service(&mut app, request).await;
 
 			assert_eq!(response.status(), test.3);
+
 			println!("OK");
 		}
 	}

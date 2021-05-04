@@ -70,10 +70,40 @@ where
 
 				match tokens.iter().find(|e| e.name() == search_token) {
 					Some(token) => {
-						// TODO : check token validity
-						// TODO : check token scopes
-						let future = self.service.call(service_request);
-						Box::pin(async move { future.await })
+						// TODO : check token validity with emit_time
+						// TODO : check token validity with client_id
+
+						match token.scopes().iter().find(|scope| {
+							(service_request.path().starts_with(&format!(
+								"/storage/{}/{}",
+								token.username(),
+								scope.module
+							)) || service_request.path().starts_with(&format!(
+								"/storage/public/{}/{}",
+								token.username(),
+								scope.module
+							))) && scope
+								.allowed_methods()
+								.iter()
+								.find(|method| method == service_request.method())
+								.is_some()
+						}) {
+							Some(_) => {
+								let future = self.service.call(service_request);
+								Box::pin(async move { future.await })
+							}
+							None => Box::pin(async move {
+								Ok(actix_web::dev::ServiceResponse::new(
+									service_request.into_parts().0,
+									super::super::api::build_response(
+										actix_web::http::StatusCode::UNAUTHORIZED,
+										None,
+										None,
+										true,
+									),
+								))
+							}),
+						}
 					}
 					None => Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
@@ -116,6 +146,16 @@ where
 					let future = self.service.call(service_request);
 					Box::pin(async move { future.await })
 				} else if service_request.path() == "/favicon.ico"
+					&& service_request.method() == actix_web::http::Method::GET
+				{
+					let future = self.service.call(service_request);
+					Box::pin(async move { future.await })
+				} else if service_request.path() == "/remotestorage.svg"
+					&& service_request.method() == actix_web::http::Method::GET
+				{
+					let future = self.service.call(service_request);
+					Box::pin(async move { future.await })
+				} else if service_request.path() == "/"
 					&& service_request.method() == actix_web::http::Method::GET
 				{
 					let future = self.service.call(service_request);
@@ -206,20 +246,22 @@ async fn hsv5femo2qgu80gbad0ov5() {
 	.await;
 
 	let tests: Vec<(&str, bool)> = vec![
-		("/storage/", true),
-		("/storage/folder/", true),
-		("/storage/document", true),
-		("/storage/folder/document", true),
-		("/storage/public/folder/", true),
+		("/storage/user/", true),
+		("/storage/user/folder/", true),
+		("/storage/user/document", true),
+		("/storage/user/folder/document", true),
+		("/storage/public/user/folder/", true),
+		("/storage/public/user/document", false),
+		("/storage/public/user/folder/document", false),
 		("/.well-known/webfinger", false),
-		("/storage/public/document", false),
-		("/storage/public/folder/document", false),
 		("/oauth", false),
 		("/favicon.ico", false),
+		("/remotestorage.svg", false),
+		("/", false),
 	];
 
 	for test in tests {
-		println!("request to {}", test.0);
+		print!("GET request to {} ... ", test.0);
 
 		let request = actix_web::test::TestRequest::get().uri(test.0).to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
@@ -228,6 +270,308 @@ async fn hsv5femo2qgu80gbad0ov5() {
 			assert_eq!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
 		} else {
 			assert_ne!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+		}
+
+		println!("OK");
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use actix_web::HttpMessage;
+
+	#[actix_rt::test]
+	async fn kp6m20xdwvw6v4t3yxq() {
+		let access_tokens: std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>> =
+			std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+
+		let token = crate::http_server::AccessBearer::new(
+			vec![
+				crate::http_server::Scope {
+					module: String::from("folder_write"),
+					right_type: crate::http_server::ScopeRightType::ReadWrite,
+				},
+				crate::http_server::Scope {
+					module: String::from("folder_read"),
+					right_type: crate::http_server::ScopeRightType::Read,
+				},
+			],
+			"test",
+			"user",
+		);
+		access_tokens.lock().unwrap().push(token.clone());
+
+		let database = std::sync::Arc::new(std::sync::Mutex::new(
+			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
+				"user",
+				pontus_onyx::Item::new_folder(vec![
+					(
+						"folder_write",
+						pontus_onyx::Item::new_folder(vec![(
+							"a",
+							pontus_onyx::Item::Document {
+								etag: ulid::Ulid::new().to_string(),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
+					),
+					(
+						"folder_read",
+						pontus_onyx::Item::new_folder(vec![(
+							"a",
+							pontus_onyx::Item::Document {
+								etag: ulid::Ulid::new().to_string(),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
+					),
+					(
+						"public",
+						pontus_onyx::Item::new_folder(vec![
+							(
+								"folder_write",
+								pontus_onyx::Item::new_folder(vec![(
+									"a",
+									pontus_onyx::Item::Document {
+										etag: ulid::Ulid::new().to_string(),
+										content: b"HELLO".to_vec(),
+										content_type: String::from("text/plain"),
+										last_modified: chrono::Utc::now(),
+									},
+								)]),
+							),
+							(
+								"folder_read",
+								pontus_onyx::Item::new_folder(vec![(
+									"a",
+									pontus_onyx::Item::Document {
+										etag: ulid::Ulid::new().to_string(),
+										content: b"HELLO".to_vec(),
+										content_type: String::from("text/plain"),
+										last_modified: chrono::Utc::now(),
+									},
+								)]),
+							),
+						]),
+					),
+				]),
+			)]))
+			.unwrap(),
+		));
+
+		let mut app = actix_web::test::init_service(
+			actix_web::App::new()
+				.data(database.clone())
+				.data(access_tokens.clone())
+				.wrap(super::Auth {})
+				.service(crate::http_server::api::get_item)
+				.service(crate::http_server::api::put_item),
+		)
+		.await;
+
+		let tests: Vec<(actix_web::test::TestRequest, actix_web::http::StatusCode)> = vec![
+			(
+				actix_web::test::TestRequest::get().uri("/storage/user/folder_read/"),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::get().uri("/storage/user/folder_write/"),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::get().uri("/storage/user/other/"),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/folder_read/")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					),
+				actix_web::http::StatusCode::OK,
+			),
+			(
+				actix_web::test::TestRequest::get()
+					.uri("/storage/other_user/folder_read/")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/folder_write/")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					),
+				actix_web::http::StatusCode::OK,
+			),
+			(
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/other/")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/folder_read/")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", "RANDOM_BEARER"),
+					),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/folder_write/")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", "RANDOM_BEARER"),
+					),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/other/")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", "RANDOM_BEARER"),
+					),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/user/folder_read/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/user/folder_write/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::CREATED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/other_user/folder_write/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/user/other/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/public/user/folder_read/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/public/user/folder_write/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::CREATED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/public/user/other/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.name()),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/user/folder_read/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", "RANDOM_BEARER"),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/user/folder_write/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", "RANDOM_BEARER"),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+			(
+				actix_web::test::TestRequest::put()
+					.uri("/storage/user/other/b")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", "RANDOM_BEARER"),
+					)
+					.set_json(&serde_json::json!({"value": "HELLO"})),
+				actix_web::http::StatusCode::UNAUTHORIZED,
+			),
+		];
+
+		for test in tests {
+			let request = test.0.to_request();
+			print!(
+				"{} request to {} with Authorization = {:?} ... ",
+				request.method(),
+				request.path(),
+				match request
+					.headers()
+					.iter()
+					.find(|&(name, _)| name == actix_web::http::header::AUTHORIZATION)
+				{
+					Some((_, value)) => format!("{}[...]", &value.to_str().unwrap()[7..7 + 10]),
+					None => String::from("None"),
+				}
+			);
+
+			let response = actix_web::test::call_service(&mut app, request).await;
+
+			assert_eq!(response.status(), test.1);
+
+			println!("OK");
 		}
 	}
 }

@@ -199,34 +199,40 @@ mod tests {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![
 				(
-					"a",
+					"user",
 					pontus_onyx::Item::new_folder(vec![(
-						"b",
+						"a",
 						pontus_onyx::Item::new_folder(vec![(
-							"c",
-							pontus_onyx::Item::Document {
-								etag: ulid::Ulid::new().to_string(),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						)]),
-					)]),
-				),
-				(
-					"public",
-					pontus_onyx::Item::new_folder(vec![(
-						"0",
-						pontus_onyx::Item::new_folder(vec![(
-							"1",
+							"b",
 							pontus_onyx::Item::new_folder(vec![(
-								"2",
+								"c",
 								pontus_onyx::Item::Document {
 									etag: ulid::Ulid::new().to_string(),
 									content: b"HELLO".to_vec(),
 									content_type: String::from("text/plain"),
 									last_modified: chrono::Utc::now(),
 								},
+							)]),
+						)]),
+					)]),
+				),
+				(
+					"public",
+					pontus_onyx::Item::new_folder(vec![(
+						"user",
+						pontus_onyx::Item::new_folder(vec![(
+							"0",
+							pontus_onyx::Item::new_folder(vec![(
+								"1",
+								pontus_onyx::Item::new_folder(vec![(
+									"2",
+									pontus_onyx::Item::Document {
+										etag: ulid::Ulid::new().to_string(),
+										content: b"HELLO".to_vec(),
+										content_type: String::from("text/plain"),
+										last_modified: chrono::Utc::now(),
+									},
+								)]),
 							)]),
 						)]),
 					)]),
@@ -245,32 +251,48 @@ mod tests {
 		let tests = vec![
 			(
 				Method::GET,
-				"/storage/not/exists/document",
+				"/storage/user/not/exists/document",
 				StatusCode::NOT_FOUND,
 			),
 			(
 				Method::GET,
-				"/storage/not/exists/folder/",
+				"/storage/user/not/exists/folder/",
 				StatusCode::NOT_FOUND,
 			),
-			(Method::GET, "/storage/a", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/a/b", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/a/b/c/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/a/", StatusCode::OK),
-			(Method::GET, "/storage/a/b/", StatusCode::OK),
-			(Method::GET, "/storage/a/b/c", StatusCode::OK),
-			(Method::GET, "/storage/public", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/public/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/public/0", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/public/0/1", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/public/0/1/2", StatusCode::OK),
-			(Method::GET, "/storage/public/0/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/public/0/1/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/public/0/1/2/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/user/a", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/user/a/b", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/user/a/b/c/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/user/a/", StatusCode::OK),
+			(Method::GET, "/storage/user/a/b/", StatusCode::OK),
+			(Method::GET, "/storage/user/a/b/c", StatusCode::OK),
+			(Method::GET, "/storage/public/user", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/public/user/", StatusCode::NOT_FOUND),
+			(Method::GET, "/storage/public/user/0", StatusCode::NOT_FOUND),
+			(
+				Method::GET,
+				"/storage/public/user/0/1",
+				StatusCode::NOT_FOUND,
+			),
+			(Method::GET, "/storage/public/user/0/1/2", StatusCode::OK),
+			(
+				Method::GET,
+				"/storage/public/user/0/",
+				StatusCode::NOT_FOUND,
+			),
+			(
+				Method::GET,
+				"/storage/public/user/0/1/",
+				StatusCode::NOT_FOUND,
+			),
+			(
+				Method::GET,
+				"/storage/public/user/0/1/2/",
+				StatusCode::NOT_FOUND,
+			),
 		];
 
 		for test in tests {
-			print!("{} request to {} : ", test.0, test.1);
+			print!("{} request to {} ... ", test.0, test.1);
 
 			let request = actix_web::test::TestRequest::with_uri(test.1)
 				.method(test.0)
@@ -278,6 +300,7 @@ mod tests {
 			let response = actix_web::test::call_service(&mut app, request).await;
 
 			assert_eq!(response.status(), test.2);
+
 			println!("OK");
 		}
 	}
@@ -286,17 +309,20 @@ mod tests {
 	async fn if_none_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
 			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"a",
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: String::from("A"),
-							content: b"HELLO".to_vec(),
-							content_type: String::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
+						"b",
+						pontus_onyx::Item::new_folder(vec![(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: String::from("A"),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
 					)]),
 				)]),
 			)]))
@@ -341,17 +367,18 @@ mod tests {
 
 		for test in tests {
 			print!(
-				"GET request to /storage/a/b/c with If-None-Match = {:?} : ",
+				"GET request to /storage/user/a/b/c with If-None-Match = {:?} ... ",
 				test.0
 			);
 
 			let request = actix_web::test::TestRequest::get()
-				.uri("/storage/a/b/c")
+				.uri("/storage/user/a/b/c")
 				.set(actix_web::http::header::IfNoneMatch::Items(test.0))
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
 			assert_eq!(response.status(), test.1);
+
 			println!("OK");
 		}
 	}
