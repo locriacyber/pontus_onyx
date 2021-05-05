@@ -56,6 +56,8 @@ async fn main() -> std::io::Result<()> {
 			.service(http_server::options_item)
 			.service(http_server::put_item)
 			.service(http_server::delete_item)
+			.service(http_server::remotestoragesvg)
+			.service(http_server::index)
 	})
 	.bind("localhost:7541")? // TODO : HTTPS
 	.run()
