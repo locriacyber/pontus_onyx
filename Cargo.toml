@@ -10,7 +10,7 @@ edition = "2018"
 default = ["client"]
 all = ["client", "server"]
 client = []
-server = ["actix-web", "actix-rt", "serde_json", "futures", "env_logger", "regex", "rand"]
+server = ["actix-web", "actix-rt", "serde_json", "futures", "env_logger", "regex", "rand", "hmac-sha512"]
 
 [dependencies]
 serde = { version = "^1", features = ["derive"] }
@@ -25,3 +25,4 @@ futures = { version = "^0", optional = true }
 env_logger = { version = "^0", optional = true }
 regex = { version = "^1", optional = true }
 rand = { version = "^0", optional = true }
+hmac-sha512 = { version = "^0", optional = true }

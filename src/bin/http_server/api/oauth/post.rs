@@ -22,6 +22,7 @@ pub async fn post_oauth(
 	access_tokens: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>>,
 	>,
+	users: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::http_server::Users>>>,
 ) -> actix_web::Result<actix_web::web::HttpResponse> {
 	let _host = request.headers().get("host");
 	let origin = request.headers().get("origin");
@@ -149,7 +150,7 @@ pub async fn post_oauth(
 
 	if form.allow == "Allow" {
 		std::thread::sleep(std::time::Duration::from_secs(0)); // TODO : anti brute-force
-		if form.username == "todo" && form.password == "todo" {
+		if users.lock().unwrap().check(&form.username, &form.password) {
 			// TODO : what if form.redirect_uri already contains fragment `#something` ?
 
 			let scopes = percent_encoding::percent_decode(form.scope.as_bytes())

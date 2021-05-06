@@ -8,6 +8,60 @@ pub use middlewares::*;
 pub use tokens::*;
 pub use webfinger::webfinger_handle;
 
+use rand::seq::IteratorRandom;
+use rand::Rng;
+
+pub struct Users {
+	salt: String,
+	list: std::collections::HashMap<String, Vec<u8>>,
+}
+impl Users {
+	pub fn new() -> Self {
+		let mut salt = String::new();
+		let mut rng_limit = rand::thread_rng();
+		for _ in 1..rng_limit.gen_range(16..32) {
+			let mut rng_item = rand::thread_rng();
+			salt.push(
+				crate::PASSWORD_HASH_ALPHABET
+					.chars()
+					.choose(&mut rng_item)
+					.unwrap(),
+			);
+		}
+
+		Self {
+			salt,
+			list: std::collections::HashMap::new(),
+		}
+	}
+}
+impl Users {
+	// TODO : tests
+	pub fn check(&self, username: &str, password: &str) -> bool {
+		let mut hasher = hmac_sha512::Hash::new();
+		hasher.update(self.salt.as_bytes());
+		hasher.update(password.as_bytes());
+		hasher.update(self.salt.as_bytes());
+		let hashed_password = hasher.finalize().to_vec();
+
+		match self.list.get(username) {
+			Some(user_password) => user_password == &hashed_password,
+			None => false,
+		}
+	}
+}
+impl Users {
+	pub fn insert(&mut self, username: &str, password: &str) {
+		let mut hasher = hmac_sha512::Hash::new();
+		hasher.update(self.salt.as_bytes());
+		hasher.update(password.as_bytes());
+		hasher.update(self.salt.as_bytes());
+
+		self.list
+			.insert(String::from(username), hasher.finalize().to_vec());
+	}
+}
+
 #[actix_web::get("/favicon.ico")]
 pub async fn favicon() -> actix_web::web::HttpResponse {
 	return actix_web::HttpResponse::Ok().body(actix_web::web::Bytes::from_static(include_bytes!(

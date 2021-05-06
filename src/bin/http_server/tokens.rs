@@ -77,7 +77,7 @@ impl AccessBearer {
 		let mut name = String::new();
 
 		let mut rng_limit = rand::thread_rng();
-		for _ in 1..rng_limit.gen_range(128, 256) {
+		for _ in 1..rng_limit.gen_range(128..256) {
 			let mut rng_item = rand::thread_rng();
 			name.push(
 				crate::ACCESS_TOKEN_ALPHABET

@@ -193,7 +193,7 @@ impl OauthFormToken {
 		let mut value = String::new();
 
 		let mut rng_limit = rand::thread_rng();
-		for _ in 1..rng_limit.gen_range(32, 64) {
+		for _ in 1..rng_limit.gen_range(32..64) {
 			let mut rng_item = rand::thread_rng();
 			value.push(
 				crate::FORM_TOKEN_ALPHABET

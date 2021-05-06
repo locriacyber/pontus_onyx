@@ -7,6 +7,7 @@ mod http_server;
 
 pub static RFC5322: &str = "%a, %d %b %Y %H:%M:%S %Z";
 const FORM_TOKEN_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
+const PASSWORD_HASH_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
 const ACCESS_TOKEN_ALPHABET: &str =
 	"abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ!+*";
 
@@ -40,11 +41,17 @@ async fn main() -> std::io::Result<()> {
 	let access_tokens: std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>> =
 		std::sync::Arc::new(std::sync::Mutex::new(vec![]));
 
+	let mut users = crate::http_server::Users::new();
+	users.insert("todo", "todo");
+	let users: std::sync::Arc<std::sync::Mutex<crate::http_server::Users>> =
+		std::sync::Arc::new(std::sync::Mutex::new(users));
+
 	actix_web::HttpServer::new(move || {
 		actix_web::App::new()
 			.data(database.clone())
 			.data(oauth_form_tokens.clone())
 			.data(access_tokens.clone())
+			.data(users.clone())
 			.wrap(http_server::Auth {})
 			.wrap(actix_web::middleware::Logger::default())
 			.service(http_server::favicon)
