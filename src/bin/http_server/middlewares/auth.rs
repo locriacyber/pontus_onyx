@@ -70,29 +70,42 @@ where
 
 				match tokens.iter().find(|e| e.name() == search_token) {
 					Some(token) => {
-						// TODO : check token validity with emit_time
 						// TODO : check token validity with client_id
 
-						match token.scopes().iter().find(|scope| {
-							(service_request.path().starts_with(&format!(
-								"/storage/{}/{}",
-								token.username(),
-								scope.module
-							)) || service_request.path().starts_with(&format!(
-								"/storage/public/{}/{}",
-								token.username(),
-								scope.module
-							))) && scope
-								.allowed_methods()
-								.iter()
-								.find(|method| method == service_request.method())
-								.is_some()
-						}) {
-							Some(_) => {
-								let future = self.service.call(service_request);
-								Box::pin(async move { future.await })
+						if !token.is_expirated() {
+							match token.scopes().iter().find(|scope| {
+								(service_request.path().starts_with(&format!(
+									"/storage/{}/{}",
+									token.username(),
+									scope.module
+								)) || service_request.path().starts_with(&format!(
+									"/storage/public/{}/{}",
+									token.username(),
+									scope.module
+								))) && scope
+									.allowed_methods()
+									.iter()
+									.find(|method| method == service_request.method())
+									.is_some()
+							}) {
+								Some(_) => {
+									let future = self.service.call(service_request);
+									Box::pin(async move { future.await })
+								}
+								None => Box::pin(async move {
+									Ok(actix_web::dev::ServiceResponse::new(
+										service_request.into_parts().0,
+										super::super::api::build_response(
+											actix_web::http::StatusCode::UNAUTHORIZED,
+											None,
+											None,
+											true,
+										),
+									))
+								}),
 							}
-							None => Box::pin(async move {
+						} else {
+							Box::pin(async move {
 								Ok(actix_web::dev::ServiceResponse::new(
 									service_request.into_parts().0,
 									super::super::api::build_response(
@@ -102,7 +115,7 @@ where
 										true,
 									),
 								))
-							}),
+							})
 						}
 					}
 					None => Box::pin(async move {

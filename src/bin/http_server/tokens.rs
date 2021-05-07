@@ -111,6 +111,11 @@ impl AccessBearer {
 		&self.username
 	}
 }
+impl AccessBearer {
+	pub fn is_expirated(&self) -> bool {
+		(std::time::Instant::now() - self.emit_time) > std::time::Duration::from_secs(60 * 60)
+	}
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ScopeRightType {
