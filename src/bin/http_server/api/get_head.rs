@@ -4,7 +4,78 @@ pub async fn get_item(
 	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
 ) -> actix_web::web::HttpResponse {
-	return utils::get(path, request, database, true);
+	let if_none_match = request
+		.headers()
+		.get("If-None-Match")
+		.map(|e| (e.to_str().unwrap()).split(',').collect::<Vec<&str>>());
+
+	match database.lock().unwrap().get(
+		&path,
+		request
+			.headers()
+			.get("If-Match")
+			.map(|e| e.to_str().unwrap()),
+		if_none_match,
+	) {
+		Ok(pontus_onyx::Item::Document {
+			etag,
+			content,
+			content_type,
+			..
+		}) => {
+			return actix_web::HttpResponse::Ok()
+				.header("ETag", etag.clone())
+				.header("Cache-Control", "no-cache")
+				.header("Access-Control-Allow-Origin", "*")
+				.content_type(content_type)
+				.body(content.clone());
+		}
+		Ok(pontus_onyx::Item::Folder {
+			etag: folder_etag,
+			content,
+		}) => {
+			let mut items_result = serde_json::json!({});
+			for (child_name, child) in content.iter().filter(|(_, e)| match &***e {
+				pontus_onyx::Item::Document { .. } => true,
+				pontus_onyx::Item::Folder { .. } => !e.is_empty(),
+			}) {
+				match &**child {
+					pontus_onyx::Item::Folder { etag, content: _ } => {
+						items_result[format!("{}/", child_name)] = serde_json::json!({
+							"ETag": etag,
+						});
+					}
+					pontus_onyx::Item::Document {
+						etag,
+						content: document_content,
+						content_type,
+						last_modified,
+					} => {
+						items_result[child_name] = serde_json::json!({
+							"ETag": etag,
+							"Content-Type": content_type,
+							"Content-Length": document_content.len(),
+							"Last-Modified": last_modified.format(crate::http_server::RFC5322).to_string(),
+						});
+					}
+				}
+			}
+
+			return actix_web::HttpResponse::Ok()
+				.content_type("application/ld+json")
+				.header("ETag", folder_etag.clone())
+				.header("Cache-Control", "no-cache")
+				.header("Access-Control-Allow-Origin", "*")
+				.body(
+					serde_json::json!({
+						"@context": "http://remotestorage.io/spec/folder-description",
+						"items": items_result,
+					})
+					.to_string(),
+				);
+		}
+		Err(e) => e.into(),
+	}
 }
 
 #[actix_web::head("/storage/{requested_item:.*}")]
@@ -13,180 +84,68 @@ pub async fn head_item(
 	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
 ) -> actix_web::web::HttpResponse {
-	return utils::get(path, request, database, false);
-}
+	let if_none_match = request
+		.headers()
+		.get("If-None-Match")
+		.map(|e| (e.to_str().unwrap()).split(',').collect::<Vec<&str>>());
 
-mod utils {
-	pub fn get(
-		path: actix_web::web::Path<String>,
-		request: actix_web::web::HttpRequest,
-		database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
-		should_have_body: bool,
-	) -> actix_web::web::HttpResponse {
-		let should_be_folder = path.split('/').last().unwrap() == "";
-
-		let db = database.lock().unwrap();
-
-		match db.read(&path) {
-			Ok(Some(item)) => {
-				match item {
-					pontus_onyx::Item::Folder {
-						etag: folder_etag,
-						content,
-					} => {
-						if should_be_folder {
-							if path.starts_with("public") {
-								return super::super::build_response(
-									actix_web::http::StatusCode::NOT_FOUND,
-									None,
-									None,
-									should_have_body,
-								);
-							} else {
-								// TODO : weak headers ?
-								if let Some(none_match) = request.headers().get("If-None-Match") {
-									let mut none_match = none_match
-										.to_str()
-										.unwrap()
-										.split(',')
-										.map(|s| s.trim().replace('"', ""));
-
-									if none_match.any(|s| s == folder_etag || s == "*") {
-										return super::super::build_response(
-											actix_web::http::StatusCode::NOT_MODIFIED,
-											None,
-											None,
-											should_have_body,
-										);
-									}
-								}
-
-								let mut items_result = serde_json::json!({});
-								for (child_name, child) in
-									content.iter().filter(|(_, e)| match &***e {
-										pontus_onyx::Item::Document {
-											etag: _,
-											content: _,
-											content_type: _,
-											last_modified: _,
-										} => true,
-										pontus_onyx::Item::Folder {
-											etag: _,
-											content: _,
-										} => !e.is_empty(),
-									}) {
-									match &**child {
-										pontus_onyx::Item::Folder { etag, content: _ } => {
-											items_result[format!("{}/", child_name)] = serde_json::json!({
-												"ETag": etag,
-											});
-										}
-										pontus_onyx::Item::Document {
-											etag,
-											content: document_content,
-											content_type,
-											last_modified,
-										} => {
-											items_result[child_name] = serde_json::json!({
-												"ETag": etag,
-												"Content-Type": content_type,
-												"Content-Length": document_content.len(),
-												"Last-Modified": last_modified.format(crate::RFC5322).to_string(),
-											});
-										}
-									}
-								}
-
-								return actix_web::HttpResponse::Ok()
-									.content_type("application/ld+json")
-									.header("ETag", folder_etag)
-									.header("Cache-Control", "no-cache")
-									.header("Access-Control-Allow-Origin", "*")
-									.body(if should_have_body {
-										serde_json::json!({
-											"@context": "http://remotestorage.io/spec/folder-description",
-											"items": items_result,
-										})
-										.to_string()
-									} else {
-										String::new()
-									});
-							}
-						} else {
-							return super::super::build_response(
-								actix_web::http::StatusCode::NOT_FOUND,
-								None,
-								Some("a folder exists with this name"),
-								should_have_body,
-							);
-						}
+	match database.lock().unwrap().get(
+		&path,
+		request
+			.headers()
+			.get("If-Match")
+			.map(|e| e.to_str().unwrap()),
+		if_none_match,
+	) {
+		Ok(pontus_onyx::Item::Document {
+			etag, content_type, ..
+		}) => {
+			return actix_web::HttpResponse::Ok()
+				.header("ETag", etag.clone())
+				.header("Cache-Control", "no-cache")
+				.header("Access-Control-Allow-Origin", "*")
+				.content_type(content_type)
+				.finish();
+		}
+		Ok(pontus_onyx::Item::Folder {
+			etag: folder_etag,
+			content,
+		}) => {
+			let mut items_result = serde_json::json!({});
+			for (child_name, child) in content.iter().filter(|(_, e)| match &***e {
+				pontus_onyx::Item::Document { .. } => true,
+				pontus_onyx::Item::Folder { .. } => !e.is_empty(),
+			}) {
+				match &**child {
+					pontus_onyx::Item::Folder { etag, content: _ } => {
+						items_result[format!("{}/", child_name)] = serde_json::json!({
+							"ETag": etag,
+						});
 					}
 					pontus_onyx::Item::Document {
-						etag: document_etag,
-						content,
+						etag,
+						content: document_content,
 						content_type,
-						last_modified: _,
+						last_modified,
 					} => {
-						if !should_be_folder {
-							if let Some(none_match) = request.headers().get("If-None-Match") {
-								let mut none_match = none_match
-									.to_str()
-									.unwrap()
-									.split(',')
-									.map(|s| s.trim().replace('"', ""));
-
-								if none_match.any(|s| s == document_etag || s == "*") {
-									return super::super::build_response(
-										actix_web::http::StatusCode::NOT_MODIFIED,
-										None,
-										None,
-										should_have_body,
-									);
-								}
-							}
-
-							return actix_web::HttpResponse::Ok()
-								.header("ETag", document_etag)
-								.header("Cache-Control", "no-cache")
-								.header("Access-Control-Allow-Origin", "*")
-								.content_type(content_type)
-								.body(if should_have_body { content } else { vec![] });
-						} else {
-							return super::super::build_response(
-								actix_web::http::StatusCode::NOT_FOUND,
-								None,
-								None,
-								should_have_body,
-							);
-						}
+						items_result[child_name] = serde_json::json!({
+							"ETag": etag,
+							"Content-Type": content_type,
+							"Content-Length": document_content.len(),
+							"Last-Modified": last_modified.format(crate::http_server::RFC5322).to_string(),
+						});
 					}
 				}
 			}
-			Ok(None) => {
-				return super::super::build_response(
-					actix_web::http::StatusCode::NOT_FOUND,
-					None,
-					None,
-					should_have_body,
-				);
-			}
-			Err(pontus_onyx::ReadError::WrongPath) => {
-				return super::super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					should_have_body,
-				);
-			}
-			Err(pontus_onyx::ReadError::FolderDocumentConflict) => {
-				return super::super::build_response(
-					actix_web::http::StatusCode::CONFLICT,
-					None,
-					None,
-					should_have_body,
-				);
-			}
-		};
+
+			return actix_web::HttpResponse::Ok()
+				.content_type("application/ld+json")
+				.header("ETag", folder_etag.clone())
+				.header("Cache-Control", "no-cache")
+				.header("Access-Control-Allow-Origin", "*")
+				.finish();
+		}
+		Err(e) => e.into(),
 	}
 }
 
@@ -250,41 +209,72 @@ mod tests {
 
 		let tests = vec![
 			(
+				010,
 				Method::GET,
 				"/storage/user/not/exists/document",
 				StatusCode::NOT_FOUND,
 			),
 			(
+				020,
 				Method::GET,
 				"/storage/user/not/exists/folder/",
 				StatusCode::NOT_FOUND,
 			),
-			(Method::GET, "/storage/user/a", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/user/a/b", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/user/a/b/c/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/user/a/", StatusCode::OK),
-			(Method::GET, "/storage/user/a/b/", StatusCode::OK),
-			(Method::GET, "/storage/user/a/b/c", StatusCode::OK),
-			(Method::GET, "/storage/public/user", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/public/user/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/public/user/0", StatusCode::NOT_FOUND),
+			(030, Method::GET, "/storage/user/a", StatusCode::CONFLICT),
+			(040, Method::GET, "/storage/user/a/b", StatusCode::CONFLICT),
 			(
+				050,
 				Method::GET,
-				"/storage/public/user/0/1",
+				"/storage/user/a/b/c/",
 				StatusCode::NOT_FOUND,
 			),
-			(Method::GET, "/storage/public/user/0/1/2", StatusCode::OK),
+			(060, Method::GET, "/storage/user/a/", StatusCode::OK),
+			(070, Method::GET, "/storage/user/a/b/", StatusCode::OK),
+			(080, Method::GET, "/storage/user/a/b/c", StatusCode::OK),
 			(
+				090,
+				Method::GET,
+				"/storage/public/user",
+				StatusCode::CONFLICT,
+			),
+			(
+				100,
+				Method::GET,
+				"/storage/public/user/",
+				StatusCode::NOT_FOUND,
+			),
+			(
+				110,
+				Method::GET,
+				"/storage/public/user/0",
+				StatusCode::CONFLICT,
+			),
+			(
+				120,
+				Method::GET,
+				"/storage/public/user/0/1",
+				StatusCode::CONFLICT,
+			),
+			(
+				130,
+				Method::GET,
+				"/storage/public/user/0/1/2",
+				StatusCode::OK,
+			),
+			(
+				140,
 				Method::GET,
 				"/storage/public/user/0/",
 				StatusCode::NOT_FOUND,
 			),
 			(
+				150,
 				Method::GET,
 				"/storage/public/user/0/1/",
 				StatusCode::NOT_FOUND,
 			),
 			(
+				160,
 				Method::GET,
 				"/storage/public/user/0/1/2/",
 				StatusCode::NOT_FOUND,
@@ -292,14 +282,14 @@ mod tests {
 		];
 
 		for test in tests {
-			print!("{} request to {} ... ", test.0, test.1);
+			print!("#{:03} : {} request to {} ... ", test.0, test.1, test.2);
 
-			let request = actix_web::test::TestRequest::with_uri(test.1)
-				.method(test.0)
+			let request = actix_web::test::TestRequest::with_uri(test.2)
+				.method(test.1.clone())
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
-			assert_eq!(response.status(), test.2);
+			assert_eq!(response.status(), test.3);
 
 			println!("OK");
 		}
@@ -338,25 +328,30 @@ mod tests {
 
 		let tests = vec![
 			(
+				010,
 				vec![EntityTag::new(false, String::from("A"))],
-				StatusCode::NOT_MODIFIED,
+				StatusCode::PRECONDITION_FAILED,
 			),
 			(
+				020,
 				vec![
 					EntityTag::new(false, String::from("A")),
 					EntityTag::new(false, String::from("B")),
 				],
-				StatusCode::NOT_MODIFIED,
+				StatusCode::PRECONDITION_FAILED,
 			),
 			(
+				030,
 				vec![EntityTag::new(false, String::from("*"))],
-				StatusCode::NOT_MODIFIED,
+				StatusCode::PRECONDITION_FAILED,
 			),
 			(
+				040,
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::OK,
 			),
 			(
+				050,
 				vec![
 					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
 					EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
@@ -367,17 +362,17 @@ mod tests {
 
 		for test in tests {
 			print!(
-				"GET request to /storage/user/a/b/c with If-None-Match = {:?} ... ",
-				test.0
+				"#{:03} : GET request to /storage/user/a/b/c with If-None-Match = {:?} ... ",
+				test.0, test.1
 			);
 
 			let request = actix_web::test::TestRequest::get()
 				.uri("/storage/user/a/b/c")
-				.set(actix_web::http::header::IfNoneMatch::Items(test.0))
+				.set(actix_web::http::header::IfNoneMatch::Items(test.1.clone()))
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
-			assert_eq!(response.status(), test.1);
+			assert_eq!(response.status(), test.2);
 
 			println!("OK");
 		}

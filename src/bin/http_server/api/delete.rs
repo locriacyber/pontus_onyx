@@ -4,149 +4,17 @@ pub async fn delete_item(
 	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
 ) -> actix_web::web::HttpResponse {
-	let mut db = database.lock().unwrap();
-
-	let if_match_result = if let Some(find_match) = request.headers().get("If-Match") {
-		let find_match = find_match.to_str().unwrap().trim().replace('"', "");
-
-		match db.read(&path) {
-			Ok(Some(pontus_onyx::Item::Document {
-				etag: document_etag,
-				content: _,
-				content_type: _,
-				last_modified: _,
-			})) => Ok(document_etag == find_match),
-			Ok(Some(pontus_onyx::Item::Folder {
-				etag: _,
-				content: _,
-			})) => Err(super::build_response(
-				actix_web::http::StatusCode::BAD_REQUEST,
-				None,
-				None,
-				true,
-			)),
-			Ok(None) => Err(super::build_response(
-				actix_web::http::StatusCode::NOT_FOUND,
-				None,
-				None,
-				true,
-			)),
-			Err(_) => Err(super::build_response(
-				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-				None,
-				None,
-				true,
-			)),
+	match database.lock().unwrap().delete(
+		&path,
+		request
+			.headers()
+			.get("If-Match")
+			.map(|e| e.to_str().unwrap()),
+	) {
+		Ok(etag) => {
+			return pontus_onyx::build_http_json_response(actix_web::http::StatusCode::OK, Some(etag), None, true);
 		}
-	} else {
-		Ok(true)
-	};
-
-	match if_match_result {
-		Ok(if_match_result) => {
-			if if_match_result {
-				match db.delete(&path) {
-					Ok(etag) => {
-						return super::build_response(
-							actix_web::http::StatusCode::OK,
-							Some(etag),
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::WrongPath) => {
-						return super::build_response(
-							actix_web::http::StatusCode::BAD_REQUEST,
-							None,
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::DoesNotWorksForFolders) => {
-						return super::build_response(
-							actix_web::http::StatusCode::BAD_REQUEST,
-							None,
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::FolderDocumentConflict) => {
-						return super::build_response(
-							actix_web::http::StatusCode::CONFLICT,
-							None,
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::NotFound) => {
-						return super::build_response(
-							actix_web::http::StatusCode::NOT_FOUND,
-							None,
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::UpdateFoldersEtagsError(
-						pontus_onyx::UpdateFoldersEtagsError::FolderDocumentConflict,
-					)) => {
-						return super::build_response(
-							actix_web::http::StatusCode::CONFLICT,
-							None,
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::UpdateFoldersEtagsError(
-						pontus_onyx::UpdateFoldersEtagsError::MissingFolder,
-					)) => {
-						return super::build_response(
-							actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-							None,
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::UpdateFoldersEtagsError(
-						pontus_onyx::UpdateFoldersEtagsError::WrongFolderName,
-					)) => {
-						return super::build_response(
-							actix_web::http::StatusCode::BAD_REQUEST,
-							None,
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::ReadError(
-						pontus_onyx::ReadError::FolderDocumentConflict,
-					)) => {
-						return super::build_response(
-							actix_web::http::StatusCode::CONFLICT,
-							None,
-							None,
-							true,
-						);
-					}
-					Err(pontus_onyx::DeleteError::ReadError(pontus_onyx::ReadError::WrongPath)) => {
-						return super::build_response(
-							actix_web::http::StatusCode::BAD_REQUEST,
-							None,
-							None,
-							true,
-						);
-					}
-				}
-			} else {
-				return super::build_response(
-					actix_web::http::StatusCode::PRECONDITION_FAILED,
-					None,
-					None,
-					true,
-				);
-			}
-		}
-		Err(e) => {
-			return e;
-		}
+		Err(e) => e.into(),
 	}
 }
 
@@ -188,41 +56,69 @@ mod tests {
 
 		let tests = vec![
 			(
+				010,
 				Method::DELETE,
 				"/storage/user/should/not/exists/document",
 				StatusCode::NOT_FOUND,
 			),
 			(
+				020,
 				Method::DELETE,
 				"/storage/user/should/not/exists/folder/",
 				StatusCode::BAD_REQUEST,
 			),
-			(Method::GET, "/storage/user/a/b/c", StatusCode::OK),
-			(Method::DELETE, "/storage/user/a", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/storage/user/a/", StatusCode::BAD_REQUEST),
-			(Method::DELETE, "/storage/user/a/b", StatusCode::NOT_FOUND),
+			(030, Method::GET, "/storage/user/a/b/c", StatusCode::OK),
+			(040, Method::DELETE, "/storage/user/a", StatusCode::CONFLICT),
 			(
+				050,
+				Method::DELETE,
+				"/storage/user/a/",
+				StatusCode::BAD_REQUEST,
+			),
+			(
+				060,
+				Method::DELETE,
+				"/storage/user/a/b",
+				StatusCode::CONFLICT,
+			),
+			(
+				070,
 				Method::DELETE,
 				"/storage/user/a/b/",
 				StatusCode::BAD_REQUEST,
 			),
-			(Method::DELETE, "/storage/user/a/b/c", StatusCode::OK),
-			(Method::GET, "/storage/user/a/b/c", StatusCode::NOT_FOUND),
-			(Method::DELETE, "/storage/user/a/b/c", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/user/a/b/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/user/a/", StatusCode::NOT_FOUND),
-			(Method::GET, "/storage/user/", StatusCode::NOT_FOUND),
+			(080, Method::DELETE, "/storage/user/a/b/c", StatusCode::OK),
+			(
+				090,
+				Method::GET,
+				"/storage/user/a/b/c",
+				StatusCode::NOT_FOUND,
+			),
+			(
+				100,
+				Method::DELETE,
+				"/storage/user/a/b/c",
+				StatusCode::NOT_FOUND,
+			),
+			(
+				110,
+				Method::GET,
+				"/storage/user/a/b/",
+				StatusCode::NOT_FOUND,
+			),
+			(120, Method::GET, "/storage/user/a/", StatusCode::NOT_FOUND),
+			(130, Method::GET, "/storage/user/", StatusCode::NOT_FOUND),
 		];
 
 		for test in tests {
-			print!("{} request to {} ... ", test.0, test.1);
+			print!("#{:03} : {} request to {} ... ", test.0, test.1, test.2);
 
-			let request = actix_web::test::TestRequest::with_uri(test.1)
-				.method(test.0)
+			let request = actix_web::test::TestRequest::with_uri(test.2)
+				.method(test.1.clone())
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
-			assert_eq!(response.status(), test.2);
+			assert_eq!(response.status(), test.3);
 
 			println!("OK");
 		}
@@ -260,35 +156,58 @@ mod tests {
 		)
 		.await;
 
-		let tests = vec![
-			(Method::GET, "/storage/user/a/b/c", vec![], StatusCode::OK),
+		let tests: Vec<(i32, Method, &str, Vec<EntityTag>, StatusCode)> = vec![
 			(
+				010,
+				Method::GET,
+				"/storage/user/a/b/c",
+				vec![],
+				StatusCode::OK,
+			),
+			(
+				020,
 				Method::DELETE,
 				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
-			(Method::GET, "/storage/user/a/b/c", vec![], StatusCode::OK),
-			(Method::GET, "/storage/user/a/b/c", vec![], StatusCode::OK),
 			(
+				030,
+				Method::GET,
+				"/storage/user/a/b/c",
+				vec![],
+				StatusCode::OK,
+			),
+			(
+				040,
+				Method::GET,
+				"/storage/user/a/b/c",
+				vec![],
+				StatusCode::OK,
+			),
+			(
+				050,
 				Method::DELETE,
 				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::OK,
 			),
 			(
+				060,
 				Method::GET,
 				"/storage/user/a/b/c",
 				vec![],
 				StatusCode::NOT_FOUND,
 			),
 			(
+				070,
 				Method::DELETE,
 				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::NOT_FOUND,
 			),
 			(
+				080,
 				Method::DELETE,
 				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
@@ -298,17 +217,17 @@ mod tests {
 
 		for test in tests {
 			print!(
-				"{} request to {} with If-Match = {:?} ... ",
-				test.0, test.1, test.2
+				"#{:03} : {} request to {} with If-Match = {:?} ... ",
+				test.0, test.1, test.2, test.3
 			);
 
-			let request = actix_web::test::TestRequest::with_uri(test.1)
-				.method(test.0)
-				.set(actix_web::http::header::IfMatch::Items(test.2))
+			let request = actix_web::test::TestRequest::with_uri(test.2)
+				.method(test.1.clone())
+				.set(actix_web::http::header::IfMatch::Items(test.3.clone()))
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
-			assert_eq!(response.status(), test.3);
+			assert_eq!(response.status(), test.4);
 
 			println!("OK");
 		}

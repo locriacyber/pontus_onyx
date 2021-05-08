@@ -11,6 +11,12 @@ pub use webfinger::webfinger_handle;
 use rand::seq::IteratorRandom;
 use rand::Rng;
 
+pub const RFC5322: &str = "%a, %d %b %Y %H:%M:%S %Z";
+const FORM_TOKEN_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
+const PASSWORD_HASH_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
+const ACCESS_TOKEN_ALPHABET: &str =
+	"abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ!+*";
+
 pub struct Users {
 	salt: String,
 	list: std::collections::HashMap<String, Vec<u8>>,
@@ -22,7 +28,7 @@ impl Users {
 		for _ in 1..rng_limit.gen_range(16..32) {
 			let mut rng_item = rand::thread_rng();
 			salt.push(
-				crate::PASSWORD_HASH_ALPHABET
+				crate::http_server::PASSWORD_HASH_ALPHABET
 					.chars()
 					.choose(&mut rng_item)
 					.unwrap(),

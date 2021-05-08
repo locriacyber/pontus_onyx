@@ -90,7 +90,7 @@ pub async fn post_oauth(
 		.unwrap();
 
 	let form_tokens = form_tokens.lock().unwrap();
-	let token_search = form_tokens.iter().find(|e| e.value() == token);
+	let token_search = form_tokens.iter().find(|e| e.get_value() == token);
 	match token_search {
 		Some(token_found) => {
 			if token_found.has_expirated() {

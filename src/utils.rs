@@ -6,13 +6,13 @@ struct JsonResponse {
 	#[serde(rename = "ETag", skip_serializing_if = "Option::is_none")]
 	etag: Option<String>,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	hint: Option<&'static str>,
+	hint: Option<String>,
 }
 
-pub fn build_response(
+pub fn build_http_json_response(
 	code: actix_web::http::StatusCode,
 	etag: Option<String>,
-	hint: Option<&'static str>,
+	hint: Option<String>,
 	should_have_body: bool,
 ) -> actix_web::HttpResponse {
 	let mut response = actix_web::HttpResponse::build(code);

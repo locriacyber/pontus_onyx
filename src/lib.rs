@@ -3,7 +3,13 @@
 mod client;
 mod database;
 
-pub use database::*;
+#[cfg(feature = "server")]
+mod utils;
+
+#[cfg(feature = "server")]
+pub use utils::build_http_json_response;
+
+pub use database::{Database, DeleteError, GetError, PutError, PutResult};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum Item {

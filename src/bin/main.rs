@@ -5,12 +5,6 @@ extern crate pontus_onyx;
 #[cfg(feature = "server")]
 mod http_server;
 
-pub static RFC5322: &str = "%a, %d %b %Y %H:%M:%S %Z";
-const FORM_TOKEN_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
-const PASSWORD_HASH_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
-const ACCESS_TOKEN_ALPHABET: &str =
-	"abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ!+*";
-
 /*
 TODO : continue to :
 	https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-16

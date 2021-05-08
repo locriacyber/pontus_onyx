@@ -80,7 +80,7 @@ impl AccessBearer {
 		for _ in 1..rng_limit.gen_range(128..256) {
 			let mut rng_item = rand::thread_rng();
 			name.push(
-				crate::ACCESS_TOKEN_ALPHABET
+				crate::http_server::ACCESS_TOKEN_ALPHABET
 					.chars()
 					.choose(&mut rng_item)
 					.unwrap(),

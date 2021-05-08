@@ -95,7 +95,7 @@ where
 								None => Box::pin(async move {
 									Ok(actix_web::dev::ServiceResponse::new(
 										service_request.into_parts().0,
-										super::super::api::build_response(
+										pontus_onyx::build_http_json_response(
 											actix_web::http::StatusCode::UNAUTHORIZED,
 											None,
 											None,
@@ -108,7 +108,7 @@ where
 							Box::pin(async move {
 								Ok(actix_web::dev::ServiceResponse::new(
 									service_request.into_parts().0,
-									super::super::api::build_response(
+									pontus_onyx::build_http_json_response(
 										actix_web::http::StatusCode::UNAUTHORIZED,
 										None,
 										None,
@@ -121,7 +121,7 @@ where
 					None => Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
-							super::super::api::build_response(
+							pontus_onyx::build_http_json_response(
 								actix_web::http::StatusCode::UNAUTHORIZED,
 								None,
 								None,
@@ -180,7 +180,7 @@ where
 					Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
-							super::super::api::build_response(
+							pontus_onyx::build_http_json_response(
 								actix_web::http::StatusCode::UNAUTHORIZED,
 								None,
 								None,
@@ -209,7 +209,7 @@ impl OauthFormToken {
 		for _ in 1..rng_limit.gen_range(32..64) {
 			let mut rng_item = rand::thread_rng();
 			value.push(
-				crate::FORM_TOKEN_ALPHABET
+				crate::http_server::FORM_TOKEN_ALPHABET
 					.chars()
 					.choose(&mut rng_item)
 					.unwrap(),
@@ -220,14 +220,14 @@ impl OauthFormToken {
 	}
 }
 impl OauthFormToken {
-	pub fn ip(&self) -> std::net::SocketAddr {
-		return self.ip;
+	pub fn get_ip(&self) -> &std::net::SocketAddr {
+		&self.ip
 	}
-	pub fn forged(&self) -> std::time::Instant {
-		return self.forged;
+	pub fn get_forged(&self) -> &std::time::Instant {
+		&self.forged
 	}
-	pub fn value(&self) -> String {
-		return self.value.clone();
+	pub fn get_value(&self) -> &str {
+		&self.value
 	}
 	pub fn has_expirated(&self) -> bool {
 		(std::time::Instant::now() - self.forged) == std::time::Duration::from_secs(5 * 60)
@@ -258,28 +258,28 @@ async fn hsv5femo2qgu80gbad0ov5() {
 	)
 	.await;
 
-	let tests: Vec<(&str, bool)> = vec![
-		("/storage/user/", true),
-		("/storage/user/folder/", true),
-		("/storage/user/document", true),
-		("/storage/user/folder/document", true),
-		("/storage/public/user/folder/", true),
-		("/storage/public/user/document", false),
-		("/storage/public/user/folder/document", false),
-		("/.well-known/webfinger", false),
-		("/oauth", false),
-		("/favicon.ico", false),
-		("/remotestorage.svg", false),
-		("/", false),
+	let tests = vec![
+		(010, "/storage/user/", true),
+		(020, "/storage/user/folder/", true),
+		(030, "/storage/user/document", true),
+		(040, "/storage/user/folder/document", true),
+		(050, "/storage/public/user/folder/", true),
+		(060, "/storage/public/user/document", false),
+		(070, "/storage/public/user/folder/document", false),
+		(080, "/.well-known/webfinger", false),
+		(090, "/oauth", false),
+		(100, "/favicon.ico", false),
+		(110, "/remotestorage.svg", false),
+		(120, "/", false),
 	];
 
 	for test in tests {
-		print!("GET request to {} ... ", test.0);
+		print!("#{:03} : GET request to {} ... ", test.0, test.1);
 
-		let request = actix_web::test::TestRequest::get().uri(test.0).to_request();
+		let request = actix_web::test::TestRequest::get().uri(test.1).to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
 
-		if test.1 {
+		if test.2 {
 			assert_eq!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
 		} else {
 			assert_ne!(response.status(), actix_web::http::StatusCode::UNAUTHORIZED);
@@ -564,10 +564,12 @@ mod tests {
 			),
 		];
 
+		let mut i = 0usize;
 		for test in tests {
 			let request = test.0.to_request();
 			print!(
-				"{} request to {} with Authorization = {:?} ... ",
+				"#{:03} : {} request to {} with Authorization = {:?} ... ",
+				i + 1,
 				request.method(),
 				request.path(),
 				match request
@@ -585,6 +587,8 @@ mod tests {
 			assert_eq!(response.status(), test.1);
 
 			println!("OK");
+
+			i += 1;
 		}
 	}
 }

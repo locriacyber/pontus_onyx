@@ -119,7 +119,7 @@ pub async fn get_oauth(
 			percent_encoding::NON_ALPHANUMERIC
 		),
 		percent_encoding::percent_encode(
-			new_token.value().as_bytes(),
+			new_token.get_value().as_bytes(),
 			percent_encoding::NON_ALPHANUMERIC
 		),
 		percent_encoding::percent_encode(

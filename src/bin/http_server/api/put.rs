@@ -11,300 +11,61 @@ pub async fn put_item(
 	request: actix_web::web::HttpRequest,
 	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
-) -> Result<actix_web::web::HttpResponse, actix_web::Error> {
-	let mut body = actix_web::web::BytesMut::new();
-	while let Some(content) = futures::StreamExt::next(&mut request_payload).await {
-		let content = content?;
-		body.extend_from_slice(&content);
+) -> actix_web::web::HttpResponse {
+	let mut content = actix_web::web::BytesMut::new();
+	while let Some(request_body) = futures::StreamExt::next(&mut request_payload).await {
+		let request_body = request_body.unwrap();
+		content.extend_from_slice(&request_body);
 	}
-	let body = body.freeze();
+	let content = content.freeze();
 
 	let content_type = request.headers().get("content-type");
 
 	if content_type.is_none() {
-		return Ok(super::build_response(
+		return pontus_onyx::build_http_json_response(
 			actix_web::http::StatusCode::BAD_REQUEST,
 			None,
-			Some("missing content-type HTTP header"),
+			Some(String::from("missing content-type HTTP header")),
 			true,
-		));
+		);
 	}
 
-	let mut db = database.lock().unwrap();
+	let if_none_match = request
+		.headers()
+		.get("If-None-Match")
+		.map(|e| (e.to_str().unwrap()).split(',').collect::<Vec<&str>>());
 
-	let found = db.read(&path)?;
-	if let Some(none_match) = request.headers().get("If-None-Match") {
-		let mut none_match = none_match
-			.to_str()
-			.unwrap()
-			.split(',')
-			.map(|s| s.trim().replace('"', ""));
-
-		if let Some(pontus_onyx::Item::Document {
-			etag: document_etag,
-			content: _,
-			content_type: _,
-			last_modified: _,
-		}) = &found
-		{
-			if none_match.any(|s| &s == document_etag || s == "*") {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::PRECONDITION_FAILED,
-					Some(document_etag.clone()),
-					None,
-					true,
-				));
-			}
-		}
-	}
-
-	/*
-	TODO :
-		* its version being updated, as well as that of its parent folder
-			and further ancestor folders, using a strong validator [HTTP,
-			section 7.2].
-	*/
-	if found.is_some() {
-		let if_match_result = if let Some(find_match) = request.headers().get("If-Match") {
-			let find_match = find_match.to_str().unwrap().trim().replace('"', "");
-
-			if let Some(pontus_onyx::Item::Document {
-				etag: document_etag,
-				content: _,
-				content_type: _,
-				last_modified: _,
-			}) = &found
-			{
-				document_etag == &find_match
-			} else {
-				true
-			}
-		} else {
-			true
-		};
-
-		if !if_match_result {
-			return Ok(super::build_response(
-				actix_web::http::StatusCode::PRECONDITION_FAILED,
-				None,
+	match database.lock().unwrap().put(
+		&path,
+		pontus_onyx::Item::Document {
+			etag: String::new(),
+			content: content.to_vec(),
+			content_type: String::from(content_type.unwrap().to_str().unwrap()),
+			last_modified: chrono::Utc::now(),
+		},
+		request
+			.headers()
+			.get("If-Match")
+			.map(|e| e.to_str().unwrap()),
+		if_none_match,
+	) {
+		pontus_onyx::PutResult::Created(new_etag) => {
+			return pontus_onyx::build_http_json_response(
+				actix_web::http::StatusCode::CREATED,
+				Some(new_etag),
 				None,
 				true,
-			));
+			);
 		}
-
-		match db.update(
-			&path,
-			pontus_onyx::Item::Document {
-				etag: ulid::Ulid::new().to_string(),
-				content: body.to_vec(),
-				content_type: String::from(actix_web::HttpMessage::content_type(&request)),
-				last_modified: chrono::Utc::now(),
-			},
-		) {
-			Ok(new_etag) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::OK,
-					Some(new_etag),
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::WrongPath) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::FolderDocumentConflict) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::CONFLICT,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::NotFound) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::NOT_FOUND,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::NotModified) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::NOT_MODIFIED,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::DoesNotWorksForFolders) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::InternalError) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::UpdateFoldersEtagsError(
-				pontus_onyx::UpdateFoldersEtagsError::FolderDocumentConflict,
-			)) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::CONFLICT,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::UpdateFoldersEtagsError(
-				pontus_onyx::UpdateFoldersEtagsError::MissingFolder,
-			)) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::UpdateError::UpdateFoldersEtagsError(
-				pontus_onyx::UpdateFoldersEtagsError::WrongFolderName,
-			)) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					true,
-				));
-			}
+		pontus_onyx::PutResult::Updated(new_etag) => {
+			return pontus_onyx::build_http_json_response(
+				actix_web::http::StatusCode::OK,
+				Some(new_etag),
+				None,
+				true,
+			);
 		}
-	} else {
-		match db.create(&path, &body, actix_web::HttpMessage::content_type(&request)) {
-			Ok(new_etag) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::CREATED,
-					Some(new_etag),
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::AlreadyExists) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::PRECONDITION_FAILED,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::WrongPath) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::FolderDocumentConflict) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::CONFLICT,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::NotFound) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::NOT_FOUND,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::InternalError) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::DoesNotWorksForFolders) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::ShouldBeFolder) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::FolderBuildError(
-				pontus_onyx::FolderBuildError::FolderDocumentConflict,
-			)) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::CONFLICT,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::FolderBuildError(
-				pontus_onyx::FolderBuildError::WrongFolderName,
-			)) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::UpdateFoldersEtagsError(
-				pontus_onyx::UpdateFoldersEtagsError::FolderDocumentConflict,
-			)) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::CONFLICT,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::UpdateFoldersEtagsError(
-				pontus_onyx::UpdateFoldersEtagsError::MissingFolder,
-			)) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					true,
-				));
-			}
-			Err(pontus_onyx::CreateError::UpdateFoldersEtagsError(
-				pontus_onyx::UpdateFoldersEtagsError::WrongFolderName,
-			)) => {
-				return Ok(super::build_response(
-					actix_web::http::StatusCode::BAD_REQUEST,
-					None,
-					None,
-					true,
-				));
-			}
-		}
+		pontus_onyx::PutResult::Err(e) => e.into(),
 	}
 }
 
@@ -431,11 +192,13 @@ mod tests {
 
 		let tests = vec![
 			(
+				010,
 				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("A"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
+				020,
 				"/storage/user/a/b/c",
 				vec![
 					EntityTag::new(false, String::from("A")),
@@ -444,16 +207,19 @@ mod tests {
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
+				030,
 				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::PRECONDITION_FAILED,
 			),
 			(
+				040,
 				"/storage/user/a/b/c",
 				vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
 				StatusCode::OK,
 			),
 			(
+				050,
 				"/storage/user/a/b/d",
 				vec![
 					EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
@@ -462,11 +228,13 @@ mod tests {
 				StatusCode::OK,
 			),
 			(
+				060,
 				"/storage/user/new/a",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::CREATED,
 			),
 			(
+				070,
 				"/storage/user/new/a",
 				vec![EntityTag::new(false, String::from("*"))],
 				StatusCode::PRECONDITION_FAILED,
@@ -475,18 +243,18 @@ mod tests {
 
 		for test in tests {
 			print!(
-				"PUT request to {} with If-None-Math = {:?} ... ",
-				test.0, test.1
+				"#{:03} : PUT request to {} with If-None-Math = {:?} ... ",
+				test.0, test.1, test.2
 			);
 
 			let request = actix_web::test::TestRequest::put()
-				.uri(test.0)
-				.set(actix_web::http::header::IfNoneMatch::Items(test.1))
+				.uri(test.1)
+				.set(actix_web::http::header::IfNoneMatch::Items(test.2.clone()))
 				.set_json(&serde_json::json!({"value": "C"}))
 				.to_request();
 			let response = actix_web::test::call_service(&mut app, request).await;
 
-			assert_eq!(response.status(), test.2);
+			assert_eq!(response.status(), test.3);
 
 			println!("OK");
 		}

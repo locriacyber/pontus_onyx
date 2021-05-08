@@ -1,12 +1,10 @@
-mod create;
 mod delete;
-mod read;
-mod update;
+mod get;
+mod put;
 
-pub use create::CreateError;
 pub use delete::DeleteError;
-pub use read::ReadError;
-pub use update::UpdateError;
+pub use get::GetError;
+pub use put::{PutError, PutResult};
 
 #[derive(Debug)]
 pub struct Database {
@@ -14,7 +12,7 @@ pub struct Database {
 }
 
 impl Database {
-	pub fn from_item_folder(content: crate::Item) -> Result<Self, CreateError> {
+	pub fn from_item_folder(content: crate::Item) -> Result<Self, put::PutError> {
 		match content {
 			crate::Item::Folder {
 				etag: _,
@@ -25,13 +23,13 @@ impl Database {
 				content: _,
 				content_type: _,
 				last_modified: _,
-			} => Err(CreateError::ShouldBeFolder),
+			} => Err(put::PutError::WorksOnlyForDocument),
 		}
 	}
-	pub fn from_bytes(_bytes: &[u8]) -> Result<Self, CreateError> {
+	pub fn from_bytes(_bytes: &[u8]) -> Result<Self, put::PutError> {
 		todo!()
 	}
-	pub fn from_path(_path: &std::path::Path) -> Result<Self, create::CreateError> {
+	pub fn from_path(_path: &std::path::Path) -> Result<Self, put::PutError> {
 		todo!()
 	}
 }
@@ -47,10 +45,7 @@ impl Database {
 						etag: _,
 						content: folder_content,
 					} => {
-						result = match folder_content.get(request_name) {
-							Some(b) => Some(&**b),
-							None => None,
-						};
+						result = folder_content.get(request_name).map(|b| &**b);
 					}
 					crate::Item::Document {
 						etag: _,
@@ -76,10 +71,7 @@ impl Database {
 						etag: _,
 						content: folder_content,
 					} => {
-						result = match folder_content.get_mut(request_name) {
-							Some(b) => Some(&mut **b),
-							None => None,
-						};
+						result = folder_content.get_mut(request_name).map(|b| &mut **b);
 					}
 					crate::Item::Document {
 						etag: _,
@@ -216,7 +208,7 @@ impl Database {
 }
 
 #[derive(Debug)]
-enum FetchError {
+pub enum FetchError {
 	FolderDocumentConflict,
 }
 
@@ -233,7 +225,7 @@ pub enum UpdateFoldersEtagsError {
 	MissingFolder,
 }
 
-enum CleanupFolderError {
+pub enum CleanupFolderError {
 	NotAFolder,
 }
 
