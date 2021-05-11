@@ -30,16 +30,17 @@ pub async fn get_oauth(
 				.unwrap()
 		})
 		.map(|scope| {
-			let module = if scope.module == "*" {
-				"<i>all modules</i>"
+			if scope.module == "*" {
+				format!(
+					r#"{} on <strong style="color:red;">all modules</strong> <i>(it should be a security issue)</i>"#,
+					scope.right_type
+				)
 			} else {
-				&scope.module
-			};
-
-			format!(
-				r#"{} on <a href="../storage/{}/{}/">/storage/{}/{}/</a> and <a href="../storage/public/{}/{}/">/storage/public/{}/{}/</a>"#,
-				scope.right_type, username, module, username, module, username, module, username, module
-			)
+				format!(
+					r#"{} on <a href="../storage/{}/{}/">/storage/{}/{}/</a> and <a href="../storage/public/{}/{}/">/storage/public/{}/{}/</a>"#,
+					scope.right_type, username, scope.module, username, scope.module, username, scope.module, username, scope.module
+				)
+			}
 		})
 		.fold(String::new(), |acc, scope| {
 			format!("{}<li>{}</li>", acc, scope)

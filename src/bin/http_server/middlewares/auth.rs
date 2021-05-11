@@ -71,22 +71,31 @@ where
 				match tokens.iter().find(|e| e.name() == search_token) {
 					Some(token) => {
 						// TODO : check token validity with client_id
+						// TODO : test access in case of module = "*"
 
 						if !token.is_expirated() {
 							match token.scopes().iter().find(|scope| {
-								(service_request.path().starts_with(&format!(
-									"/storage/{}/{}",
-									token.username(),
-									scope.module
-								)) || service_request.path().starts_with(&format!(
-									"/storage/public/{}/{}",
-									token.username(),
-									scope.module
-								))) && scope
-									.allowed_methods()
-									.iter()
-									.find(|method| method == service_request.method())
-									.is_some()
+								if scope
+								.allowed_methods()
+								.iter()
+								.find(|method| method == service_request.method())
+								.is_some() {
+									if scope.module == "*" {
+										service_request.path().starts_with("/storage/")
+									} else {
+										service_request.path().starts_with(&format!(
+											"/storage/{}/{}",
+											token.username(),
+											scope.module
+										)) || service_request.path().starts_with(&format!(
+											"/storage/public/{}/{}",
+											token.username(),
+											scope.module
+										))
+									}
+								} else {
+									false
+								}
 							}) {
 								Some(_) => {
 									let future = self.service.call(service_request);
@@ -315,64 +324,66 @@ mod tests {
 		access_tokens.lock().unwrap().push(token.clone());
 
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"user",
-				pontus_onyx::Item::new_folder(vec![
-					(
-						"folder_write",
-						pontus_onyx::Item::new_folder(vec![(
-							"a",
-							pontus_onyx::Item::Document {
-								etag: ulid::Ulid::new().to_string(),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						)]),
-					),
-					(
-						"folder_read",
-						pontus_onyx::Item::new_folder(vec![(
-							"a",
-							pontus_onyx::Item::Document {
-								etag: ulid::Ulid::new().to_string(),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						)]),
-					),
-					(
-						"public",
-						pontus_onyx::Item::new_folder(vec![
-							(
-								"folder_write",
-								pontus_onyx::Item::new_folder(vec![(
-									"a",
-									pontus_onyx::Item::Document {
-										etag: ulid::Ulid::new().to_string(),
-										content: b"HELLO".to_vec(),
-										content_type: String::from("text/plain"),
-										last_modified: chrono::Utc::now(),
-									},
-								)]),
-							),
-							(
-								"folder_read",
-								pontus_onyx::Item::new_folder(vec![(
-									"a",
-									pontus_onyx::Item::Document {
-										etag: ulid::Ulid::new().to_string(),
-										content: b"HELLO".to_vec(),
-										content_type: String::from("text/plain"),
-										last_modified: chrono::Utc::now(),
-									},
-								)]),
-							),
-						]),
-					),
-				]),
-			)]))
+			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![(
+					"user",
+					pontus_onyx::Item::new_folder(vec![
+						(
+							"folder_write",
+							pontus_onyx::Item::new_folder(vec![(
+								"a",
+								pontus_onyx::Item::Document {
+									etag: ulid::Ulid::new().to_string(),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
+						),
+						(
+							"folder_read",
+							pontus_onyx::Item::new_folder(vec![(
+								"a",
+								pontus_onyx::Item::Document {
+									etag: ulid::Ulid::new().to_string(),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
+						),
+						(
+							"public",
+							pontus_onyx::Item::new_folder(vec![
+								(
+									"folder_write",
+									pontus_onyx::Item::new_folder(vec![(
+										"a",
+										pontus_onyx::Item::Document {
+											etag: ulid::Ulid::new().to_string(),
+											content: b"HELLO".to_vec(),
+											content_type: String::from("text/plain"),
+											last_modified: chrono::Utc::now(),
+										},
+									)]),
+								),
+								(
+									"folder_read",
+									pontus_onyx::Item::new_folder(vec![(
+										"a",
+										pontus_onyx::Item::Document {
+											etag: ulid::Ulid::new().to_string(),
+											content: b"HELLO".to_vec(),
+											content_type: String::from("text/plain"),
+											last_modified: chrono::Utc::now(),
+										},
+									)]),
+								),
+							]),
+						),
+					]),
+				)],
+			)))
 			.unwrap(),
 		));
 

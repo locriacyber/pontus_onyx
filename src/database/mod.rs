@@ -12,26 +12,185 @@ pub struct Database {
 }
 
 impl Database {
-	pub fn from_item_folder(content: crate::Item) -> Result<Self, put::PutError> {
-		match content {
-			crate::Item::Folder {
-				etag: _,
-				content: _,
-			} => Ok(Self { content }),
-			crate::Item::Document {
-				etag: _,
-				content: _,
-				content_type: _,
-				last_modified: _,
-			} => Err(put::PutError::WorksOnlyForDocument),
+	pub fn new(source: Source) -> Result<Self, NewDatabaseError> {
+		match source {
+			Source::Memory(item) => match item {
+				crate::Item::Folder { .. } => Ok(Self {
+					content: item.clone(),
+				}),
+				crate::Item::Document { .. } => {
+					Err(NewDatabaseError::WorksOnlyForDocument)
+				}
+			},
+			Source::File(path) => {
+				if !path.exists() {
+					return Err(NewDatabaseError::FileDoesNotExists);
+				}
+
+				match path_to_item(path) {
+					Ok((_, data)) => {
+						Ok(Self { content: *data })
+					}
+					Err(e) => Err(e),
+				}
+			}
 		}
 	}
-	pub fn from_bytes(_bytes: &[u8]) -> Result<Self, put::PutError> {
-		todo!()
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct PontusOnyxFileData{
+	datastruct_version: String,
+	etag: String,
+	content_type: String,
+	last_modified: chrono::DateTime<chrono::Utc>,
+}
+impl Default for PontusOnyxFileData {
+	fn default() -> Self {
+		Self{
+			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+			etag: ulid::Ulid::new().to_string(),
+			content_type: actix_web::http::header::ContentType::octet_stream().to_string(),
+			last_modified: chrono::Utc::now(),
+		}
 	}
-	pub fn from_path(_path: &std::path::Path) -> Result<Self, put::PutError> {
-		todo!()
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct PontusOnyxFolderData{
+	datastruct_version: String,
+	etag: String,
+}
+impl Default for PontusOnyxFolderData {
+	fn default() -> Self {
+		Self{
+			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+			etag: ulid::Ulid::new().to_string(),
+		}
 	}
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct PontusOnyxMonolythData{
+	datastruct_version: String,
+	content: crate::Item,
+}
+impl Default for PontusOnyxMonolythData {
+	fn default() -> Self {
+		Self{
+			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+			content: crate::Item::new_folder(vec![]),
+		}
+	}
+}
+
+fn path_to_item(path: std::path::PathBuf) -> Result<(String, Box<crate::Item>), NewDatabaseError> {
+	if path.is_dir() {
+		match std::fs::read_dir(path.clone()) {
+			Ok(items) => {
+				let content: Vec<Result<(String, Box<crate::Item>), NewDatabaseError>> = items.map(|item| {
+					match item {
+						Ok(entry) => {
+							if entry.path().is_dir() {
+								path_to_item(entry.path())
+							} else if entry.path().is_file() {
+								let filename =
+									String::from(entry.file_name().as_os_str().to_str().unwrap());
+
+								let mut podata = path.clone();
+								podata.push(format!(".{}.podata.toml", filename));
+
+								let podata = std::fs::read(podata);
+
+								let podata: PontusOnyxFileData = match podata {
+									Ok(podata) => toml::from_slice(&podata).unwrap_or_default(),
+									Err(_) => PontusOnyxFileData::default(),
+								};
+
+								let res = match std::fs::read(entry.path()) {
+									Ok(bytes) => Ok((
+										filename,
+										Box::new(crate::Item::Document {
+											content: bytes,
+											content_type: podata.content_type,
+											etag: podata.etag,
+											last_modified: podata.last_modified,
+										}),
+									)),
+									Err(e) => Err(NewDatabaseError::IOError(e)),
+								};
+
+								res
+							} else {
+								panic!("todo")
+							}
+						}
+						Err(e) => Err(NewDatabaseError::IOError(e)),
+					}
+				}).filter(|e| {
+					if let Ok((name, _)) = e {
+						if name.ends_with(".podata.toml") {
+							return false;
+						}
+					}
+
+					return true;
+				}).collect();
+
+				if content.iter().all(|e| !e.is_err()) {
+					let folder_name = path.file_name().unwrap().to_str().unwrap();
+
+					let mut podata = path.clone();
+					podata.push(".folder.podata.toml");
+
+					let podata = std::fs::read(podata);
+
+					let podata: PontusOnyxFolderData = match podata {
+						Ok(podata) => toml::from_slice(&podata).unwrap_or_default(),
+						Err(_) => PontusOnyxFolderData::default(),
+					};
+
+					Ok((
+						String::from(folder_name),
+						Box::new(crate::Item::Folder {
+							etag: podata.etag,
+							content: content.into_iter().map(|e| e.unwrap()).collect::<std::collections::HashMap<String, Box<crate::Item>>>(),
+						}),
+					))
+				} else {
+					Err(match content.into_iter().find(|e| e.is_err()) {
+						Some(Ok(_)) => panic!("error #SGR-573"),
+						Some(Err(e)) => e,
+						None => panic!("error #NYH-812"),
+					})
+				}
+			}
+			Err(e) => Err(NewDatabaseError::IOError(e)),
+		}
+	} else if path.is_file() {
+		match std::fs::read(&path) {
+			Ok(content) => {
+				let content: Result<PontusOnyxMonolythData, bincode::Error> = bincode::deserialize(&content);
+
+				match content {
+					Ok(monolyth) => Ok((String::from(path.file_name().unwrap().to_str().unwrap()), Box::new(monolyth.content))),
+					Err(e) => Err(NewDatabaseError::DeserializeError(e)),
+				}
+			},
+			Err(e) => Err(NewDatabaseError::IOError(e)),
+		}
+	} else {
+		Err(NewDatabaseError::WrongSource)
+	}
+}
+
+#[derive(Debug)]
+pub enum NewDatabaseError {
+	DeserializeError(bincode::Error),
+	FileDoesNotExists,
+	IOError(std::io::Error),
+	WorksOnlyForDocument,
+	WrongSource,
 }
 
 impl Database {
@@ -227,6 +386,12 @@ pub enum UpdateFoldersEtagsError {
 
 pub enum CleanupFolderError {
 	NotAFolder,
+}
+
+#[derive(Debug)]
+pub enum Source {
+	Memory(crate::Item),
+	File(std::path::PathBuf),
 }
 
 mod path {

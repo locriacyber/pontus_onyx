@@ -24,9 +24,22 @@ async fn main() -> std::io::Result<()> {
 
 	println!("starting to listen to http://localhost:7541/");
 
+	let db_path = "data";
+	std::fs::create_dir_all(db_path).ok();
+
 	let database = std::sync::Arc::new(std::sync::Mutex::new(
-		pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![])).unwrap(),
+		pontus_onyx::Database::new(
+			/*
+			pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![],
+			))
+			*/
+			pontus_onyx::Source::File(std::path::PathBuf::from(db_path)),
+		)
+		.unwrap(),
 	));
+
+	dbg!(&database);
 
 	let oauth_form_tokens: std::sync::Arc<
 		std::sync::Mutex<Vec<crate::http_server::OauthFormToken>>,
@@ -36,7 +49,7 @@ async fn main() -> std::io::Result<()> {
 		std::sync::Arc::new(std::sync::Mutex::new(vec![]));
 
 	let mut users = crate::http_server::Users::new();
-	users.insert("todo", "todo");
+	users.insert("todo", &mut String::from("todo"));
 	let users: std::sync::Arc<std::sync::Mutex<crate::http_server::Users>> =
 		std::sync::Arc::new(std::sync::Mutex::new(users));
 

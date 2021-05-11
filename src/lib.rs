@@ -9,9 +9,10 @@ mod utils;
 #[cfg(feature = "server")]
 pub use utils::build_http_json_response;
 
-pub use database::{Database, DeleteError, GetError, PutError, PutResult};
+pub use database::{Database, DeleteError, GetError, PutError, PutResult, Source};
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(derivative::Derivative, Clone, serde::Serialize, serde::Deserialize)]
+#[derivative(Debug)]
 pub enum Item {
 	Folder {
 		etag: String,
@@ -19,6 +20,7 @@ pub enum Item {
 	},
 	Document {
 		etag: String,
+		#[derivative(Debug="ignore")]
 		content: Vec<u8>,
 		content_type: String,
 		last_modified: chrono::DateTime<chrono::offset::Utc>,

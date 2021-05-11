@@ -4,6 +4,11 @@ pub async fn get_item(
 	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
 ) -> actix_web::web::HttpResponse {
+	/* TODO :
+	let if_match: Result<actix_web::http::header::IfMatch, actix_web::error::ParseError> = actix_web::http::header::Header::parse(&request);
+	let if_none_match: Result<actix_web::http::header::IfNoneMatch, actix_web::error::ParseError> = actix_web::http::header::IfNoneMatch::parse(&request);
+	*/
+
 	let if_none_match = request
 		.headers()
 		.get("If-None-Match")
@@ -156,35 +161,16 @@ mod tests {
 	#[actix_rt::test]
 	async fn basics() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![
-				(
-					"user",
-					pontus_onyx::Item::new_folder(vec![(
-						"a",
-						pontus_onyx::Item::new_folder(vec![(
-							"b",
-							pontus_onyx::Item::new_folder(vec![(
-								"c",
-								pontus_onyx::Item::Document {
-									etag: ulid::Ulid::new().to_string(),
-									content: b"HELLO".to_vec(),
-									content_type: String::from("text/plain"),
-									last_modified: chrono::Utc::now(),
-								},
-							)]),
-						)]),
-					)]),
-				),
-				(
-					"public",
-					pontus_onyx::Item::new_folder(vec![(
+			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![
+					(
 						"user",
 						pontus_onyx::Item::new_folder(vec![(
-							"0",
+							"a",
 							pontus_onyx::Item::new_folder(vec![(
-								"1",
+								"b",
 								pontus_onyx::Item::new_folder(vec![(
-									"2",
+									"c",
 									pontus_onyx::Item::Document {
 										etag: ulid::Ulid::new().to_string(),
 										content: b"HELLO".to_vec(),
@@ -194,9 +180,30 @@ mod tests {
 								)]),
 							)]),
 						)]),
-					)]),
-				),
-			]))
+					),
+					(
+						"public",
+						pontus_onyx::Item::new_folder(vec![(
+							"user",
+							pontus_onyx::Item::new_folder(vec![(
+								"0",
+								pontus_onyx::Item::new_folder(vec![(
+									"1",
+									pontus_onyx::Item::new_folder(vec![(
+										"2",
+										pontus_onyx::Item::Document {
+											etag: ulid::Ulid::new().to_string(),
+											content: b"HELLO".to_vec(),
+											content_type: String::from("text/plain"),
+											last_modified: chrono::Utc::now(),
+										},
+									)]),
+								)]),
+							)]),
+						)]),
+					),
+				],
+			)))
 			.unwrap(),
 		));
 
@@ -298,24 +305,26 @@ mod tests {
 	#[actix_rt::test]
 	async fn if_none_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"user",
-				pontus_onyx::Item::new_folder(vec![(
-					"a",
+			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![(
+					"user",
 					pontus_onyx::Item::new_folder(vec![(
-						"b",
+						"a",
 						pontus_onyx::Item::new_folder(vec![(
-							"c",
-							pontus_onyx::Item::Document {
-								etag: String::from("A"),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
+							"b",
+							pontus_onyx::Item::new_folder(vec![(
+								"c",
+								pontus_onyx::Item::Document {
+									etag: String::from("A"),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
 						)]),
 					)]),
-				)]),
-			)]))
+				)],
+			)))
 			.unwrap(),
 		));
 

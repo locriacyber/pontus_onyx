@@ -43,12 +43,14 @@ impl Users {
 }
 impl Users {
 	// TODO : tests
-	pub fn check(&self, username: &str, password: &str) -> bool {
+	pub fn check(&self, username: &str, password: &mut String) -> bool {
 		let mut hasher = hmac_sha512::Hash::new();
 		hasher.update(self.salt.as_bytes());
 		hasher.update(password.as_bytes());
 		hasher.update(self.salt.as_bytes());
 		let hashed_password = hasher.finalize().to_vec();
+
+		zeroize::Zeroize::zeroize(password);
 
 		match self.list.get(username) {
 			Some(user_password) => user_password == &hashed_password,
@@ -57,11 +59,13 @@ impl Users {
 	}
 }
 impl Users {
-	pub fn insert(&mut self, username: &str, password: &str) {
+	pub fn insert(&mut self, username: &str, password: &mut String) {
 		let mut hasher = hmac_sha512::Hash::new();
 		hasher.update(self.salt.as_bytes());
 		hasher.update(password.as_bytes());
 		hasher.update(self.salt.as_bytes());
+
+		zeroize::Zeroize::zeroize(password);
 
 		self.list
 			.insert(String::from(username), hasher.finalize().to_vec());
@@ -96,7 +100,7 @@ pub async fn index() -> actix_web::web::HttpResponse {
 	<body style="padding:1em 2em;">
 		<h1><img src="/favicon.ico" alt="" style="max-height:2em;vertical-align:middle;"> {}</h1>
 		<p>This is an <a href="https://remotestorage.io/"><img src="/remotestorage.svg" style="max-height:1em;vertical-align:middle;"> remoteStorage</a> server.</p>
-		<p><a href="https://wiki.remotestorage.io/Apps">Find Apps compatible</a> with this database.</p>
+		<p>Find Apps compatible with this database <a href="https://wiki.remotestorage.io/Apps">here</a> or <a href="https://0data.app/">here</a>.</p>
 		<p>See source code on <a href="https://github.com/Jimskapt/pontus_onyx">GitHub</a>.</p>
 	</body>
 </html>"#, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_NAME")))

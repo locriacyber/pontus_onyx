@@ -76,7 +76,10 @@ mod tests {
 	#[actix_rt::test]
 	async fn basics() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![])).unwrap(),
+			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![],
+			)))
+			.unwrap(),
 		));
 
 		let mut app = actix_web::test::init_service(
@@ -151,35 +154,37 @@ mod tests {
 	#[actix_rt::test]
 	async fn if_none_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"user",
-				pontus_onyx::Item::new_folder(vec![(
-					"a",
+			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![(
+					"user",
 					pontus_onyx::Item::new_folder(vec![(
-						"b",
-						pontus_onyx::Item::new_folder(vec![
-							(
-								"c",
-								pontus_onyx::Item::Document {
-									etag: String::from("A"),
-									content: b"HELLO".to_vec(),
-									content_type: String::from("text/plain"),
-									last_modified: chrono::Utc::now(),
-								},
-							),
-							(
-								"d",
-								pontus_onyx::Item::Document {
-									etag: String::from("A"),
-									content: b"HELLO".to_vec(),
-									content_type: String::from("text/plain"),
-									last_modified: chrono::Utc::now(),
-								},
-							),
-						]),
+						"a",
+						pontus_onyx::Item::new_folder(vec![(
+							"b",
+							pontus_onyx::Item::new_folder(vec![
+								(
+									"c",
+									pontus_onyx::Item::Document {
+										etag: String::from("A"),
+										content: b"HELLO".to_vec(),
+										content_type: String::from("text/plain"),
+										last_modified: chrono::Utc::now(),
+									},
+								),
+								(
+									"d",
+									pontus_onyx::Item::Document {
+										etag: String::from("A"),
+										content: b"HELLO".to_vec(),
+										content_type: String::from("text/plain"),
+										last_modified: chrono::Utc::now(),
+									},
+								),
+							]),
+						)]),
 					)]),
-				)]),
-			)]))
+				)],
+			)))
 			.unwrap(),
 		));
 
@@ -263,24 +268,26 @@ mod tests {
 	#[actix_rt::test]
 	async fn if_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"user",
-				pontus_onyx::Item::new_folder(vec![(
-					"a",
+			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![(
+					"user",
 					pontus_onyx::Item::new_folder(vec![(
-						"b",
+						"a",
 						pontus_onyx::Item::new_folder(vec![(
-							"c",
-							pontus_onyx::Item::Document {
-								etag: String::from("A"),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
+							"b",
+							pontus_onyx::Item::new_folder(vec![(
+								"c",
+								pontus_onyx::Item::Document {
+									etag: String::from("A"),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
 						)]),
 					)]),
-				)]),
-			)]))
+				)],
+			)))
 			.unwrap(),
 		));
 

@@ -12,7 +12,12 @@ pub async fn delete_item(
 			.map(|e| e.to_str().unwrap()),
 	) {
 		Ok(etag) => {
-			return pontus_onyx::build_http_json_response(actix_web::http::StatusCode::OK, Some(etag), None, true);
+			return pontus_onyx::build_http_json_response(
+				actix_web::http::StatusCode::OK,
+				Some(etag),
+				None,
+				true,
+			);
 		}
 		Err(e) => e.into(),
 	}
@@ -25,24 +30,26 @@ mod tests {
 	#[actix_rt::test]
 	async fn basics() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"user",
-				pontus_onyx::Item::new_folder(vec![(
-					"a",
+			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![(
+					"user",
 					pontus_onyx::Item::new_folder(vec![(
-						"b",
+						"a",
 						pontus_onyx::Item::new_folder(vec![(
-							"c",
-							pontus_onyx::Item::Document {
-								etag: ulid::Ulid::new().to_string(),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
+							"b",
+							pontus_onyx::Item::new_folder(vec![(
+								"c",
+								pontus_onyx::Item::Document {
+									etag: ulid::Ulid::new().to_string(),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
 						)]),
 					)]),
-				)]),
-			)]))
+				)],
+			)))
 			.unwrap(),
 		));
 
@@ -127,24 +134,26 @@ mod tests {
 	#[actix_rt::test]
 	async fn if_match() {
 		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::from_item_folder(pontus_onyx::Item::new_folder(vec![(
-				"user",
-				pontus_onyx::Item::new_folder(vec![(
-					"a",
+			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
+				vec![(
+					"user",
 					pontus_onyx::Item::new_folder(vec![(
-						"b",
+						"a",
 						pontus_onyx::Item::new_folder(vec![(
-							"c",
-							pontus_onyx::Item::Document {
-								etag: String::from("A"),
-								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
+							"b",
+							pontus_onyx::Item::new_folder(vec![(
+								"c",
+								pontus_onyx::Item::Document {
+									etag: String::from("A"),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
 						)]),
 					)]),
-				)]),
-			)]))
+				)],
+			)))
 			.unwrap(),
 		));
 

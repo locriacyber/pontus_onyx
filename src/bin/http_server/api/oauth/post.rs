@@ -150,7 +150,11 @@ pub async fn post_oauth(
 
 	if form.allow == "Allow" {
 		std::thread::sleep(std::time::Duration::from_secs(0)); // TODO : anti brute-force
-		if users.lock().unwrap().check(&form.username, &form.password) {
+		if users
+			.lock()
+			.unwrap()
+			.check(&form.username, &mut String::from(&form.password))
+		{
 			// TODO : what if form.redirect_uri already contains fragment `#something` ?
 
 			let scopes = percent_encoding::percent_decode(form.scope.as_bytes())
