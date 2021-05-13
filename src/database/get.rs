@@ -4,7 +4,7 @@ impl super::Database {
 		path: &str,
 		if_match: Option<&str>,
 		if_none_match: Option<Vec<&str>>,
-	) -> Result<&crate::Item, GetError> {
+	) -> Result<&crate::Item, ErrorGet> {
 		let paths: Vec<&str> = path.split('/').collect();
 		let should_be_folder = paths.last().unwrap().is_empty();
 
@@ -21,7 +21,7 @@ impl super::Database {
 						} => {
 							if should_be_folder {
 								if path.starts_with("public") {
-									return Err(GetError::CanNotBeListed);
+									return Err(ErrorGet::CanNotBeListed);
 								} else {
 									// TODO : weak headers ?
 									if let Some(none_match) = if_none_match {
@@ -31,7 +31,7 @@ impl super::Database {
 											.collect();
 
 										if none_match.iter().any(|s| s == folder_etag || s == "*") {
-											return Err(GetError::IfNoneMatch);
+											return Err(ErrorGet::IfNoneMatch);
 										}
 									}
 
@@ -39,14 +39,14 @@ impl super::Database {
 										let if_match = if_match.trim().replace('"', "");
 
 										if !if_match.is_empty() && folder_etag != &if_match {
-											return Err(GetError::IfMatchNotFound);
+											return Err(ErrorGet::IfMatchNotFound);
 										}
 									}
 
 									return Ok(item);
 								}
 							} else {
-								return Err(GetError::Conflict);
+								return Err(ErrorGet::Conflict);
 							}
 						}
 						crate::Item::Document {
@@ -61,7 +61,7 @@ impl super::Database {
 										.collect();
 
 									if none_match.iter().any(|s| s == document_etag || s == "*") {
-										return Err(GetError::IfNoneMatch);
+										return Err(ErrorGet::IfNoneMatch);
 									}
 								}
 
@@ -69,28 +69,28 @@ impl super::Database {
 									let if_match = if_match.trim().replace('"', "");
 
 									if !if_match.is_empty() && document_etag != &if_match {
-										return Err(GetError::IfMatchNotFound);
+										return Err(ErrorGet::IfMatchNotFound);
 									}
 								}
 
 								return Ok(item);
 							} else {
-								return Err(GetError::NotFound);
+								return Err(ErrorGet::NotFound);
 							}
 						}
 					}
 				}
-				Ok(None) => Err(GetError::NotFound),
-				Err(super::FetchError::FolderDocumentConflict) => Err(GetError::Conflict),
+				Ok(None) => Err(ErrorGet::NotFound),
+				Err(super::FetchError::FolderDocumentConflict) => Err(ErrorGet::Conflict),
 			}
 		} else {
-			Err(GetError::WrongPath)
+			Err(ErrorGet::WrongPath)
 		}
 	}
 }
 
 #[derive(Debug)]
-pub enum GetError {
+pub enum ErrorGet {
 	CanNotBeListed,
 	Conflict,
 	IfMatchNotFound,
@@ -98,7 +98,7 @@ pub enum GetError {
 	NotFound,
 	WrongPath,
 }
-impl std::fmt::Display for GetError {
+impl std::fmt::Display for ErrorGet {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
 		match self {
 			Self::CanNotBeListed => f.write_str("the content of this folder can not be listed"),
@@ -116,46 +116,53 @@ impl std::fmt::Display for GetError {
 		}
 	}
 }
-impl std::error::Error for GetError {}
+impl std::error::Error for ErrorGet {}
 
-#[cfg(feature = "server")]
-impl std::convert::Into<actix_web::HttpResponse> for GetError {
-	fn into(self) -> actix_web::HttpResponse {
-		match self {
-			Self::CanNotBeListed => crate::utils::build_http_json_response(
+#[cfg(feature = "server_bin")]
+impl std::convert::From<ErrorGet> for actix_web::HttpResponse {
+	fn from(input: ErrorGet) -> Self {
+		let request_method = actix_web::http::Method::GET;
+		match input {
+			ErrorGet::CanNotBeListed => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::Conflict => crate::utils::build_http_json_response(
+			ErrorGet::Conflict => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::IfMatchNotFound => crate::utils::build_http_json_response(
+			ErrorGet::IfMatchNotFound => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::IfNoneMatch => crate::utils::build_http_json_response(
+			ErrorGet::IfNoneMatch => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::NotFound => crate::utils::build_http_json_response(
+			ErrorGet::NotFound => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::WrongPath => crate::utils::build_http_json_response(
+			ErrorGet::WrongPath => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
 		}

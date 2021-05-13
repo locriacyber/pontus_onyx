@@ -51,6 +51,8 @@ where
 	}
 
 	fn call(&mut self, service_request: Self::Request) -> Self::Future {
+		let request_method = service_request.method().clone();
+
 		match service_request.head().headers().get("Authorization") {
 			Some(auth_value) => {
 				let search_token = auth_value
@@ -68,28 +70,28 @@ where
 					.unwrap()
 					.clone();
 
-				match tokens.iter().find(|e| e.name() == search_token) {
+				match tokens.iter().find(|e| e.get_name() == search_token) {
 					Some(token) => {
 						// TODO : check token validity with client_id
 						// TODO : test access in case of module = "*"
 
 						if !token.is_expirated() {
-							match token.scopes().iter().find(|scope| {
+							match token.get_scopes().iter().find(|scope| {
 								if scope
-								.allowed_methods()
-								.iter()
-								.find(|method| method == service_request.method())
-								.is_some() {
+									.allowed_methods()
+									.iter()
+									.any(|method| method == service_request.method())
+								{
 									if scope.module == "*" {
 										service_request.path().starts_with("/storage/")
 									} else {
 										service_request.path().starts_with(&format!(
 											"/storage/{}/{}",
-											token.username(),
+											token.get_username(),
 											scope.module
 										)) || service_request.path().starts_with(&format!(
 											"/storage/public/{}/{}",
-											token.username(),
+											token.get_username(),
 											scope.module
 										))
 									}
@@ -101,28 +103,38 @@ where
 									let future = self.service.call(service_request);
 									Box::pin(async move { future.await })
 								}
-								None => Box::pin(async move {
-									Ok(actix_web::dev::ServiceResponse::new(
-										service_request.into_parts().0,
-										pontus_onyx::build_http_json_response(
-											actix_web::http::StatusCode::UNAUTHORIZED,
-											None,
-											None,
-											true,
-										),
-									))
-								}),
+								None => {
+									println!("unauthorized scope"); // TODO
+
+									Box::pin(async move {
+										Ok(actix_web::dev::ServiceResponse::new(
+											service_request.into_parts().0,
+											pontus_onyx::build_http_json_response(
+												&request_method,
+												actix_web::http::StatusCode::UNAUTHORIZED,
+												None,
+												None,
+												true,
+											)
+											.into(),
+										))
+									})
+								}
 							}
 						} else {
+							println!("expirated token"); // TODO
+
 							Box::pin(async move {
 								Ok(actix_web::dev::ServiceResponse::new(
 									service_request.into_parts().0,
 									pontus_onyx::build_http_json_response(
+										&request_method,
 										actix_web::http::StatusCode::UNAUTHORIZED,
 										None,
 										None,
 										true,
-									),
+									)
+									.into(),
 								))
 							})
 						}
@@ -131,11 +143,13 @@ where
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
 							pontus_onyx::build_http_json_response(
+								&request_method,
 								actix_web::http::StatusCode::UNAUTHORIZED,
 								None,
 								None,
 								true,
-							),
+							)
+							.into(),
 						))
 					}),
 				}
@@ -190,11 +204,13 @@ where
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
 							pontus_onyx::build_http_json_response(
+								&request_method,
 								actix_web::http::StatusCode::UNAUTHORIZED,
 								None,
 								None,
 								true,
-							),
+							)
+							.into(),
 						))
 					})
 				}
@@ -229,12 +245,14 @@ impl OauthFormToken {
 	}
 }
 impl OauthFormToken {
+	/*
 	pub fn get_ip(&self) -> &std::net::SocketAddr {
 		&self.ip
 	}
 	pub fn get_forged(&self) -> &std::time::Instant {
 		&self.forged
 	}
+	*/
 	pub fn get_value(&self) -> &str {
 		&self.value
 	}
@@ -323,69 +341,68 @@ mod tests {
 		);
 		access_tokens.lock().unwrap().push(token.clone());
 
-		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
-				vec![(
-					"user",
-					pontus_onyx::Item::new_folder(vec![
-						(
-							"folder_write",
-							pontus_onyx::Item::new_folder(vec![(
-								"a",
-								pontus_onyx::Item::Document {
-									etag: ulid::Ulid::new().to_string(),
-									content: b"HELLO".to_vec(),
-									content_type: String::from("text/plain"),
-									last_modified: chrono::Utc::now(),
-								},
-							)]),
-						),
-						(
-							"folder_read",
-							pontus_onyx::Item::new_folder(vec![(
-								"a",
-								pontus_onyx::Item::Document {
-									etag: ulid::Ulid::new().to_string(),
-									content: b"HELLO".to_vec(),
-									content_type: String::from("text/plain"),
-									last_modified: chrono::Utc::now(),
-								},
-							)]),
-						),
-						(
-							"public",
-							pontus_onyx::Item::new_folder(vec![
-								(
-									"folder_write",
-									pontus_onyx::Item::new_folder(vec![(
-										"a",
-										pontus_onyx::Item::Document {
-											etag: ulid::Ulid::new().to_string(),
-											content: b"HELLO".to_vec(),
-											content_type: String::from("text/plain"),
-											last_modified: chrono::Utc::now(),
-										},
-									)]),
-								),
-								(
-									"folder_read",
-									pontus_onyx::Item::new_folder(vec![(
-										"a",
-										pontus_onyx::Item::Document {
-											etag: ulid::Ulid::new().to_string(),
-											content: b"HELLO".to_vec(),
-											content_type: String::from("text/plain"),
-											last_modified: chrono::Utc::now(),
-										},
-									)]),
-								),
-							]),
-						),
-					]),
-				)],
-			)))
-			.unwrap(),
-		));
+		let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+			pontus_onyx::Item::new_folder(vec![(
+				"user",
+				pontus_onyx::Item::new_folder(vec![
+					(
+						"folder_write",
+						pontus_onyx::Item::new_folder(vec![(
+							"a",
+							pontus_onyx::Item::Document {
+								etag: ulid::Ulid::new().to_string(),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
+					),
+					(
+						"folder_read",
+						pontus_onyx::Item::new_folder(vec![(
+							"a",
+							pontus_onyx::Item::Document {
+								etag: ulid::Ulid::new().to_string(),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
+					),
+					(
+						"public",
+						pontus_onyx::Item::new_folder(vec![
+							(
+								"folder_write",
+								pontus_onyx::Item::new_folder(vec![(
+									"a",
+									pontus_onyx::Item::Document {
+										etag: ulid::Ulid::new().to_string(),
+										content: b"HELLO".to_vec(),
+										content_type: String::from("text/plain"),
+										last_modified: chrono::Utc::now(),
+									},
+								)]),
+							),
+							(
+								"folder_read",
+								pontus_onyx::Item::new_folder(vec![(
+									"a",
+									pontus_onyx::Item::Document {
+										etag: ulid::Ulid::new().to_string(),
+										content: b"HELLO".to_vec(),
+										content_type: String::from("text/plain"),
+										last_modified: chrono::Utc::now(),
+									},
+								)]),
+							),
+						]),
+					),
+				]),
+			)]),
+		))
+		.unwrap();
+		let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 		let mut app = actix_web::test::init_service(
 			actix_web::App::new()
@@ -415,7 +432,7 @@ mod tests {
 					.uri("/storage/user/folder_read/")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					),
 				actix_web::http::StatusCode::OK,
 			),
@@ -424,7 +441,7 @@ mod tests {
 					.uri("/storage/other_user/folder_read/")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					),
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
@@ -433,7 +450,7 @@ mod tests {
 					.uri("/storage/user/folder_write/")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					),
 				actix_web::http::StatusCode::OK,
 			),
@@ -442,7 +459,7 @@ mod tests {
 					.uri("/storage/user/other/")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					),
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
@@ -478,7 +495,7 @@ mod tests {
 					.uri("/storage/user/folder_read/b")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
 				actix_web::http::StatusCode::UNAUTHORIZED,
@@ -488,7 +505,7 @@ mod tests {
 					.uri("/storage/user/folder_write/b")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
 				actix_web::http::StatusCode::CREATED,
@@ -498,7 +515,7 @@ mod tests {
 					.uri("/storage/other_user/folder_write/b")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
 				actix_web::http::StatusCode::UNAUTHORIZED,
@@ -508,7 +525,7 @@ mod tests {
 					.uri("/storage/user/other/b")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
 				actix_web::http::StatusCode::UNAUTHORIZED,
@@ -518,7 +535,7 @@ mod tests {
 					.uri("/storage/public/user/folder_read/b")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
 				actix_web::http::StatusCode::UNAUTHORIZED,
@@ -528,7 +545,7 @@ mod tests {
 					.uri("/storage/public/user/folder_write/b")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
 				actix_web::http::StatusCode::CREATED,
@@ -538,7 +555,7 @@ mod tests {
 					.uri("/storage/public/user/other/b")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
-						format!("Bearer {}", token.name()),
+						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
 				actix_web::http::StatusCode::UNAUTHORIZED,

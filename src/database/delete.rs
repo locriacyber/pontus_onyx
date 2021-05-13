@@ -1,5 +1,5 @@
 impl super::Database {
-	pub fn delete(&mut self, path: &str, if_match: Option<&str>) -> Result<String, DeleteError> {
+	pub fn delete(&mut self, path: &str, if_match: Option<&str>) -> Result<String, ErrorDelete> {
 		let if_match_result = if let Some(find_match) = if_match {
 			let find_match = find_match.trim().replace('"', "");
 
@@ -8,13 +8,17 @@ impl super::Database {
 					etag: document_etag,
 					..
 				}) => Ok(document_etag == &find_match),
-				Ok(crate::Item::Folder { .. }) => Err(DeleteError::WorksOnlyForDocument),
-				Err(crate::GetError::CanNotBeListed) => Err(DeleteError::WorksOnlyForDocument),
-				Err(crate::GetError::Conflict) => Err(DeleteError::Conflict),
-				Err(crate::GetError::IfMatchNotFound) => Err(DeleteError::IfMatchNotFound),
-				Err(crate::GetError::IfNoneMatch) => Err(DeleteError::IfNoneMatch),
-				Err(crate::GetError::NotFound) => Err(DeleteError::NotFound),
-				Err(crate::GetError::WrongPath) => Err(DeleteError::WrongPath),
+				Ok(crate::Item::Folder { .. }) => Err(ErrorDelete::WorksOnlyForDocument),
+				Err(crate::database::ErrorGet::CanNotBeListed) => {
+					Err(ErrorDelete::WorksOnlyForDocument)
+				}
+				Err(crate::database::ErrorGet::Conflict) => Err(ErrorDelete::Conflict),
+				Err(crate::database::ErrorGet::IfMatchNotFound) => {
+					Err(ErrorDelete::IfMatchNotFound)
+				}
+				Err(crate::database::ErrorGet::IfNoneMatch) => Err(ErrorDelete::IfNoneMatch),
+				Err(crate::database::ErrorGet::NotFound) => Err(ErrorDelete::NotFound),
+				Err(crate::database::ErrorGet::WrongPath) => Err(ErrorDelete::WrongPath),
 			}
 		} else {
 			Ok(true)
@@ -85,44 +89,44 @@ impl super::Database {
 													Err(e) => {
 														// TODO : is following conversion is OK ?
 														Err(match e {
-															super::UpdateFoldersEtagsError::FolderDocumentConflict => DeleteError::Conflict,
-															super::UpdateFoldersEtagsError::MissingFolder => DeleteError::NotFound,
-															super::UpdateFoldersEtagsError::WrongFolderName => DeleteError::WrongPath,
+															super::UpdateFoldersEtagsError::FolderDocumentConflict => ErrorDelete::Conflict,
+															super::UpdateFoldersEtagsError::MissingFolder => ErrorDelete::NotFound,
+															super::UpdateFoldersEtagsError::WrongFolderName => ErrorDelete::WrongPath,
 														})
 													}
 												}
 											}
-											None => Err(DeleteError::NotFound),
+											None => Err(ErrorDelete::NotFound),
 										}
 									} else {
-										Err(DeleteError::NotFound)
+										Err(ErrorDelete::NotFound)
 									}
 								}
 								Ok(crate::Item::Folder {
 									etag: _,
 									content: _,
-								}) => Err(DeleteError::WorksOnlyForDocument),
-								Err(super::get::GetError::CanNotBeListed) => {
-									Err(DeleteError::WorksOnlyForDocument)
+								}) => Err(ErrorDelete::WorksOnlyForDocument),
+								Err(super::get::ErrorGet::CanNotBeListed) => {
+									Err(ErrorDelete::WorksOnlyForDocument)
 								} // TODO : is this OK ?
-								Err(super::get::GetError::Conflict) => Err(DeleteError::Conflict),
-								Err(super::get::GetError::IfMatchNotFound) => {
-									Err(DeleteError::IfMatchNotFound)
+								Err(super::get::ErrorGet::Conflict) => Err(ErrorDelete::Conflict),
+								Err(super::get::ErrorGet::IfMatchNotFound) => {
+									Err(ErrorDelete::IfMatchNotFound)
 								}
-								Err(super::get::GetError::IfNoneMatch) => {
-									Err(DeleteError::InternalError)
+								Err(super::get::ErrorGet::IfNoneMatch) => {
+									Err(ErrorDelete::InternalError)
 								} // should never happen
-								Err(super::get::GetError::NotFound) => Err(DeleteError::NotFound),
-								Err(super::get::GetError::WrongPath) => Err(DeleteError::WrongPath),
+								Err(super::get::ErrorGet::NotFound) => Err(ErrorDelete::NotFound),
+								Err(super::get::ErrorGet::WrongPath) => Err(ErrorDelete::WrongPath),
 							}
 						} else {
-							Err(DeleteError::WorksOnlyForDocument)
+							Err(ErrorDelete::WorksOnlyForDocument)
 						}
 					} else {
-						Err(DeleteError::WrongPath)
+						Err(ErrorDelete::WrongPath)
 					}
 				} else {
-					return Err(DeleteError::IfMatchNotFound);
+					return Err(ErrorDelete::IfMatchNotFound);
 				}
 			}
 			Err(e) => {
@@ -133,7 +137,7 @@ impl super::Database {
 }
 
 #[derive(Debug)]
-pub enum DeleteError {
+pub enum ErrorDelete {
 	Conflict,
 	IfMatchNotFound,
 	IfNoneMatch,
@@ -142,7 +146,7 @@ pub enum DeleteError {
 	WorksOnlyForDocument,
 	WrongPath,
 }
-impl std::fmt::Display for DeleteError {
+impl std::fmt::Display for ErrorDelete {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
 		match self {
 			Self::Conflict => f.write_str(
@@ -163,52 +167,60 @@ impl std::fmt::Display for DeleteError {
 		}
 	}
 }
-impl std::error::Error for DeleteError {}
+impl std::error::Error for ErrorDelete {}
 
-#[cfg(feature = "server")]
-impl std::convert::Into<actix_web::HttpResponse> for DeleteError {
-	fn into(self) -> actix_web::HttpResponse {
-		match self {
-			Self::Conflict => crate::utils::build_http_json_response(
+#[cfg(feature = "server_bin")]
+impl std::convert::From<ErrorDelete> for actix_web::HttpResponse {
+	fn from(input: ErrorDelete) -> Self {
+		let request_method = actix_web::http::Method::DELETE;
+		match input {
+			ErrorDelete::Conflict => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::IfMatchNotFound => crate::utils::build_http_json_response(
+			ErrorDelete::IfMatchNotFound => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::IfNoneMatch => crate::utils::build_http_json_response(
+			ErrorDelete::IfNoneMatch => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::InternalError => crate::utils::build_http_json_response(
+			ErrorDelete::InternalError => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::NotFound => crate::utils::build_http_json_response(
+			ErrorDelete::NotFound => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::WorksOnlyForDocument => crate::utils::build_http_json_response(
+			ErrorDelete::WorksOnlyForDocument => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::WrongPath => crate::utils::build_http_json_response(
+			ErrorDelete::WrongPath => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
 		}

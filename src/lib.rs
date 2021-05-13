@@ -1,15 +1,16 @@
 #![allow(clippy::needless_return)]
 
 mod client;
-mod database;
 
-#[cfg(feature = "server")]
+#[cfg(feature = "server_lib")]
+pub mod database;
+#[cfg(feature = "server_lib")]
+pub use database::Database;
+
+#[cfg(feature = "server_bin")]
 mod utils;
-
-#[cfg(feature = "server")]
+#[cfg(feature = "server_bin")]
 pub use utils::build_http_json_response;
-
-pub use database::{Database, DeleteError, GetError, PutError, PutResult, Source};
 
 #[derive(derivative::Derivative, Clone, serde::Serialize, serde::Deserialize)]
 #[derivative(Debug)]
@@ -20,7 +21,7 @@ pub enum Item {
 	},
 	Document {
 		etag: String,
-		#[derivative(Debug="ignore")]
+		#[derivative(Debug = "ignore")]
 		content: Vec<u8>,
 		content_type: String,
 		last_modified: chrono::DateTime<chrono::offset::Utc>,

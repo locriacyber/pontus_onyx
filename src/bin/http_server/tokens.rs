@@ -35,28 +35,27 @@ impl std::convert::TryFrom<&str> for Scope {
 		let remaining = temp.next();
 
 		match remaining {
-			None => {
-				if module.is_some() && right.is_some() {
-					let module = module.unwrap().trim();
-					let right = right.unwrap().trim();
+			None => match module {
+				Some(module) => match right {
+					Some(right) => {
+						if module == "public" {
+							return Err(ScopeParsingError::IncorrectModule(String::from(module)));
+						}
 
-					if module == "public" {
-						return Err(ScopeParsingError::IncorrectModule(String::from(module)));
+						let regex = regex::Regex::new("^[a-z0-9]+$").unwrap();
+						if module == "*" || regex.is_match(module) {
+							let right_type = ScopeRightType::try_from(right)?;
+							let module = String::from(module);
+
+							Ok(Self { right_type, module })
+						} else {
+							Err(ScopeParsingError::IncorrectModule(String::from(module)))
+						}
 					}
-
-					let regex = regex::Regex::new("^[a-z0-9]+$").unwrap();
-					if module != "*" && regex.is_match(module) || module == "*" {
-						let right_type = ScopeRightType::try_from(right)?;
-						let module = String::from(module);
-
-						return Ok(Self { right_type, module });
-					} else {
-						return Err(ScopeParsingError::IncorrectModule(String::from(module)));
-					}
-				} else {
-					return Err(ScopeParsingError::IncorrectFormat(String::from(input)));
-				}
-			}
+					None => Err(ScopeParsingError::IncorrectFormat(String::from(input))),
+				},
+				None => Err(ScopeParsingError::IncorrectFormat(String::from(input))),
+			},
 			Some(_) => {
 				return Err(ScopeParsingError::IncorrectFormat(String::from(input)));
 			}
@@ -98,16 +97,18 @@ impl AccessBearer {
 	}
 }
 impl AccessBearer {
-	pub fn name(&self) -> &str {
+	pub fn get_name(&self) -> &str {
 		&self.name
 	}
-	pub fn scopes(&self) -> &[Scope] {
+	pub fn get_scopes(&self) -> &[Scope] {
 		&self.scopes
 	}
-	pub fn client_id(&self) -> &str {
+	/*
+	pub fn get_client_id(&self) -> &str {
 		&self.client_id
 	}
-	pub fn username(&self) -> &str {
+	*/
+	pub fn get_username(&self) -> &str {
 		&self.username
 	}
 }

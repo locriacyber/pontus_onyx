@@ -10,6 +10,7 @@ struct JsonResponse {
 }
 
 pub fn build_http_json_response(
+	request_method: &actix_web::http::Method,
 	code: actix_web::http::StatusCode,
 	etag: Option<String>,
 	hint: Option<String>,
@@ -17,7 +18,9 @@ pub fn build_http_json_response(
 ) -> actix_web::HttpResponse {
 	let mut response = actix_web::HttpResponse::build(code);
 	response.content_type("application/ld+json");
-	response.header("Cache-Control", "no-cache");
+	if request_method == actix_web::http::Method::GET && code.is_success() {
+		response.header("Cache-Control", "no-cache");
+	}
 	response.header("Access-Control-Allow-Origin", "*");
 
 	let mut expose_headers = String::from("Content-Length, Content-Type");

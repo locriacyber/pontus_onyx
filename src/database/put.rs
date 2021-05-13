@@ -5,7 +5,7 @@ impl super::Database {
 		content: crate::Item,
 		if_match: Option<&str>,
 		if_none_match: Option<Vec<&str>>,
-	) -> PutResult {
+	) -> ResultPut {
 		match &content {
 			crate::Item::Document {
 				content: document_content,
@@ -32,7 +32,7 @@ impl super::Database {
 						};
 
 						if !if_match_result {
-							return PutResult::Err(PutError::IfMatchNotFound);
+							return ResultPut::Err(ErrorPut::IfMatchNotFound);
 						}
 
 						let mut new_content = content.clone();
@@ -82,42 +82,58 @@ impl super::Database {
 															.cloned()
 															.take(paths.len()),
 													) {
-														Ok(()) => PutResult::Updated(new_etag),
+														Ok(()) => {
+															match self.get(path, Some(&new_etag), None) {
+																Ok(change_item) => {
+																	if let Err(e) = self.changes_tx.send(crate::database::Event::Update{
+																		path: String::from(path),
+																		item: change_item.clone(),
+																	}) {
+																		eprintln!("WARNING: error sending event in change chanel for {} (ETag {}) : {}", path, new_etag, e);
+																	}
+																}
+																Err(e) => {
+																	eprintln!("WARNING: error while internal get of {} (ETag {}) in order to send it in change chanel : {}", path, new_etag, e);
+																}
+															}
+
+															ResultPut::Updated(new_etag)
+														}
 														Err(e) => {
 															// TODO : is following conversion is OK ?
-															PutResult::Err(match e {
-																super::UpdateFoldersEtagsError::FolderDocumentConflict => PutError::Conflict,
-																super::UpdateFoldersEtagsError::MissingFolder => PutError::NotFound,
-																super::UpdateFoldersEtagsError::WrongFolderName => PutError::WrongPath,
+															ResultPut::Err(match e {
+																super::UpdateFoldersEtagsError::FolderDocumentConflict => ErrorPut::Conflict,
+																super::UpdateFoldersEtagsError::MissingFolder => ErrorPut::NotFound,
+																super::UpdateFoldersEtagsError::WrongFolderName => ErrorPut::WrongPath,
 															})
 														}
 													}
 												} else {
-													PutResult::Err(PutError::NotModified)
+													ResultPut::Err(ErrorPut::NotModified)
 												}
 											} else {
-												PutResult::Err(PutError::Conflict)
+												ResultPut::Err(ErrorPut::Conflict)
 											}
 										}
-										Ok(None) => PutResult::Err(PutError::NotFound),
+										Ok(None) => ResultPut::Err(ErrorPut::NotFound),
 										Err(super::FetchError::FolderDocumentConflict) => {
-											PutResult::Err(PutError::Conflict)
+											ResultPut::Err(ErrorPut::Conflict)
 										}
 									}
 								} else {
-									PutResult::Err(PutError::WrongPath)
+									ResultPut::Err(ErrorPut::WrongPath)
 								}
 							}
 							crate::Item::Folder {
 								etag: _,
 								content: _,
-							} => PutResult::Err(PutError::WorksOnlyForDocument),
+							} => ResultPut::Err(ErrorPut::WorksOnlyForDocument),
 						}
 					}
 					Ok(crate::Item::Folder { .. }) => {
-						return PutResult::Err(PutError::Conflict);
+						return ResultPut::Err(ErrorPut::Conflict);
 					}
-					Err(super::get::GetError::NotFound) => {
+					Err(super::get::ErrorGet::NotFound) => {
 						// create :
 
 						let paths: Vec<&str> = path.split('/').collect();
@@ -134,7 +150,7 @@ impl super::Database {
 								) {
 									Ok(()) => {
 										match self.fetch_item_mut(&paths) {
-											Ok(Some(_e)) => PutResult::Err(PutError::InternalError), // should never happen
+											Ok(Some(_e)) => ResultPut::Err(ErrorPut::InternalError), // should never happen
 											Ok(None) => {
 												let folder_path: Vec<&str> = paths
 													.iter()
@@ -169,13 +185,29 @@ impl super::Database {
 																.cloned()
 																.take(paths.len() - 1),
 														) {
-															Ok(()) => PutResult::Created(etag),
+															Ok(()) => {
+																match self.get(path, Some(&etag), None) {
+																	Ok(change_item) => {
+																		if let Err(e) = self.changes_tx.send(crate::database::Event::Update{
+																			path: String::from(path),
+																			item: change_item.clone(),
+																		}) {
+																			eprintln!("WARNING: error sending event in change chanel for {} (ETag {}) : {}", path, etag, e);
+																		}
+																	}
+																	Err(e) => {
+																		eprintln!("WARNING: error while internal get of {} (ETag {}) in order to send it in change chanel : {}", path, etag, e);
+																	}
+																}
+
+																ResultPut::Created(etag)
+															}
 															Err(e) => {
 																// TODO : is following conversion is OK ?
-																PutResult::Err(match e {
-																	super::UpdateFoldersEtagsError::FolderDocumentConflict => PutError::Conflict,
-																	super::UpdateFoldersEtagsError::MissingFolder => PutError::NotFound,
-																	super::UpdateFoldersEtagsError::WrongFolderName => PutError::WrongPath,
+																ResultPut::Err(match e {
+																	super::UpdateFoldersEtagsError::FolderDocumentConflict => ErrorPut::Conflict,
+																	super::UpdateFoldersEtagsError::MissingFolder => ErrorPut::NotFound,
+																	super::UpdateFoldersEtagsError::WrongFolderName => ErrorPut::WrongPath,
 																})
 															}
 														}
@@ -184,55 +216,55 @@ impl super::Database {
 												}
 											}
 											Err(super::FetchError::FolderDocumentConflict) => {
-												PutResult::Err(PutError::Conflict)
+												ResultPut::Err(ErrorPut::Conflict)
 											}
 										}
 									}
 									Err(e) => {
 										// TODO : is following conversion is OK ?
-										PutResult::Err(match e {
+										ResultPut::Err(match e {
 											super::FolderBuildError::FolderDocumentConflict => {
-												PutError::Conflict
+												ErrorPut::Conflict
 											}
 											super::FolderBuildError::WrongFolderName => {
-												PutError::WrongPath
+												ErrorPut::WrongPath
 											}
 										})
 									}
 								}
 							} else {
-								PutResult::Err(PutError::InternalError)
+								ResultPut::Err(ErrorPut::InternalError)
 							}
 						} else {
-							PutResult::Err(PutError::WrongPath)
+							ResultPut::Err(ErrorPut::WrongPath)
 						}
 					}
-					Err(super::get::GetError::IfNoneMatch) => {
-						return PutResult::Err(PutError::IfNoneMatch);
+					Err(super::get::ErrorGet::IfNoneMatch) => {
+						return ResultPut::Err(ErrorPut::IfNoneMatch);
 					}
-					Err(super::get::GetError::IfMatchNotFound) => {
-						return PutResult::Err(PutError::InternalError); // should never happen
+					Err(super::get::ErrorGet::IfMatchNotFound) => {
+						return ResultPut::Err(ErrorPut::InternalError); // should never happen
 					}
-					Err(super::get::GetError::CanNotBeListed) => {
-						return PutResult::Err(PutError::WorksOnlyForDocument);
+					Err(super::get::ErrorGet::CanNotBeListed) => {
+						return ResultPut::Err(ErrorPut::WorksOnlyForDocument);
 					}
-					Err(super::get::GetError::WrongPath) => {
-						return PutResult::Err(PutError::WrongPath);
+					Err(super::get::ErrorGet::WrongPath) => {
+						return ResultPut::Err(ErrorPut::WrongPath);
 					}
-					Err(super::get::GetError::Conflict) => {
-						return PutResult::Err(PutError::Conflict);
+					Err(super::get::ErrorGet::Conflict) => {
+						return ResultPut::Err(ErrorPut::Conflict);
 					}
 				}
 			}
 			crate::Item::Folder { .. } => {
-				return PutResult::Err(PutError::WorksOnlyForDocument);
+				return ResultPut::Err(ErrorPut::WorksOnlyForDocument);
 			}
 		}
 	}
 }
 
 #[derive(Debug)]
-pub enum PutError {
+pub enum ErrorPut {
 	Conflict,
 	IfMatchNotFound,
 	IfNoneMatch,
@@ -242,7 +274,7 @@ pub enum PutError {
 	WorksOnlyForDocument,
 	WrongPath,
 }
-impl std::fmt::Display for PutError {
+impl std::fmt::Display for ErrorPut {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
 		match self {
 			Self::Conflict => f.write_str(
@@ -264,66 +296,75 @@ impl std::fmt::Display for PutError {
 		}
 	}
 }
-impl std::error::Error for PutError {}
+impl std::error::Error for ErrorPut {}
 
-#[cfg(feature = "server")]
-impl std::convert::Into<actix_web::HttpResponse> for PutError {
-	fn into(self) -> actix_web::HttpResponse {
-		match self {
-			Self::Conflict => crate::utils::build_http_json_response(
+#[cfg(feature = "server_bin")]
+impl std::convert::From<ErrorPut> for actix_web::HttpResponse {
+	fn from(input: ErrorPut) -> Self {
+		let request_method = actix_web::http::Method::PUT;
+		match input {
+			ErrorPut::Conflict => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::IfMatchNotFound => crate::utils::build_http_json_response(
+			ErrorPut::IfMatchNotFound => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::IfNoneMatch => crate::utils::build_http_json_response(
+			ErrorPut::IfNoneMatch => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::InternalError => crate::utils::build_http_json_response(
+			ErrorPut::InternalError => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::NotFound => crate::utils::build_http_json_response(
+			ErrorPut::NotFound => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::NotModified => crate::utils::build_http_json_response(
+			ErrorPut::NotModified => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::NOT_MODIFIED,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::WorksOnlyForDocument => crate::utils::build_http_json_response(
+			ErrorPut::WorksOnlyForDocument => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
-			Self::WrongPath => crate::utils::build_http_json_response(
+			ErrorPut::WrongPath => crate::utils::build_http_json_response(
+				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", self)),
+				Some(format!("{}", input)),
 				true,
 			),
 		}
 	}
 }
 
-pub enum PutResult {
+pub enum ResultPut {
 	Created(String),
 	Updated(String),
-	Err(PutError),
+	Err(ErrorPut),
 }

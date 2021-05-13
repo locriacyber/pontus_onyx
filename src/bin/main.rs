@@ -2,7 +2,7 @@
 
 extern crate pontus_onyx;
 
-#[cfg(feature = "server")]
+#[cfg(feature = "server_bin")]
 mod http_server;
 
 /*
@@ -13,7 +13,7 @@ TODO : continue to :
 
 // TODO : anti brute-force for auth & /public/
 
-#[cfg(feature = "server")]
+#[cfg(feature = "server_bin")]
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 	std::env::set_var(
@@ -24,29 +24,57 @@ async fn main() -> std::io::Result<()> {
 
 	println!("starting to listen to http://localhost:7541/");
 
-	let db_path = "data";
-	std::fs::create_dir_all(db_path).ok();
+	let db_path = std::path::PathBuf::from("data");
+	let data_source = pontus_onyx::database::DataSource::File(db_path.clone());
 
-	let database = std::sync::Arc::new(std::sync::Mutex::new(
-		pontus_onyx::Database::new(
-			/*
-			pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
-				vec![],
+	let (database, change_receiver) = match pontus_onyx::Database::new(data_source.clone()) {
+		Ok(e) => e,
+		Err(pontus_onyx::database::ErrorNewDatabase::FileDoesNotExists) => {
+			eprintln!("database does not exists, yet");
+			pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+				pontus_onyx::Item::new_folder(vec![]),
 			))
-			*/
-			pontus_onyx::Source::File(std::path::PathBuf::from(db_path)),
-		)
-		.unwrap(),
-	));
+			.unwrap()
+		}
+		Err(e) => {
+			panic!("{}", e);
+		}
+	};
+	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
-	dbg!(&database);
+	let database_for_save = database.clone();
+	std::thread::spawn(move || loop {
+		match change_receiver.recv() {
+			Ok(event) => database_for_save.lock().unwrap().save_event_into(
+				event,
+				pontus_onyx::database::DataSource::File(db_path.clone()),
+			),
+			Err(e) => panic!("{}", e),
+		}
+	});
 
 	let oauth_form_tokens: std::sync::Arc<
 		std::sync::Mutex<Vec<crate::http_server::OauthFormToken>>,
 	> = std::sync::Arc::new(std::sync::Mutex::new(vec![]));
 
+	// TODO : only for rapid test purposes, delete it for release of the product !
 	let access_tokens: std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>> =
-		std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+		std::sync::Arc::new(std::sync::Mutex::new(if cfg!(debug_assertions) {
+			let debug_bearer = http_server::AccessBearer::new(
+				vec![http_server::Scope {
+					module: String::from("*"),
+					right_type: http_server::ScopeRightType::ReadWrite,
+				}],
+				"TODO",
+				"todo",
+			);
+
+			println!("DEBUG BEARER :\nBearer {}", debug_bearer.get_name());
+
+			vec![debug_bearer]
+		} else {
+			vec![]
+		}));
 
 	let mut users = crate::http_server::Users::new();
 	users.insert("todo", &mut String::from("todo"));
@@ -150,7 +178,7 @@ TODO :
 	'access_token' or 'state'
 */
 
-#[cfg(not(feature = "server"))]
+#[cfg(not(feature = "server_bin"))]
 fn main() {
-	eprintln!(r#"WARNING : please build this binary at least with `--features "server"`"#);
+	eprintln!(r#"WARNING : please build this binary at least with `--features server_bin`"#);
 }

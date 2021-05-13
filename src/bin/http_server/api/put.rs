@@ -23,6 +23,7 @@ pub async fn put_item(
 
 	if content_type.is_none() {
 		return pontus_onyx::build_http_json_response(
+			request.method(),
 			actix_web::http::StatusCode::BAD_REQUEST,
 			None,
 			Some(String::from("missing content-type HTTP header")),
@@ -49,23 +50,25 @@ pub async fn put_item(
 			.map(|e| e.to_str().unwrap()),
 		if_none_match,
 	) {
-		pontus_onyx::PutResult::Created(new_etag) => {
+		pontus_onyx::database::ResultPut::Created(new_etag) => {
 			return pontus_onyx::build_http_json_response(
+				request.method(),
 				actix_web::http::StatusCode::CREATED,
 				Some(new_etag),
 				None,
 				true,
 			);
 		}
-		pontus_onyx::PutResult::Updated(new_etag) => {
+		pontus_onyx::database::ResultPut::Updated(new_etag) => {
 			return pontus_onyx::build_http_json_response(
+				request.method(),
 				actix_web::http::StatusCode::OK,
 				Some(new_etag),
 				None,
 				true,
 			);
 		}
-		pontus_onyx::PutResult::Err(e) => e.into(),
+		pontus_onyx::database::ResultPut::Err(e) => actix_web::HttpResponse::from(e),
 	}
 }
 
@@ -75,12 +78,11 @@ mod tests {
 
 	#[actix_rt::test]
 	async fn basics() {
-		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
-				vec![],
-			)))
-			.unwrap(),
-		));
+		let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+			pontus_onyx::Item::new_folder(vec![]),
+		))
+		.unwrap();
+		let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 		let mut app = actix_web::test::init_service(
 			actix_web::App::new()
@@ -153,40 +155,39 @@ mod tests {
 
 	#[actix_rt::test]
 	async fn if_none_match() {
-		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
-				vec![(
-					"user",
+		let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+			pontus_onyx::Item::new_folder(vec![(
+				"user",
+				pontus_onyx::Item::new_folder(vec![(
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"a",
-						pontus_onyx::Item::new_folder(vec![(
-							"b",
-							pontus_onyx::Item::new_folder(vec![
-								(
-									"c",
-									pontus_onyx::Item::Document {
-										etag: String::from("A"),
-										content: b"HELLO".to_vec(),
-										content_type: String::from("text/plain"),
-										last_modified: chrono::Utc::now(),
-									},
-								),
-								(
-									"d",
-									pontus_onyx::Item::Document {
-										etag: String::from("A"),
-										content: b"HELLO".to_vec(),
-										content_type: String::from("text/plain"),
-										last_modified: chrono::Utc::now(),
-									},
-								),
-							]),
-						)]),
+						"b",
+						pontus_onyx::Item::new_folder(vec![
+							(
+								"c",
+								pontus_onyx::Item::Document {
+									etag: String::from("A"),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							),
+							(
+								"d",
+								pontus_onyx::Item::Document {
+									etag: String::from("A"),
+									content: b"HELLO".to_vec(),
+									content_type: String::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							),
+						]),
 					)]),
-				)],
-			)))
-			.unwrap(),
-		));
+				)]),
+			)]),
+		))
+		.unwrap();
+		let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 		let mut app = actix_web::test::init_service(
 			actix_web::App::new()
@@ -267,29 +268,28 @@ mod tests {
 
 	#[actix_rt::test]
 	async fn if_match() {
-		let database = std::sync::Arc::new(std::sync::Mutex::new(
-			pontus_onyx::Database::new(pontus_onyx::Source::Memory(pontus_onyx::Item::new_folder(
-				vec![(
-					"user",
+		let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+			pontus_onyx::Item::new_folder(vec![(
+				"user",
+				pontus_onyx::Item::new_folder(vec![(
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"a",
+						"b",
 						pontus_onyx::Item::new_folder(vec![(
-							"b",
-							pontus_onyx::Item::new_folder(vec![(
-								"c",
-								pontus_onyx::Item::Document {
-									etag: String::from("A"),
-									content: b"HELLO".to_vec(),
-									content_type: String::from("text/plain"),
-									last_modified: chrono::Utc::now(),
-								},
-							)]),
+							"c",
+							pontus_onyx::Item::Document {
+								etag: String::from("A"),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
 						)]),
 					)]),
-				)],
-			)))
-			.unwrap(),
-		));
+				)]),
+			)]),
+		))
+		.unwrap();
+		let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 		let mut app = actix_web::test::init_service(
 			actix_web::App::new()

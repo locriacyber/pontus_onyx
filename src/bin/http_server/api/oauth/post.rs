@@ -181,7 +181,7 @@ pub async fn post_oauth(
 					.decode_utf8()
 					.unwrap(),
 				percent_encoding::percent_encode(
-					new_token.name().as_bytes(),
+					new_token.get_name().as_bytes(),
 					percent_encoding::NON_ALPHANUMERIC
 				),
 				"bearer"
