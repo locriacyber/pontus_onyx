@@ -28,6 +28,7 @@ impl super::Database {
 										let none_match: Vec<String> = none_match
 											.iter()
 											.map(|s| s.trim().replace('"', ""))
+											.filter(|e| !String::is_empty(e))
 											.collect();
 
 										if none_match.iter().any(|s| s == folder_etag || s == "*") {
@@ -58,6 +59,7 @@ impl super::Database {
 									let none_match: Vec<String> = none_match
 										.iter()
 										.map(|s| s.trim().replace('"', ""))
+										.filter(|e| !String::is_empty(e))
 										.collect();
 
 									if none_match.iter().any(|s| s == document_etag || s == "*") {

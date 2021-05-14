@@ -32,8 +32,11 @@ pub async fn get_oauth(
 		.map(|scope| {
 			if scope.module == "*" {
 				format!(
-					r#"{} on <strong style="color:red;">all modules</strong> <i>(it should be a security issue)</i>"#,
-					scope.right_type
+					r#"{} on {}<br><i style="color:red;">{}<br>{}</i>"#,
+					scope.right_type,
+					r#"<strong style="color:red;">all modules</strong>"#,
+					r#"It is maybe an security issue."#,
+					r#"You should accept it only if you know why this client need it !"#,
 				)
 			} else {
 				format!(
@@ -88,7 +91,7 @@ pub async fn get_oauth(
 				Password : <input type="password" name="password" value="">
 			</p>
 
-			<p><i>If success, you will be directly redirected on the client app with credentials.</i></p>{}
+			<p><i>If success, you will be directly redirected on this client, with credentials.</i></p>{}
 			<input type="submit">
 		</form>
 	</body>

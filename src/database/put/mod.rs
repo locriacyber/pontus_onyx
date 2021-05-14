@@ -26,7 +26,7 @@ impl super::Database {
 						let if_match_result = if let Some(find_match) = if_match {
 							let find_match = find_match.trim().replace('"', "");
 
-							document_etag == &find_match
+							!find_match.is_empty() && document_etag == &find_match
 						} else {
 							true
 						};

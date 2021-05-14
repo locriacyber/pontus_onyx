@@ -17,9 +17,10 @@ const PASSWORD_HASH_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCD
 const ACCESS_TOKEN_ALPHABET: &str =
 	"abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ!+*";
 
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct Users {
 	salt: String,
-	list: std::collections::HashMap<String, Vec<u8>>,
+	list: Vec<User>,
 }
 impl Users {
 	pub fn new() -> Self {
@@ -35,10 +36,7 @@ impl Users {
 			);
 		}
 
-		Self {
-			salt,
-			list: std::collections::HashMap::new(),
-		}
+		Self { salt, list: vec![] }
 	}
 }
 impl Users {
@@ -52,14 +50,19 @@ impl Users {
 
 		zeroize::Zeroize::zeroize(password);
 
-		match self.list.get(username) {
-			Some(user_password) => user_password == &hashed_password,
+		match self.list.iter().find(|user| user.name == username) {
+			Some(user) => user.hashed_password == hashed_password,
 			None => false,
 		}
 	}
 }
 impl Users {
-	pub fn insert(&mut self, username: &str, password: &mut String) {
+	pub fn get_usernames(&self) -> Vec<&String> {
+		self.list.iter().map(|user| &user.name).collect()
+	}
+}
+impl Users {
+	pub fn insert(&mut self, username: &str, password: &mut String) -> Result<(), String> {
 		let mut hasher = hmac_sha512::Hash::new();
 		hasher.update(self.salt.as_bytes());
 		hasher.update(password.as_bytes());
@@ -67,9 +70,55 @@ impl Users {
 
 		zeroize::Zeroize::zeroize(password);
 
-		self.list
-			.insert(String::from(username), hasher.finalize().to_vec());
+		if self.list.iter().any(|user| user.name == username) {
+			return Err(String::from("this username already exists"));
+		}
+
+		self.list.push(User {
+			name: String::from(username),
+			rights: vec![],
+			hashed_password: hasher.finalize().to_vec(),
+		});
+
+		return Ok(());
 	}
+	pub fn add_right(&mut self, username: &str, right: UserRight) -> Result<(), String> {
+		match self.list.iter_mut().find(|user| user.name == username) {
+			Some(user) => {
+				if !user.rights.contains(&right) {
+					user.rights.push(right);
+					Ok(())
+				} else {
+					Err(String::from("user have already this right"))
+				}
+			}
+			None => Err(String::from("user not found")),
+		}
+	}
+	pub fn remove_right(&mut self, username: &str, right: UserRight) -> Result<(), String> {
+		match self.list.iter_mut().find(|user| user.name == username) {
+			Some(user) => match user.rights.binary_search(&right) {
+				Ok(position) => {
+					user.rights.remove(position);
+					Ok(())
+				}
+				Err(_) => Err(String::from("user does not have already this right")),
+			},
+			None => Err(String::from("user not found")),
+		}
+	}
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct User {
+	name: String,
+	rights: Vec<UserRight>,
+	hashed_password: Vec<u8>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum UserRight {
+	ManageUsers,
 }
 
 #[actix_web::get("/favicon.ico")]
@@ -100,7 +149,7 @@ pub async fn index() -> actix_web::web::HttpResponse {
 	<body style="padding:1em 2em;">
 		<h1><img src="/favicon.ico" alt="" style="max-height:2em;vertical-align:middle;"> {}</h1>
 		<p>This is an <a href="https://remotestorage.io/"><img src="/remotestorage.svg" style="max-height:1em;vertical-align:middle;"> remoteStorage</a> server.</p>
-		<p>Find Apps compatible with this database <a href="https://wiki.remotestorage.io/Apps">here</a> or <a href="https://0data.app/">here</a>.</p>
+		<p>Find Apps compatible with this database <a href="https://wiki.remotestorage.io/Apps">on remotestorage wiki</a> or <a href="https://0data.app/">on 0data list</a>.</p>
 		<p>See source code on <a href="https://github.com/Jimskapt/pontus_onyx">GitHub</a>.</p>
 	</body>
 </html>"#, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_NAME")))

@@ -24,7 +24,9 @@ server_bin = [
     "regex",
     "rand",
     "hmac-sha512",
-    "zeroize"
+    "zeroize",
+    "rpassword",
+    "rustls"
 ]
 
 [dependencies]
@@ -36,7 +38,7 @@ derivative = { version = "^2" }
 percent-encoding = { version = "^2", optional = true }
 bincode = { version = "^1", optional = true }
 serde_json = { version = "^1", optional = true }
-actix-web = { version = "^3", optional = true }
+actix-web = { version = "^3", features = ["rustls"], optional = true }
 actix-rt = { version = "^2", optional = true }
 futures = { version = "^0", optional = true }
 env_logger = { version = "^0", optional = true }
@@ -45,3 +47,10 @@ rand = { version = "^0", optional = true }
 hmac-sha512 = { version = "^0", optional = true }
 zeroize = { version = "^1", optional = true }
 toml = { version = "^0", optional = true }
+rpassword = { version = "5.0.1", optional = true }
+rustls = { version = "^0", optional = true }
+
+[[bin]]
+name = "pontus_onyx"
+path = "src/bin/main.rs"
+required-features = ["server_bin"]
