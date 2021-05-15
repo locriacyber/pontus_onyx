@@ -2,6 +2,7 @@
 
 use std::convert::From;
 use std::io::{BufRead, Write};
+use std::sync::{Arc, Mutex};
 
 extern crate pontus_onyx;
 
@@ -157,7 +158,7 @@ async fn main() -> std::io::Result<()> {
 			}
 		}
 	};
-	let users = std::sync::Arc::new(std::sync::Mutex::new(users));
+	let users = Arc::new(Mutex::new(users));
 
 	let mut db_path = workspace_path.clone();
 	db_path.push("data");
@@ -184,7 +185,7 @@ async fn main() -> std::io::Result<()> {
 			panic!("{}", e);
 		}
 	};
-	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
+	let database = Arc::new(Mutex::new(database));
 
 	let database_for_save = database.clone();
 	std::thread::spawn(move || loop {
@@ -197,12 +198,12 @@ async fn main() -> std::io::Result<()> {
 		}
 	});
 
-	let oauth_form_tokens: std::sync::Arc<std::sync::Mutex<Vec<http_server::OauthFormToken>>> =
-		std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+	let oauth_form_tokens: Arc<Mutex<Vec<http_server::middlewares::OauthFormToken>>> =
+		Arc::new(Mutex::new(vec![]));
 
 	// TODO : only for rapid test purposes, delete it for release of the product !
-	let access_tokens: std::sync::Arc<std::sync::Mutex<Vec<http_server::AccessBearer>>> =
-		std::sync::Arc::new(std::sync::Mutex::new(if cfg!(debug_assertions) {
+	let access_tokens: Arc<Mutex<Vec<http_server::AccessBearer>>> =
+		Arc::new(Mutex::new(if cfg!(debug_assertions) {
 			let debug_bearer = http_server::AccessBearer::new(
 				vec![http_server::Scope {
 					module: String::from("*"),
@@ -224,123 +225,153 @@ async fn main() -> std::io::Result<()> {
 	println!("📢 Attempting to start server ...");
 	println!();
 
-	let server = actix_web::HttpServer::new(move || {
-		actix_web::App::new()
-			.data(database.clone())
-			.data(oauth_form_tokens.clone())
-			.data(access_tokens.clone())
-			.data(users.clone())
-			.wrap(http_server::Auth {})
-			.wrap(actix_web::middleware::Logger::default())
-			.service(http_server::favicon)
-			.service(http_server::get_oauth)
-			.service(http_server::post_oauth)
-			.service(http_server::webfinger_handle)
-			.service(http_server::get_item)
-			.service(http_server::head_item)
-			.service(http_server::options_item)
-			.service(http_server::put_item)
-			.service(http_server::delete_item)
-			.service(http_server::remotestoragesvg)
-			.service(http_server::index)
-	});
+	let mut https_mode = false;
 
-	/*
-	match openssl::ssl::SslAcceptor::mozilla_intermediate(
-		openssl::ssl::SslMethod::tls()
-	) {
-		Ok(mut ssl_builder) => {
-			match ssl_builder.set_private_key_file(settings.keyfile_path, openssl::ssl::SslFiletype::PEM) {
-				Ok(_) => {
-					match ssl_builder.set_certificate_chain_file(settings.certfile_path) {
-						Ok(_) => {
-							match server
-							.bind_openssl(format!("localhost:{}", settings.port), ssl_builder) {
-								Ok(server) => {
-									println!("✔ API should now listen to https://localhost:{}/", settings.port);
-									server.run();
-								}
-								Err(e) => {
-									println!("⚠ Can not serve with OpenSSL : {}", e);
+	match std::fs::File::open(&settings.https.keyfile_path) {
+		Ok(keyfile_content) => match std::fs::File::open(&settings.https.certfile_path) {
+			Ok(cert_content) => {
+				let key_file = &mut std::io::BufReader::new(keyfile_content);
+				let cert_file = &mut std::io::BufReader::new(cert_content);
+				match rustls::internal::pemfile::certs(cert_file) {
+					Ok(cert_chain) => {
+						match rustls::internal::pemfile::pkcs8_private_keys(key_file) {
+							Ok(mut keys) => {
+								let mut server_config =
+									rustls::ServerConfig::new(rustls::NoClientAuth::new());
+
+								match server_config.set_single_cert(cert_chain, keys.remove(0)) {
+									Ok(_) => {
+										let database_for_server = database.clone();
+										let oauth_form_tokens_for_server =
+											oauth_form_tokens.clone();
+										let access_tokens_for_server = access_tokens.clone();
+										let users_for_server = users.clone();
+
+										let enable_hsts = settings.https.enable_htsts;
+
+										match actix_web::HttpServer::new(move || {
+											actix_web::App::new()
+												.data(database_for_server.clone())
+												.data(oauth_form_tokens_for_server.clone())
+												.data(access_tokens_for_server.clone())
+												.data(users_for_server.clone())
+												.wrap(http_server::middlewares::Hsts {
+													enable: enable_hsts,
+												})
+												.wrap(http_server::middlewares::Auth {})
+												.wrap(actix_web::middleware::Logger::default())
+												.service(http_server::favicon)
+												.service(http_server::get_oauth)
+												.service(http_server::post_oauth)
+												.service(http_server::webfinger_handle)
+												.service(http_server::get_item)
+												.service(http_server::head_item)
+												.service(http_server::options_item)
+												.service(http_server::put_item)
+												.service(http_server::delete_item)
+												.service(http_server::remotestoragesvg)
+												.service(http_server::index)
+										})
+										.bind_rustls(
+											format!("localhost:{}", settings.port),
+											server_config,
+										) {
+											Ok(server_bind) => {
+												println!(
+													"\t✔ API should now listen to https://localhost:{}/",
+													settings.port
+												);
+												println!();
+
+												https_mode = true;
+
+												server_bind.run().await.unwrap();
+											}
+											Err(e) => {
+												println!("\t❌ Can not set up HTTP server : {}", e);
+											}
+										}
+									}
+									Err(e) => {
+										println!("\t⚠ Can add certificate in server : {}", e);
+									}
 								}
 							}
-						},
-						Err(e) => {
-							println!("⚠ Error while using cert file `{}` with OpenSSL : {}", settings.certfile_path, e);
+							Err(()) => {
+								println!("\t⚠ Can not read PKCS8 private key");
+							}
 						}
 					}
-				},
-				Err(e) => {
-					println!("⚠ Error while using key file `{}` with OpenSSL : {}", settings.keyfile_path, e);
+					Err(()) => {
+						println!("\t⚠ Can not read SSL certificate");
+					}
 				}
+			}
+			Err(e) => {
+				println!(
+					"\t⚠ Can not open cert file `{}` : {}",
+					settings.https.certfile_path, e
+				);
 			}
 		},
 		Err(e) => {
-			println!("⚠ Error while creating OpenSSL utility : {}", e);
+			println!(
+				"\t⚠ Can not open key file `{}` : {}",
+				settings.https.keyfile_path, e
+			);
 		}
 	}
-	*/
 
-	/*
-	let cert_content = std::fs::read("device.key").unwrap();
-	dbg!(&cert_content.is_empty());
+	if !https_mode {
+		println!();
+		println!("\t📢 Falling back onto HTTP mode");
 
-	let codec = rustls::internal::msgs::codec::Codec::read_bytes(&cert_content);
-	dbg!(&codec);
+		println!();
+		println!("\t⚠ All data to and from this HTTP server can be read and compromised.");
+		println!("\tIt should better serve data though HTTPS.");
+		println!("\tYou should better fix previous issues and/or get an SSL certificate.");
+		println!("\tMore help : https://github.com/Jimskapt/pontus-onyx/wiki/SSL-cert");
+		println!();
 
-	let mut cert_store = rustls::RootCertStore::empty();
-	cert_store.add(&codec.unwrap()).unwrap();
-	*/
+		println!(
+			"\t✔ API should now listen to http://localhost:{}/",
+			settings.port
+		);
+		println!();
 
-	/*
-	let cert_content = std::fs::read("cert.pem").unwrap();
-	let mut cert_content = cert_content.as_slice();
+		let database_for_server = database.clone();
+		let oauth_form_tokens_for_server = oauth_form_tokens.clone();
+		let access_tokens_for_server = access_tokens.clone();
+		let users_for_server = users.clone();
 
-	let mut cert_store = rustls::RootCertStore::empty();
-	cert_store.add_pem_file(&mut cert_content).unwrap();
-
-	let config = rustls::ServerConfig::new(
-		// AllowAnyAuthenticatedClient
-		rustls::AllowAnyAnonymousOrAuthenticatedClient::new(
-			cert_store
-		)
-	);
-
-	match server
-		.bind_rustls(format!("localhost:{}", settings.port), config) {
-		Ok(server) => {
-			println!("✔ API should now listen to https://localhost:{}/", settings.port);
-			server.run().await
-		}
-		Err(e) => {
-			println!("⚠ Can not serve with rustls : {}", e);
-			Ok(())
-		}
-	}
-	*/
-
-	println!("\t❌ HTTPS not ready, yet.");
-	println!();
-
-	println!("\t⚠ Falling back onto HTTP mode");
-
-	println!();
-	println!("\t⚠ All data to and from this HTTP server can be read and compromised.");
-	println!("\tIt should better serve data though HTTPS.");
-	println!("\tYou should better fix previous issues and/or get an SSL certificate.");
-	println!("\tMore help : https://github.com/Jimskapt/pontus-onyx/wiki/SSL-cert");
-	println!();
-
-	println!(
-		"\t✔ API should now listen to http://localhost:{}/",
-		settings.port
-	);
-	println!();
-
-	server
-		.bind(format!("localhost:{}", settings.port))? // TODO : HTTPS
+		actix_web::HttpServer::new(move || {
+			actix_web::App::new()
+				.data(database_for_server.clone())
+				.data(oauth_form_tokens_for_server.clone())
+				.data(access_tokens_for_server.clone())
+				.data(users_for_server.clone())
+				.wrap(http_server::middlewares::Auth {})
+				.wrap(actix_web::middleware::Logger::default())
+				.service(http_server::favicon)
+				.service(http_server::get_oauth)
+				.service(http_server::post_oauth)
+				.service(http_server::webfinger_handle)
+				.service(http_server::get_item)
+				.service(http_server::head_item)
+				.service(http_server::options_item)
+				.service(http_server::put_item)
+				.service(http_server::delete_item)
+				.service(http_server::remotestoragesvg)
+				.service(http_server::index)
+		})
+		.bind(format!("localhost:{}", settings.port))
+		.expect("❌ Can not set up HTTP server, abort launching.")
 		.run()
 		.await
+		.unwrap();
+	}
+
+	Ok(())
 }
 
 const EASY_TO_GUESS_USERS: &[&str] = &[
@@ -353,7 +384,7 @@ const EASY_TO_GUESS_USERS: &[&str] = &[
 	"username",
 ];
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct Settings {
 	port: usize,
 	admin_email: String,
@@ -369,10 +400,20 @@ impl Default for Settings {
 	}
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct SettingsHTTPS {
 	keyfile_path: String,
 	certfile_path: String,
+	enable_htsts: bool,
+}
+impl Default for SettingsHTTPS {
+	fn default() -> Self {
+		Self {
+			keyfile_path: String::new(),
+			certfile_path: String::new(),
+			enable_htsts: true,
+		}
+	}
 }
 
 /*

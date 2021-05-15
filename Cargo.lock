@@ -31,7 +31,7 @@ dependencies = [
  "futures-util",
  "http",
  "log",
- "rustls 0.18.1",
+ "rustls",
  "tokio-rustls",
  "trust-dns-proto",
  "trust-dns-resolver",
@@ -142,7 +142,7 @@ checksum = "bc7d7cd957c9ed92288a7c3c96af81fa5291f65247a76a34dac7b6af74e52ba0"
 dependencies = [
  "actix-macros 0.2.0",
  "futures-core",
- "tokio 1.5.0",
+ "tokio 1.6.0",
 ]
 
 [[package]]
@@ -214,7 +214,7 @@ dependencies = [
  "actix-service",
  "actix-utils",
  "futures-util",
- "rustls 0.18.1",
+ "rustls",
  "tokio-rustls",
  "webpki",
  "webpki-roots",
@@ -270,7 +270,7 @@ dependencies = [
  "mime",
  "pin-project 1.0.7",
  "regex",
- "rustls 0.18.1",
+ "rustls",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -359,7 +359,7 @@ dependencies = [
  "mime",
  "percent-encoding",
  "rand 0.7.3",
- "rustls 0.18.1",
+ "rustls",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -1288,7 +1288,7 @@ dependencies = [
  "rand 0.8.3",
  "regex",
  "rpassword",
- "rustls 0.19.1",
+ "rustls",
  "serde",
  "serde_json",
  "toml",
@@ -1612,19 +1612,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d1126dcf58e93cee7d098dbda643b5f92ed724f1f6a63007c1116eed6700c81"
 dependencies = [
  "base64 0.12.3",
- "log",
- "ring",
- "sct",
- "webpki",
-]
-
-[[package]]
-name = "rustls"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35edb675feee39aec9c99fa5ff985081995a06d594114ae14cbe797ad7b7a6d7"
-dependencies = [
- "base64 0.13.0",
  "log",
  "ring",
  "sct",
@@ -1961,9 +1948,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.5.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83f0c8e7c0addab50b663055baf787d0af7f413a46e6e7fb9559a4e4db7137a5"
+checksum = "bd3076b5c8cc18138b8f8814895c11eb4de37114a5d127bafdc5e55798ceef37"
 dependencies = [
  "autocfg 1.0.1",
  "libc",
@@ -1982,7 +1969,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e12831b255bcfa39dc0436b01e19fea231a37db570686c06ee72c423479f889a"
 dependencies = [
  "futures-core",
- "rustls 0.18.1",
+ "rustls",
  "tokio 0.2.25",
  "webpki",
 ]

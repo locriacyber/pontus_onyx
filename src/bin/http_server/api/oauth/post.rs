@@ -17,7 +17,7 @@ pub async fn post_oauth(
 	request: actix_web::web::HttpRequest,
 	form: actix_web::web::Form<OauthPostQuery>,
 	form_tokens: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::OauthFormToken>>>,
+		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	>,
 	access_tokens: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>>,

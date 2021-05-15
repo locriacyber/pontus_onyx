@@ -1,10 +1,10 @@
 mod api;
-mod middlewares;
 mod tokens;
 mod webfinger;
 
+pub mod middlewares;
+
 pub use api::*;
-pub use middlewares::*;
 pub use tokens::*;
 pub use webfinger::webfinger_handle;
 
@@ -137,8 +137,8 @@ pub async fn remotestoragesvg() -> actix_web::web::HttpResponse {
 
 #[actix_web::get("/")]
 pub async fn index() -> actix_web::web::HttpResponse {
-	actix_web::HttpResponse::Ok()
-		.body(format!(r#"<!DOCTYPE html>
+	actix_web::HttpResponse::Ok().body(format!(
+		r#"<!DOCTYPE html>
 <html>
 	<head>
 		<meta charset="UTF-8">
@@ -147,10 +147,39 @@ pub async fn index() -> actix_web::web::HttpResponse {
 		<title>{}</title>
 	</head>
 	<body style="padding:1em 2em;">
-		<h1><img src="/favicon.ico" alt="" style="max-height:2em;vertical-align:middle;"> {}</h1>
-		<p>This is an <a href="https://remotestorage.io/"><img src="/remotestorage.svg" style="max-height:1em;vertical-align:middle;"> remoteStorage</a> server.</p>
-		<p>Find Apps compatible with this database <a href="https://wiki.remotestorage.io/Apps">on remotestorage wiki</a> or <a href="https://0data.app/">on 0data list</a>.</p>
-		<p>See source code on <a href="https://github.com/Jimskapt/pontus_onyx">GitHub</a>.</p>
+		<h1>
+			<img src="/favicon.ico" alt="" style="max-height:2em;vertical-align:middle;">
+			{} V{}
+		</h1>
+		<p>
+			This is a
+			&nbsp;
+			<a href="https://remotestorage.io/">
+				<img src="/remotestorage.svg" style="max-height:1em;vertical-align:middle;">
+				remoteStorage
+			</a>
+			server.
+		</p>
+		<p>
+			Find Apps compatible with this database
+			<a href="https://wiki.remotestorage.io/Apps">on remotestorage wiki</a>
+			or
+			<a href="https://0data.app/">on 0data list</a>
+			.
+		</p>
+		<hr>
+		<p>
+			See source code on
+			<a href="https://github.com/Jimskapt/pontus_onyx">GitHub</a>.
+		</p>
+		<p>
+			Made with ❤ by
+			<a href="https://jimskapt.com/">Thomas RAMIREZ</a> in France 🇫🇷
+		</p>
 	</body>
-</html>"#, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_NAME")))
+</html>"#,
+		env!("CARGO_PKG_NAME"),
+		env!("CARGO_PKG_NAME"),
+		env!("CARGO_PKG_VERSION")
+	))
 }

@@ -13,7 +13,7 @@ pub async fn get_oauth(
 	query: actix_web::web::Query<OauthGetQuery>,
 	request: actix_web::web::HttpRequest,
 	form_tokens: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::OauthFormToken>>>,
+		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	>,
 ) -> actix_web::web::HttpResponse {
 	let mut response = actix_web::HttpResponse::build(actix_web::http::StatusCode::OK);
@@ -50,9 +50,9 @@ pub async fn get_oauth(
 		});
 
 	let ip = request.peer_addr().unwrap();
-	let new_token = crate::http_server::OauthFormToken::new(ip);
+	let new_token = crate::http_server::middlewares::OauthFormToken::new(ip);
 
-	let mut new_tokens: Vec<crate::http_server::OauthFormToken> = form_tokens
+	let mut new_tokens: Vec<crate::http_server::middlewares::OauthFormToken> = form_tokens
 		.lock()
 		.unwrap()
 		.iter()
