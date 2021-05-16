@@ -2,7 +2,7 @@ use actix_web::http::{header::EntityTag, Method, StatusCode};
 
 #[actix_rt::test]
 async fn basics() {
-	let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+	let (database, handle) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
 		pontus_onyx::Item::new_folder(vec![(
 			"user",
 			pontus_onyx::Item::new_folder(vec![(
@@ -25,6 +25,8 @@ async fn basics() {
 	.unwrap();
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
+	pontus_onyx::database::do_not_handle_events(handle);
+
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
 			.data(database)
@@ -44,7 +46,7 @@ async fn basics() {
 			020,
 			Method::DELETE,
 			"/storage/user/should/not/exists/folder/",
-			StatusCode::BAD_REQUEST,
+			StatusCode::NOT_FOUND,
 		),
 		(030, Method::GET, "/storage/user/a/b/c", StatusCode::OK),
 		(040, Method::DELETE, "/storage/user/a", StatusCode::CONFLICT),
@@ -105,7 +107,7 @@ async fn basics() {
 
 #[actix_rt::test]
 async fn if_match() {
-	let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+	let (database, handle) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
 		pontus_onyx::Item::new_folder(vec![(
 			"user",
 			pontus_onyx::Item::new_folder(vec![(
@@ -127,6 +129,8 @@ async fn if_match() {
 	))
 	.unwrap();
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
+
+	pontus_onyx::database::do_not_handle_events(handle);
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()

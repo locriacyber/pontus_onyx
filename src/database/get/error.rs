@@ -32,42 +32,42 @@ impl std::convert::From<ErrorGet> for actix_web::HttpResponse {
 	fn from(input: ErrorGet) -> Self {
 		let request_method = actix_web::http::Method::GET;
 		match input {
-			ErrorGet::CanNotBeListed => crate::utils::build_http_json_response(
+			ErrorGet::CanNotBeListed => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorGet::Conflict => crate::utils::build_http_json_response(
+			ErrorGet::Conflict => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorGet::IfMatchNotFound => crate::utils::build_http_json_response(
+			ErrorGet::IfMatchNotFound => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorGet::IfNoneMatch => crate::utils::build_http_json_response(
+			ErrorGet::IfNoneMatch => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorGet::NotFound => crate::utils::build_http_json_response(
+			ErrorGet::NotFound => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorGet::WrongPath => crate::utils::build_http_json_response(
+			ErrorGet::WrongPath => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,

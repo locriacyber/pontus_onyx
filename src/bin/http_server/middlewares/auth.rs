@@ -28,6 +28,17 @@ pub struct AuthMiddleware<S> {
 	service: S,
 }
 
+type OutputFuture = std::pin::Pin<
+	Box<
+		dyn futures::Future<
+			Output = Result<
+				actix_web::dev::ServiceResponse<actix_web::dev::Body>,
+				actix_web::Error,
+			>,
+		>,
+	>,
+>;
+
 impl<S> actix_web::dev::Service for AuthMiddleware<S>
 where
 	S: actix_web::dev::Service<
@@ -40,8 +51,7 @@ where
 	type Request = actix_web::dev::ServiceRequest;
 	type Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>;
 	type Error = actix_web::Error;
-	type Future =
-		std::pin::Pin<Box<dyn futures::Future<Output = Result<Self::Response, Self::Error>>>>;
+	type Future = OutputFuture;
 
 	fn poll_ready(
 		&mut self,
@@ -70,12 +80,23 @@ where
 					.unwrap()
 					.clone();
 
+				let settings = service_request
+					.app_data::<actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::Settings>>>>(
+					)
+					.unwrap()
+					.lock()
+					.unwrap()
+					.clone();
+
 				match tokens.iter().find(|e| e.get_name() == search_token) {
 					Some(token) => {
 						// TODO : check token validity with client_id
 						// TODO : test access in case of module = "*"
+						// TODO : test token expiration
 
-						if !token.is_expirated() {
+						if (std::time::Instant::now() - *token.get_emit_time())
+							< std::time::Duration::from_secs(settings.token_lifetime_seconds)
+						{
 							match token.get_scopes().iter().find(|scope| {
 								if scope
 									.allowed_methods()
@@ -109,7 +130,7 @@ where
 									Box::pin(async move {
 										Ok(actix_web::dev::ServiceResponse::new(
 											service_request.into_parts().0,
-											pontus_onyx::build_http_json_response(
+											pontus_onyx::database::build_http_json_response(
 												&request_method,
 												actix_web::http::StatusCode::UNAUTHORIZED,
 												None,
@@ -126,7 +147,7 @@ where
 							Box::pin(async move {
 								Ok(actix_web::dev::ServiceResponse::new(
 									service_request.into_parts().0,
-									pontus_onyx::build_http_json_response(
+									pontus_onyx::database::build_http_json_response(
 										&request_method,
 										actix_web::http::StatusCode::UNAUTHORIZED,
 										None,
@@ -140,7 +161,7 @@ where
 					None => Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
-							pontus_onyx::build_http_json_response(
+							pontus_onyx::database::build_http_json_response(
 								&request_method,
 								actix_web::http::StatusCode::UNAUTHORIZED,
 								None,
@@ -200,7 +221,7 @@ where
 					Box::pin(async move {
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
-							pontus_onyx::build_http_json_response(
+							pontus_onyx::database::build_http_json_response(
 								&request_method,
 								actix_web::http::StatusCode::UNAUTHORIZED,
 								None,
@@ -270,8 +291,11 @@ impl OauthFormToken {
 
 #[actix_rt::test]
 async fn hsv5femo2qgu80gbad0ov5() {
+	let settings = std::sync::Arc::new(std::sync::Mutex::new(crate::Settings::default()));
+
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
+			.data(settings.clone())
 			.wrap(super::Auth {})
 			.service(crate::http_server::favicon)
 			.service(crate::http_server::api::get_item)
@@ -337,8 +361,8 @@ mod tests {
 		);
 		access_tokens.lock().unwrap().push(token.clone());
 
-		let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
-			pontus_onyx::Item::new_folder(vec![(
+		let (database, handle) = pontus_onyx::Database::new(
+			pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
 				"user",
 				pontus_onyx::Item::new_folder(vec![
 					(
@@ -395,15 +419,20 @@ mod tests {
 						]),
 					),
 				]),
-			)]),
-		))
+			)])),
+		)
 		.unwrap();
 		let database = std::sync::Arc::new(std::sync::Mutex::new(database));
+
+		pontus_onyx::database::do_not_handle_events(handle);
+
+		let settings = std::sync::Arc::new(std::sync::Mutex::new(crate::Settings::default()));
 
 		let mut app = actix_web::test::init_service(
 			actix_web::App::new()
 				.data(database.clone())
 				.data(access_tokens.clone())
+				.data(settings.clone())
 				.wrap(super::Auth {})
 				.service(crate::http_server::api::get_item)
 				.service(crate::http_server::api::put_item),

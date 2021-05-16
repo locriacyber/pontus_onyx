@@ -95,6 +95,7 @@ impl Users {
 			None => Err(String::from("user not found")),
 		}
 	}
+	/*
 	pub fn remove_right(&mut self, username: &str, right: UserRight) -> Result<(), String> {
 		match self.list.iter_mut().find(|user| user.name == username) {
 			Some(user) => match user.rights.binary_search(&right) {
@@ -107,6 +108,7 @@ impl Users {
 			None => Err(String::from("user not found")),
 		}
 	}
+	*/
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -116,9 +118,16 @@ struct User {
 	hashed_password: Vec<u8>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum UserRight {
 	ManageUsers,
+}
+impl std::fmt::Display for UserRight {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		match self {
+			Self::ManageUsers => f.write_str("manage users"),
+		}
+	}
 }
 
 #[actix_web::get("/favicon.ico")]

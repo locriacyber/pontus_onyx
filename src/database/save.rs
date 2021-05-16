@@ -1,11 +1,11 @@
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct PontusOnyxFileData {
+pub struct DataDocument {
 	pub datastruct_version: String,
 	pub etag: String,
 	pub content_type: String,
 	pub last_modified: chrono::DateTime<chrono::Utc>,
 }
-impl Default for PontusOnyxFileData {
+impl Default for DataDocument {
 	fn default() -> Self {
 		Self {
 			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
@@ -17,11 +17,11 @@ impl Default for PontusOnyxFileData {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct PontusOnyxFolderData {
+pub struct DataFolder {
 	pub datastruct_version: String,
 	pub etag: String,
 }
-impl Default for PontusOnyxFolderData {
+impl Default for DataFolder {
 	fn default() -> Self {
 		Self {
 			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
@@ -31,17 +31,24 @@ impl Default for PontusOnyxFolderData {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct PontusOnyxMonolythData {
+pub struct DataMonolyth {
 	pub datastruct_version: String,
 	pub content: crate::Item,
 }
-impl Default for PontusOnyxMonolythData {
+impl Default for DataMonolyth {
 	fn default() -> Self {
 		Self {
 			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 			content: crate::Item::new_folder(vec![]),
 		}
 	}
+}
+
+#[cfg(feature = "server_bin")]
+pub fn do_not_handle_events(handle: std::sync::mpsc::Receiver<crate::database::Event>) {
+	std::thread::spawn(move || loop {
+		handle.recv().ok();
+	});
 }
 
 #[cfg(feature = "server_bin")]
@@ -95,7 +102,7 @@ impl super::Database {
 							podata_path.push(format!(".{}.podata.toml", filename));
 							std::fs::write(
 								podata_path,
-								toml::to_string(&PontusOnyxFileData {
+								toml::to_string(&DataDocument {
 									datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 									etag: document_etag,
 									content_type: document_content_type,
@@ -131,7 +138,7 @@ impl super::Database {
 							podata_path.push(format!(".{}.podata.toml", filename));
 							std::fs::write(
 								podata_path,
-								toml::to_string(&PontusOnyxFileData {
+								toml::to_string(&DataDocument {
 									datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 									etag: document_etag,
 									content_type: document_content_type,
@@ -151,7 +158,7 @@ impl super::Database {
 						} => todo!(),
 					}
 				} else if file_path.is_file() {
-					let datasave = bincode::serialize(&PontusOnyxMonolythData {
+					let datasave = bincode::serialize(&DataMonolyth {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						content: self.content.clone(),
 					})

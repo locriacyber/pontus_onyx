@@ -1,14 +1,13 @@
 #[actix_web::get("/.well-known/webfinger")]
 pub async fn webfinger_handle(
-	request: actix_web::web::HttpRequest,
 	query: actix_web::web::Query<WebfingerQuery>,
+	settings: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::Settings>>>,
+	program_state: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::ProgramState>>>,
 ) -> actix_web::web::HttpResponse {
 	let default_body = format!(
 		r#"{{"href":"/","rel":"http://tools.ietf.org/id/draft-dejong-remotestorage","properties":{{"http://remotestorage.io/spec/version":"{}","http://tools.ietf.org/html/rfc6749#section-4.2":"{}"}}}}"#,
 		"draft-dejong-remotestorage-16", "TODO"
 	);
-
-	let _host = request.headers().get("host");
 
 	match &query.resource {
 		Some(resource) if resource.starts_with("acct:") => {
@@ -19,18 +18,24 @@ pub async fn webfinger_handle(
 				let _domain = items.get(1).unwrap();
 				// todo : check if user exists ?
 				// todo : check domain & host header ?
-				// todo : change http://localhost:7541/ to real server address !
+
+				let server_addr = if program_state.lock().unwrap().https_mode {
+					format!("https://localhost:{}/", settings.lock().unwrap().https.port)
+				} else {
+					format!("http://localhost:{}/", settings.lock().unwrap().port)
+				};
+
 				actix_web::HttpResponse::Ok()
 					.header("Access-Control-Allow-Origin", "*")
 					.content_type("application/ld+json")
 					.body(format!(
 						r#"{{"links":[{{"href":"{}","rel":"{}","properties":{{"{}":"{}","{}":"{}","{}":{},"{}":{},"{}":{}}}}}]}}"#,
-						format!("http://localhost:7541/storage/{}", user),
+						format!("{}storage/{}", server_addr, user),
 						"http://tools.ietf.org/id/draft-dejong-remotestorage",
 						"http://remotestorage.io/spec/version",
 						"draft-dejong-remotestorage-16",
 						"http://tools.ietf.org/html/rfc6749#section-4.2",
-						format!("http://localhost:7541/oauth/{}", user),
+						format!("{}oauth/{}", server_addr, user),
 						"http://tools.ietf.org/html/rfc6750#section-2.3", "null",
 						"http://tools.ietf.org/html/rfc7233", "null",
 						"http://remotestorage.io/spec/web-authoring", "null"

@@ -111,10 +111,8 @@ impl AccessBearer {
 	pub fn get_username(&self) -> &str {
 		&self.username
 	}
-}
-impl AccessBearer {
-	pub fn is_expirated(&self) -> bool {
-		(std::time::Instant::now() - self.emit_time) > std::time::Duration::from_secs(60 * 60)
+	pub fn get_emit_time(&self) -> &std::time::Instant {
+		&self.emit_time
 	}
 }
 

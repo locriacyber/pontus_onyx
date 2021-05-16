@@ -38,56 +38,56 @@ impl std::convert::From<ErrorPut> for actix_web::HttpResponse {
 	fn from(input: ErrorPut) -> Self {
 		let request_method = actix_web::http::Method::PUT;
 		match input {
-			ErrorPut::Conflict => crate::utils::build_http_json_response(
+			ErrorPut::Conflict => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorPut::IfMatchNotFound => crate::utils::build_http_json_response(
+			ErrorPut::IfMatchNotFound => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorPut::IfNoneMatch => crate::utils::build_http_json_response(
+			ErrorPut::IfNoneMatch => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorPut::InternalError => crate::utils::build_http_json_response(
+			ErrorPut::InternalError => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorPut::NotFound => crate::utils::build_http_json_response(
+			ErrorPut::NotFound => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorPut::NotModified => crate::utils::build_http_json_response(
+			ErrorPut::NotModified => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::NOT_MODIFIED,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorPut::WorksOnlyForDocument => crate::utils::build_http_json_response(
+			ErrorPut::WorksOnlyForDocument => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorPut::WrongPath => crate::utils::build_http_json_response(
+			ErrorPut::WrongPath => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,

@@ -31,6 +31,17 @@ pub struct HstsMiddleware<S> {
 	enable: bool,
 }
 
+type OutputFuture = std::pin::Pin<
+	Box<
+		dyn futures::Future<
+			Output = Result<
+				actix_web::dev::ServiceResponse<actix_web::dev::Body>,
+				actix_web::Error,
+			>,
+		>,
+	>,
+>;
+
 impl<S> actix_web::dev::Service for HstsMiddleware<S>
 where
 	S: actix_web::dev::Service<
@@ -43,8 +54,7 @@ where
 	type Request = actix_web::dev::ServiceRequest;
 	type Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>;
 	type Error = actix_web::Error;
-	type Future =
-		std::pin::Pin<Box<dyn futures::Future<Output = Result<Self::Response, Self::Error>>>>;
+	type Future = OutputFuture;
 
 	fn poll_ready(
 		&mut self,

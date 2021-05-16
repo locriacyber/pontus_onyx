@@ -22,7 +22,7 @@ pub async fn put_item(
 	let content_type = request.headers().get("content-type");
 
 	if content_type.is_none() {
-		return pontus_onyx::build_http_json_response(
+		return pontus_onyx::database::build_http_json_response(
 			request.method(),
 			actix_web::http::StatusCode::BAD_REQUEST,
 			None,
@@ -30,11 +30,6 @@ pub async fn put_item(
 			true,
 		);
 	}
-
-	let if_none_match = request
-		.headers()
-		.get("If-None-Match")
-		.map(|e| (e.to_str().unwrap()).split(',').collect::<Vec<&str>>());
 
 	match database.lock().unwrap().put(
 		&path,
@@ -44,14 +39,13 @@ pub async fn put_item(
 			content_type: String::from(content_type.unwrap().to_str().unwrap()),
 			last_modified: chrono::Utc::now(),
 		},
-		request
-			.headers()
-			.get("If-Match")
-			.map(|e| e.to_str().unwrap()),
-		if_none_match,
+		super::convert_actix_if_match(&request)
+			.first()
+			.unwrap_or(&String::new()),
+		super::convert_actix_if_none_match(&request),
 	) {
 		pontus_onyx::database::ResultPut::Created(new_etag) => {
-			return pontus_onyx::build_http_json_response(
+			return pontus_onyx::database::build_http_json_response(
 				request.method(),
 				actix_web::http::StatusCode::CREATED,
 				Some(new_etag),
@@ -60,7 +54,7 @@ pub async fn put_item(
 			);
 		}
 		pontus_onyx::database::ResultPut::Updated(new_etag) => {
-			return pontus_onyx::build_http_json_response(
+			return pontus_onyx::database::build_http_json_response(
 				request.method(),
 				actix_web::http::StatusCode::OK,
 				Some(new_etag),

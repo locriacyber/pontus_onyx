@@ -16,5 +16,5 @@ This crate should contain client library, server library (for embeddable project
 ### Run server
 
 ```cmd
-cargo run --features "server"
+cargo run --features server_bin
 ```

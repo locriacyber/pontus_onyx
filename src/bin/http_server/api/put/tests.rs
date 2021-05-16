@@ -1,23 +1,113 @@
-use actix_web::http::{header::EntityTag, Method, StatusCode};
+use actix_web::http::{header::EntityTag, StatusCode};
 
 #[actix_rt::test]
 async fn basics() {
-	let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+	let (database, handle) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+		pontus_onyx::Item::new_folder(vec![]),
+	))
+	.unwrap();
+	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
+
+	pontus_onyx::database::do_not_handle_events(handle);
+
+	let mut app = actix_web::test::init_service(
+		actix_web::App::new()
+			.data(database)
+			.service(crate::http_server::api::get_item)
+			.service(super::put_item),
+	)
+	.await;
+
+	{
+		let request = actix_web::test::TestRequest::get()
+			.uri("/storage/user/a/b/c")
+			.to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		assert_eq!(response.status(), StatusCode::NOT_FOUND);
+	}
+
+	{
+		let request = actix_web::test::TestRequest::put()
+			.uri("/storage/user/a/b/c")
+			.set(actix_web::http::header::ContentType::plaintext())
+			.set_payload(b"EVERYONE".to_vec())
+			.to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		assert_eq!(response.status(), StatusCode::CREATED);
+	}
+
+	{
+		let request = actix_web::test::TestRequest::get()
+			.uri("/storage/user/a/b/c")
+			.to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		assert_eq!(response.status(), StatusCode::OK);
+	}
+
+	{
+		let request = actix_web::test::TestRequest::put()
+			.uri("/storage/user/a/b/c")
+			.set(actix_web::http::header::ContentType::plaintext())
+			.set_payload(b"SOMEONE HERE ?".to_vec())
+			.to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		assert_eq!(response.status(), StatusCode::OK);
+	}
+
+	{
+		let request = actix_web::test::TestRequest::get()
+			.uri("/storage/user/a/b/c")
+			.to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		assert_eq!(response.status(), StatusCode::OK);
+	}
+
+	{
+		let request = actix_web::test::TestRequest::put()
+			.uri("/storage/user/a/b/c")
+			.set(actix_web::http::header::ContentType::plaintext())
+			.set_payload(b"SOMEONE HERE ?".to_vec())
+			.to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+	}
+}
+
+#[actix_rt::test]
+async fn if_none_match() {
+	let (database, handle) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
 		pontus_onyx::Item::new_folder(vec![(
 			"user",
 			pontus_onyx::Item::new_folder(vec![(
 				"a",
 				pontus_onyx::Item::new_folder(vec![(
 					"b",
-					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: ulid::Ulid::new().to_string(),
-							content: b"HELLO".to_vec(),
-							content_type: String::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
-					)]),
+					pontus_onyx::Item::new_folder(vec![
+						(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: String::from("A"),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						),
+						(
+							"d",
+							pontus_onyx::Item::Document {
+								etag: String::from("A"),
+								content: b"HELLO".to_vec(),
+								content_type: String::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						),
+					]),
 				)]),
 			)]),
 		)]),
@@ -25,75 +115,76 @@ async fn basics() {
 	.unwrap();
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
+	pontus_onyx::database::do_not_handle_events(handle);
+
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
-			.data(database)
-			.service(crate::http_server::api::get_item)
-			.service(super::super::delete_item),
+			.data(database.clone())
+			.service(super::put_item),
 	)
 	.await;
 
 	let tests = vec![
 		(
 			010,
-			Method::DELETE,
-			"/storage/user/should/not/exists/document",
-			StatusCode::NOT_FOUND,
+			"/storage/user/a/b/c",
+			vec![EntityTag::new(false, String::from("A"))],
+			StatusCode::PRECONDITION_FAILED,
 		),
 		(
 			020,
-			Method::DELETE,
-			"/storage/user/should/not/exists/folder/",
-			StatusCode::BAD_REQUEST,
+			"/storage/user/a/b/c",
+			vec![
+				EntityTag::new(false, String::from("A")),
+				EntityTag::new(false, String::from("B")),
+			],
+			StatusCode::PRECONDITION_FAILED,
 		),
-		(030, Method::GET, "/storage/user/a/b/c", StatusCode::OK),
-		(040, Method::DELETE, "/storage/user/a", StatusCode::CONFLICT),
+		(
+			030,
+			"/storage/user/a/b/c",
+			vec![EntityTag::new(false, String::from("*"))],
+			StatusCode::PRECONDITION_FAILED,
+		),
+		(
+			040,
+			"/storage/user/a/b/c",
+			vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
+			StatusCode::OK,
+		),
 		(
 			050,
-			Method::DELETE,
-			"/storage/user/a/",
-			StatusCode::BAD_REQUEST,
+			"/storage/user/a/b/d",
+			vec![
+				EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
+				EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
+			],
+			StatusCode::OK,
 		),
 		(
 			060,
-			Method::DELETE,
-			"/storage/user/a/b",
-			StatusCode::CONFLICT,
+			"/storage/user/new/a",
+			vec![EntityTag::new(false, String::from("*"))],
+			StatusCode::CREATED,
 		),
 		(
 			070,
-			Method::DELETE,
-			"/storage/user/a/b/",
-			StatusCode::BAD_REQUEST,
+			"/storage/user/new/a",
+			vec![EntityTag::new(false, String::from("*"))],
+			StatusCode::PRECONDITION_FAILED,
 		),
-		(080, Method::DELETE, "/storage/user/a/b/c", StatusCode::OK),
-		(
-			090,
-			Method::GET,
-			"/storage/user/a/b/c",
-			StatusCode::NOT_FOUND,
-		),
-		(
-			100,
-			Method::DELETE,
-			"/storage/user/a/b/c",
-			StatusCode::NOT_FOUND,
-		),
-		(
-			110,
-			Method::GET,
-			"/storage/user/a/b/",
-			StatusCode::NOT_FOUND,
-		),
-		(120, Method::GET, "/storage/user/a/", StatusCode::NOT_FOUND),
-		(130, Method::GET, "/storage/user/", StatusCode::NOT_FOUND),
 	];
 
 	for test in tests {
-		print!("#{:03} : {} request to {} ... ", test.0, test.1, test.2);
+		print!(
+			"#{:03} : PUT request to {} with If-None-Math = {:?} ... ",
+			test.0, test.1, test.2
+		);
 
-		let request = actix_web::test::TestRequest::with_uri(test.2)
-			.method(test.1.clone())
+		let request = actix_web::test::TestRequest::put()
+			.uri(test.1)
+			.set(actix_web::http::header::IfNoneMatch::Items(test.2.clone()))
+			.set_json(&serde_json::json!({"value": "C"}))
 			.to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
 
@@ -105,7 +196,7 @@ async fn basics() {
 
 #[actix_rt::test]
 async fn if_match() {
-	let (database, _) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
+	let (database, handle) = pontus_onyx::Database::new(pontus_onyx::database::DataSource::Memory(
 		pontus_onyx::Item::new_folder(vec![(
 			"user",
 			pontus_onyx::Item::new_folder(vec![(
@@ -128,87 +219,48 @@ async fn if_match() {
 	.unwrap();
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
+	pontus_onyx::database::do_not_handle_events(handle);
+
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
 			.data(database)
 			.service(crate::http_server::api::get_item)
-			.service(super::super::delete_item),
+			.service(super::put_item),
 	)
 	.await;
 
-	let tests: Vec<(i32, Method, &str, Vec<EntityTag>, StatusCode)> = vec![
-		(
-			010,
-			Method::GET,
-			"/storage/user/a/b/c",
-			vec![],
-			StatusCode::OK,
-		),
-		(
-			020,
-			Method::DELETE,
-			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
-			StatusCode::PRECONDITION_FAILED,
-		),
-		(
-			030,
-			Method::GET,
-			"/storage/user/a/b/c",
-			vec![],
-			StatusCode::OK,
-		),
-		(
-			040,
-			Method::GET,
-			"/storage/user/a/b/c",
-			vec![],
-			StatusCode::OK,
-		),
-		(
-			050,
-			Method::DELETE,
-			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("A"))],
-			StatusCode::OK,
-		),
-		(
-			060,
-			Method::GET,
-			"/storage/user/a/b/c",
-			vec![],
-			StatusCode::NOT_FOUND,
-		),
-		(
-			070,
-			Method::DELETE,
-			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("A"))],
-			StatusCode::NOT_FOUND,
-		),
-		(
-			080,
-			Method::DELETE,
-			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
-			StatusCode::NOT_FOUND,
-		),
-	];
-
-	for test in tests {
-		print!(
-			"#{:03} : {} request to {} with If-Match = {:?} ... ",
-			test.0, test.1, test.2, test.3
-		);
-
-		let request = actix_web::test::TestRequest::with_uri(test.2)
-			.method(test.1.clone())
-			.set(actix_web::http::header::IfMatch::Items(test.3.clone()))
+	{
+		let request = actix_web::test::TestRequest::get()
+			.uri("/storage/user/a/b/c")
 			.to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
 
-		assert_eq!(response.status(), test.4);
+		assert_eq!(response.status(), StatusCode::OK);
+	}
 
-		println!("OK");
+	{
+		let request = actix_web::test::TestRequest::put()
+			.uri("/storage/user/a/b/c")
+			.set(actix_web::http::header::IfMatch::Items(vec![
+				EntityTag::new(false, String::from("ANOTHER_ETAG")),
+			]))
+			.set_json(&serde_json::json!({"value": "C"}))
+			.to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		assert_eq!(response.status(), StatusCode::PRECONDITION_FAILED);
+	}
+
+	{
+		let request = actix_web::test::TestRequest::put()
+			.uri("/storage/user/a/b/c")
+			.set(actix_web::http::header::IfMatch::Items(vec![
+				EntityTag::new(false, String::from("A")),
+			]))
+			.set_json(&serde_json::json!({"value": "C"}))
+			.to_request();
+		let response = actix_web::test::call_service(&mut app, request).await;
+
+		assert_eq!(response.status(), StatusCode::OK);
 	}
 }

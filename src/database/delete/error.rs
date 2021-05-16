@@ -36,49 +36,49 @@ impl std::convert::From<ErrorDelete> for actix_web::HttpResponse {
 	fn from(input: ErrorDelete) -> Self {
 		let request_method = actix_web::http::Method::DELETE;
 		match input {
-			ErrorDelete::Conflict => crate::utils::build_http_json_response(
+			ErrorDelete::Conflict => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorDelete::IfMatchNotFound => crate::utils::build_http_json_response(
+			ErrorDelete::IfMatchNotFound => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorDelete::IfNoneMatch => crate::utils::build_http_json_response(
+			ErrorDelete::IfNoneMatch => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorDelete::InternalError => crate::utils::build_http_json_response(
+			ErrorDelete::InternalError => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorDelete::NotFound => crate::utils::build_http_json_response(
+			ErrorDelete::NotFound => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorDelete::WorksOnlyForDocument => crate::utils::build_http_json_response(
+			ErrorDelete::WorksOnlyForDocument => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
 				Some(format!("{}", input)),
 				true,
 			),
-			ErrorDelete::WrongPath => crate::utils::build_http_json_response(
+			ErrorDelete::WrongPath => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,

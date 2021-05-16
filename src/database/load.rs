@@ -62,9 +62,9 @@ pub fn path_to_item(
 
 									let podata = std::fs::read(podata);
 
-									let podata: super::PontusOnyxFileData = match podata {
+									let podata: super::DataDocument = match podata {
 										Ok(podata) => toml::from_slice(&podata).unwrap_or_default(),
-										Err(_) => super::PontusOnyxFileData::default(),
+										Err(_) => super::DataDocument::default(),
 									};
 
 									match std::fs::read(entry.path()) {
@@ -104,10 +104,10 @@ pub fn path_to_item(
 
 					let podata = std::fs::read(podata);
 
-					let podata: super::PontusOnyxFolderData = match podata {
+					let podata: super::DataFolder = match podata {
 						Ok(podata) => toml::from_slice(&podata).unwrap_or_default(),
 						Err(_e) => {
-							let result = super::PontusOnyxFolderData::default();
+							let result = super::DataFolder::default();
 
 							/* TODO :
 							if let std::io::ErrorKind::NotFound = e.kind() {
@@ -143,7 +143,7 @@ pub fn path_to_item(
 	} else if path.is_file() {
 		match std::fs::read(&path) {
 			Ok(content) => {
-				let content: Result<super::PontusOnyxMonolythData, bincode::Error> =
+				let content: Result<super::DataMonolyth, bincode::Error> =
 					bincode::deserialize(&content);
 
 				match content {

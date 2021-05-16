@@ -6,13 +6,12 @@ pub async fn delete_item(
 ) -> actix_web::web::HttpResponse {
 	match database.lock().unwrap().delete(
 		&path,
-		request
-			.headers()
-			.get("If-Match")
-			.map(|e| e.to_str().unwrap()),
+		super::convert_actix_if_match(&request)
+			.first()
+			.unwrap_or(&String::new()),
 	) {
 		Ok(etag) => {
-			return pontus_onyx::build_http_json_response(
+			return pontus_onyx::database::build_http_json_response(
 				request.method(),
 				actix_web::http::StatusCode::OK,
 				Some(etag),

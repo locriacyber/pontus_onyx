@@ -23,6 +23,7 @@ pub async fn post_oauth(
 		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>>,
 	>,
 	users: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::http_server::Users>>>,
+	settings: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::Settings>>>,
 ) -> actix_web::Result<actix_web::web::HttpResponse> {
 	let _host = request.headers().get("host");
 	let origin = request.headers().get("origin");
@@ -30,7 +31,13 @@ pub async fn post_oauth(
 
 	match origin {
 		Some(path) => {
-			if path != "http://localhost:7541" {
+			let settings = settings.lock().unwrap();
+
+			// TODO : probably a security issue :
+			if path.to_str().unwrap_or_default() != format!("http://localhost:{}", settings.port)
+				&& path.to_str().unwrap_or_default()
+					!= format!("https://localhost:{}", settings.https.port)
+			{
 				println!("security issue : wrong origin : {:?}", path);
 
 				return Ok(actix_web::HttpResponse::Found()

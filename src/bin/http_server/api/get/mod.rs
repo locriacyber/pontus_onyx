@@ -4,23 +4,12 @@ pub async fn get_item(
 	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
 ) -> actix_web::web::HttpResponse {
-	/* TODO :
-	let if_match: Result<actix_web::http::header::IfMatch, actix_web::error::ParseError> = actix_web::http::header::Header::parse(&request);
-	let if_none_match: Result<actix_web::http::header::IfNoneMatch, actix_web::error::ParseError> = actix_web::http::header::IfNoneMatch::parse(&request);
-	*/
-
-	let if_none_match = request
-		.headers()
-		.get("If-None-Match")
-		.map(|e| (e.to_str().unwrap()).split(',').collect::<Vec<&str>>());
-
 	match database.lock().unwrap().get(
 		&path,
-		request
-			.headers()
-			.get("If-Match")
-			.map(|e| e.to_str().unwrap()),
-		if_none_match,
+		super::convert_actix_if_match(&request)
+			.first()
+			.unwrap_or(&String::new()),
+		super::convert_actix_if_none_match(&request),
 	) {
 		Ok(pontus_onyx::Item::Document {
 			etag,

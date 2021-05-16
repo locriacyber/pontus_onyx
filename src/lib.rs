@@ -7,11 +7,6 @@ pub mod database;
 #[cfg(feature = "server_lib")]
 pub use database::Database;
 
-#[cfg(feature = "server_bin")]
-mod utils;
-#[cfg(feature = "server_bin")]
-pub use utils::build_http_json_response;
-
 #[derive(derivative::Derivative, Clone, serde::Serialize, serde::Deserialize)]
 #[derivative(Debug)]
 pub enum Item {

@@ -3,8 +3,8 @@ impl super::Database {
 		&mut self,
 		path: &str,
 		content: crate::Item,
-		if_match: Option<&str>,
-		if_none_match: Option<Vec<&str>>,
+		if_match: &str,
+		if_none_match: Vec<String>,
 	) -> ResultPut {
 		match &content {
 			crate::Item::Document {
@@ -18,23 +18,8 @@ impl super::Database {
 						and further ancestor folders, using a strong validator [HTTP,
 						section 7.2].
 				*/
-				match self.get(&path, None, if_none_match) {
-					Ok(crate::Item::Document {
-						etag: document_etag,
-						..
-					}) => {
-						let if_match_result = if let Some(find_match) = if_match {
-							let find_match = find_match.trim().replace('"', "");
-
-							!find_match.is_empty() && document_etag == &find_match
-						} else {
-							true
-						};
-
-						if !if_match_result {
-							return ResultPut::Err(ErrorPut::IfMatchNotFound);
-						}
-
+				match self.get(&path, if_match, if_none_match) {
+					Ok(crate::Item::Document { .. }) => {
 						let mut new_content = content.clone();
 						if let crate::Item::Document {
 							etag,
@@ -83,7 +68,7 @@ impl super::Database {
 															.take(paths.len()),
 													) {
 														Ok(()) => {
-															match self.get(path, Some(&new_etag), None) {
+															match self.get(path, &new_etag, vec![]) {
 																Ok(change_item) => {
 																	if let Err(e) = self.changes_tx.send(crate::database::Event::Update{
 																		path: String::from(path),
@@ -186,7 +171,7 @@ impl super::Database {
 																.take(paths.len() - 1),
 														) {
 															Ok(()) => {
-																match self.get(path, Some(&etag), None) {
+																match self.get(path, &etag, vec![]) {
 																	Ok(change_item) => {
 																		if let Err(e) = self.changes_tx.send(crate::database::Event::Update{
 																			path: String::from(path),
@@ -243,7 +228,7 @@ impl super::Database {
 						return ResultPut::Err(ErrorPut::IfNoneMatch);
 					}
 					Err(super::get::ErrorGet::IfMatchNotFound) => {
-						return ResultPut::Err(ErrorPut::InternalError); // should never happen
+						return ResultPut::Err(ErrorPut::IfMatchNotFound);
 					}
 					Err(super::get::ErrorGet::CanNotBeListed) => {
 						return ResultPut::Err(ErrorPut::WorksOnlyForDocument);

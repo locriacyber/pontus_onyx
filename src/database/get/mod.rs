@@ -2,8 +2,8 @@ impl super::Database {
 	pub fn get(
 		&self,
 		path: &str,
-		if_match: Option<&str>,
-		if_none_match: Option<Vec<&str>>,
+		if_match: &str,
+		if_none_match: Vec<String>,
 	) -> Result<&crate::Item, ErrorGet> {
 		let paths: Vec<&str> = path.split('/').collect();
 		let should_be_folder = paths.last().unwrap().is_empty();
@@ -24,24 +24,15 @@ impl super::Database {
 									return Err(ErrorGet::CanNotBeListed);
 								} else {
 									// TODO : weak headers ?
-									if let Some(none_match) = if_none_match {
-										let none_match: Vec<String> = none_match
-											.iter()
-											.map(|s| s.trim().replace('"', ""))
-											.filter(|e| !String::is_empty(e))
-											.collect();
-
-										if none_match.iter().any(|s| s == folder_etag || s == "*") {
-											return Err(ErrorGet::IfNoneMatch);
-										}
+									if if_none_match
+										.into_iter()
+										.any(|s| &s == folder_etag && !s.is_empty() || s == "*")
+									{
+										return Err(ErrorGet::IfNoneMatch);
 									}
 
-									if let Some(if_match) = if_match {
-										let if_match = if_match.trim().replace('"', "");
-
-										if !if_match.is_empty() && folder_etag != &if_match {
-											return Err(ErrorGet::IfMatchNotFound);
-										}
+									if !if_match.is_empty() && folder_etag != if_match {
+										return Err(ErrorGet::IfMatchNotFound);
 									}
 
 									return Ok(item);
@@ -55,24 +46,15 @@ impl super::Database {
 							..
 						} => {
 							if !should_be_folder {
-								if let Some(none_match) = if_none_match {
-									let none_match: Vec<String> = none_match
-										.iter()
-										.map(|s| s.trim().replace('"', ""))
-										.filter(|e| !String::is_empty(e))
-										.collect();
-
-									if none_match.iter().any(|s| s == document_etag || s == "*") {
-										return Err(ErrorGet::IfNoneMatch);
-									}
+								if if_none_match
+									.iter()
+									.any(|s| s == document_etag && !s.is_empty() || *s == "*")
+								{
+									return Err(ErrorGet::IfNoneMatch);
 								}
 
-								if let Some(if_match) = if_match {
-									let if_match = if_match.trim().replace('"', "");
-
-									if !if_match.is_empty() && document_etag != &if_match {
-										return Err(ErrorGet::IfMatchNotFound);
-									}
+								if !if_match.is_empty() && document_etag != if_match {
+									return Err(ErrorGet::IfMatchNotFound);
 								}
 
 								return Ok(item);
