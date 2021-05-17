@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::sync::{Arc, Mutex};
 
 #[derive(serde::Deserialize)]
 pub struct OauthPostQuery {
@@ -17,13 +18,11 @@ pub async fn post_oauth(
 	request: actix_web::web::HttpRequest,
 	form: actix_web::web::Form<OauthPostQuery>,
 	form_tokens: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
+		Arc<Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	>,
-	access_tokens: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>>,
-	>,
-	users: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::http_server::Users>>>,
-	settings: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::Settings>>>,
+	access_tokens: actix_web::web::Data<Arc<Mutex<Vec<crate::http_server::AccessBearer>>>>,
+	users: actix_web::web::Data<Arc<Mutex<crate::http_server::Users>>>,
+	settings: actix_web::web::Data<Arc<Mutex<crate::http_server::Settings>>>,
 ) -> actix_web::Result<actix_web::web::HttpResponse> {
 	let _host = request.headers().get("host");
 	let origin = request.headers().get("origin");

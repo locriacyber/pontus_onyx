@@ -1,7 +1,7 @@
 #[actix_web::get("/.well-known/webfinger")]
 pub async fn webfinger_handle(
 	query: actix_web::web::Query<WebfingerQuery>,
-	settings: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::Settings>>>,
+	settings: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<super::Settings>>>,
 	program_state: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::ProgramState>>>,
 ) -> actix_web::web::HttpResponse {
 	let default_body = format!(

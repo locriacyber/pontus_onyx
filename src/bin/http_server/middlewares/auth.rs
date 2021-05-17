@@ -81,8 +81,9 @@ where
 					.clone();
 
 				let settings = service_request
-					.app_data::<actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::Settings>>>>(
-					)
+					.app_data::<actix_web::web::Data<
+						std::sync::Arc<std::sync::Mutex<crate::http_server::Settings>>,
+					>>()
 					.unwrap()
 					.lock()
 					.unwrap()
@@ -291,7 +292,9 @@ impl OauthFormToken {
 
 #[actix_rt::test]
 async fn hsv5femo2qgu80gbad0ov5() {
-	let settings = std::sync::Arc::new(std::sync::Mutex::new(crate::Settings::default()));
+	let settings = std::sync::Arc::new(std::sync::Mutex::new(
+		crate::http_server::Settings::default(),
+	));
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
@@ -426,7 +429,9 @@ mod tests {
 
 		pontus_onyx::database::do_not_handle_events(handle);
 
-		let settings = std::sync::Arc::new(std::sync::Mutex::new(crate::Settings::default()));
+		let settings = std::sync::Arc::new(std::sync::Mutex::new(
+			crate::http_server::Settings::default(),
+		));
 
 		let mut app = actix_web::test::init_service(
 			actix_web::App::new()

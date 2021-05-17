@@ -2,6 +2,18 @@ mod api;
 mod tokens;
 mod webfinger;
 
+mod database;
+mod https;
+mod logger;
+mod settings;
+mod users;
+
+pub use database::load_or_create_database;
+pub use https::setup_and_run_https_server;
+pub use logger::load_or_create_logger;
+pub use settings::{load_or_create_settings, Settings, SettingsHTTPS};
+pub use users::load_or_create_users;
+
 pub mod middlewares;
 
 pub use api::*;
@@ -56,11 +68,13 @@ impl Users {
 		}
 	}
 }
+/*
 impl Users {
 	pub fn get_usernames(&self) -> Vec<&String> {
 		self.list.iter().map(|user| &user.name).collect()
 	}
 }
+*/
 impl Users {
 	pub fn insert(&mut self, username: &str, password: &mut String) -> Result<(), String> {
 		let mut hasher = hmac_sha512::Hash::new();
