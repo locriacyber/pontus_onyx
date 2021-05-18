@@ -23,6 +23,7 @@ pub async fn post_oauth(
 	access_tokens: actix_web::web::Data<Arc<Mutex<Vec<crate::http_server::AccessBearer>>>>,
 	users: actix_web::web::Data<Arc<Mutex<crate::http_server::Users>>>,
 	settings: actix_web::web::Data<Arc<Mutex<crate::http_server::Settings>>>,
+	program_state: actix_web::web::Data<Arc<Mutex<crate::ProgramState>>>,
 ) -> actix_web::Result<actix_web::web::HttpResponse> {
 	let _host = request.headers().get("host");
 	let origin = request.headers().get("origin");
@@ -30,13 +31,41 @@ pub async fn post_oauth(
 
 	match origin {
 		Some(path) => {
-			let settings = settings.lock().unwrap();
+			let settings = settings.lock().unwrap().clone();
 
+			let mut allowed_domains = vec![];
 			// TODO : probably a security issue :
-			if path.to_str().unwrap_or_default() != format!("http://localhost:{}", settings.port)
-				&& path.to_str().unwrap_or_default()
-					!= format!("https://localhost:{}", settings.https.port)
-			{
+			allowed_domains.push(format!("http://localhost:{}", settings.port));
+			// TODO : probably a security issue :
+			if settings.port == 80 {
+				allowed_domains.push(String::from("http://localhost"));
+			}
+			if program_state.lock().unwrap().https_mode {
+				if let Some(https) = settings.https.clone() {
+					allowed_domains.push(format!("https://localhost:{}", https.port));
+					if https.port != 443 {
+						allowed_domains.push(String::from("https://localhost"));
+					}
+				}
+			}
+			if let Some(domain) = settings.domain {
+				// TODO : probably a security issue :
+				allowed_domains.push(format!("http://{}:{}", domain, settings.port));
+				// TODO : probably a security issue :
+				if settings.port == 80 {
+					allowed_domains.push(format!("http://{}", domain));
+				}
+				if program_state.lock().unwrap().https_mode {
+					if let Some(https) = settings.https.clone() {
+						allowed_domains.push(format!("https://{}:{}", domain, https.port));
+						if https.port != 443 {
+							allowed_domains.push(format!("https://{}", domain));
+						}
+					}
+				}
+			}
+
+			if !allowed_domains.contains(&String::from(path.to_str().unwrap_or_default())) {
 				println!("security issue : wrong origin : {:?}", path);
 
 				return Ok(actix_web::HttpResponse::Found()

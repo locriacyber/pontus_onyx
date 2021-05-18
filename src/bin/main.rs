@@ -19,12 +19,6 @@ TODO : continue to :
 #[cfg(feature = "server_bin")]
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-	std::env::set_var(
-		"RUST_LOG",
-		"actix_example=debug,actix_web=debug,actix_http=debug,actix_service=debug",
-	);
-	env_logger::init();
-
 	println!(
 		"{} V{}",
 		env!("CARGO_PKG_NAME").to_uppercase(),
@@ -32,17 +26,53 @@ async fn main() -> std::io::Result<()> {
 	);
 	println!();
 
-	println!("📢 Set up ...");
-	println!();
-
 	let workspace_path = std::path::PathBuf::from("database");
+
+	let temp_logs_list = Arc::new(Mutex::new(vec![]));
+	let temp_logs_list_for_dispatcher = temp_logs_list.clone();
+	let mut temp_logger = charlie_buffalo::Logger::new(
+		charlie_buffalo::new_dispatcher(Box::from(move |log: charlie_buffalo::Log| {
+			temp_logs_list_for_dispatcher.lock().unwrap().push(log);
+		})),
+		charlie_buffalo::new_dropper(Box::from(|_: &charlie_buffalo::Logger| {})),
+	);
+
+	temp_logger.push(
+		vec![
+			(String::from("event"), String::from("setup")),
+			(String::from("level"), String::from("INFO")),
+		],
+		Some("setup of the program"),
+	);
+
+	temp_logger.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
 	let mut settings_path = workspace_path.clone();
 	settings_path.push("settings.toml");
-	let settings = http_server::load_or_create_settings(settings_path.clone());
+	let settings = http_server::load_or_create_settings(settings_path.clone(), &mut temp_logger);
 
-	let users = http_server::load_or_create_users(&settings);
-	let database = http_server::load_or_create_database(&settings);
+	temp_logger.push(vec![], Some("*CONSOLE_WHITESPACE*"));
+
+	let logger = http_server::load_or_create_logger(&settings, temp_logger, temp_logs_list);
+
+	logger
+		.lock()
+		.unwrap()
+		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
+
+	let users = http_server::load_or_create_users(&settings, logger.clone());
+
+	logger
+		.lock()
+		.unwrap()
+		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
+
+	let database = http_server::load_or_create_database(&settings, logger.clone());
+
+	logger
+		.lock()
+		.unwrap()
+		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
 	let settings = Arc::new(Mutex::new(settings));
 	let users = Arc::new(Mutex::new(users));
@@ -54,10 +84,18 @@ async fn main() -> std::io::Result<()> {
 	let access_tokens: Arc<Mutex<Vec<http_server::AccessBearer>>> = Arc::new(Mutex::new(vec![]));
 	// TODO : save access_tokens in file ?
 
-	let logger = http_server::load_or_create_logger(settings.clone());
+	logger.lock().unwrap().push(
+		vec![
+			(String::from("event"), String::from("setup")),
+			(String::from("level"), String::from("INFO")),
+		],
+		Some("starting servers"),
+	);
 
-	println!("📢 Trying to start servers ...");
-	println!();
+	logger
+		.lock()
+		.unwrap()
+		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
 	http_server::setup_and_run_https_server(
 		settings.clone(),
@@ -71,26 +109,42 @@ async fn main() -> std::io::Result<()> {
 
 	if !program_state.lock().unwrap().https_mode {
 		println!();
-		println!("\t📢 Falling back onto HTTP mode");
+		println!("\t⚠ Falling back onto HTTP mode");
 
 		println!();
 		println!("\t⚠ All data to and from HTTP server can be read and compromised.");
-		println!("\tIt should better serve data though HTTPS.");
-		println!("\tYou should better fix previous issues and/or get an SSL certificate.");
-		println!("\tMore help : https://github.com/Jimskapt/pontus-onyx/wiki/SSL-cert");
+		println!("\t⚠ It should better serve data though HTTPS.");
+		println!("\t⚠ You should better fix previous issues and/or get an SSL certificate.");
+		println!("\t⚠ More help : https://github.com/Jimskapt/pontus-onyx/wiki/SSL-cert");
 		println!();
 	}
 
 	let http_post = settings.lock().unwrap().port;
 
-	println!(
-		"\t✔ API should now listen to http://localhost:{}/",
-		http_post
+	logger.lock().unwrap().push(
+		vec![
+			(String::from("event"), String::from("setup")),
+			(String::from("module"), String::from("http")),
+			(String::from("level"), String::from("INFO")),
+		],
+		Some(&format!(
+			"API should now listen to http://localhost:{}/",
+			http_post
+		)),
 	);
-	println!();
 
-	let enable_hsts = settings.lock().unwrap().https.enable_hsts;
-	actix_web::HttpServer::new(move || {
+	logger
+		.lock()
+		.unwrap()
+		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
+
+	let enable_hsts = match &settings.lock().unwrap().https {
+		Some(https) => https.enable_hsts,
+		None => program_state.lock().unwrap().https_mode,
+	};
+
+	let logger_for_server = logger.clone();
+	let http_binding = actix_web::HttpServer::new(move || {
 		// same code in https module
 		actix_web::App::new()
 			.data(database.clone())
@@ -99,12 +153,14 @@ async fn main() -> std::io::Result<()> {
 			.data(users.clone())
 			.data(settings.clone())
 			.data(program_state.clone())
-			.data(logger.clone())
+			.data(logger_for_server.clone())
 			.wrap(http_server::middlewares::Hsts {
 				enable: enable_hsts,
 			})
 			.wrap(http_server::middlewares::Auth {})
-			.wrap(actix_web::middleware::Logger::default())
+			.wrap(http_server::middlewares::Logger {
+				logger: logger_for_server.clone(),
+			})
 			.service(http_server::favicon)
 			.service(http_server::get_oauth)
 			.service(http_server::post_oauth)
@@ -117,10 +173,23 @@ async fn main() -> std::io::Result<()> {
 			.service(http_server::remotestoragesvg)
 			.service(http_server::index)
 	})
-	.bind(format!("localhost:{}", http_post))
-	.expect("❌ Can not set up HTTP server, abort launching.")
-	.run()
-	.await
+	.bind(format!("localhost:{}", http_post));
+
+	match http_binding {
+		Ok(binding) => binding.run().await,
+		Err(e) => {
+			logger.lock().unwrap().push(
+				vec![
+					(String::from("event"), String::from("setup")),
+					(String::from("module"), String::from("http")),
+					(String::from("level"), String::from("ERROR")),
+				],
+				Some(&format!("can not set up HTTP server : {}", e)),
+			);
+
+			Err(e)
+		}
+	}
 }
 
 #[derive(Debug, Clone, Default)]

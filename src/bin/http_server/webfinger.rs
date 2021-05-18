@@ -19,11 +19,10 @@ pub async fn webfinger_handle(
 				// todo : check if user exists ?
 				// todo : check domain & host header ?
 
-				let server_addr = if program_state.lock().unwrap().https_mode {
-					format!("https://localhost:{}/", settings.lock().unwrap().https.port)
-				} else {
-					format!("http://localhost:{}/", settings.lock().unwrap().port)
-				};
+				let server_addr = super::build_server_address(
+					&settings.lock().unwrap(),
+					&program_state.lock().unwrap(),
+				);
 
 				actix_web::HttpResponse::Ok()
 					.header("Access-Control-Allow-Origin", "*")

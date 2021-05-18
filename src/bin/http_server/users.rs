@@ -1,6 +1,9 @@
 use std::io::{BufRead, Write};
 
-pub fn load_or_create_users(settings: &super::Settings) -> super::Users {
+pub fn load_or_create_users(
+	settings: &super::Settings,
+	logger: std::sync::Arc<std::sync::Mutex<charlie_buffalo::Logger>>,
+) -> super::Users {
 	let users_path = std::path::PathBuf::from(settings.userfile_path.clone());
 
 	let users = {
@@ -13,28 +16,57 @@ pub fn load_or_create_users(settings: &super::Settings) -> super::Users {
 		};
 
 		match userlist {
-			Ok(userlist) => userlist,
-			Err(_) => {
-				println!(
-					"\t⚠ Users list not found in {}.",
-					users_path.to_str().unwrap_or_default()
+			Ok(userlist) => {
+				logger.lock().unwrap().push(
+					vec![
+						(String::from("event"), String::from("setup")),
+						(String::from("module"), String::from("users_list")),
+						(String::from("level"), String::from("INFO")),
+					],
+					Some(&format!(
+						"users successfully loaded from `{}`",
+						&users_path.to_str().unwrap_or_default(),
+					)),
 				);
 
-				println!("\t\t📢 Attempting to create a new one.");
+				userlist
+			}
+			Err(e) => {
+				logger.lock().unwrap().push(
+					vec![
+						(String::from("event"), String::from("setup")),
+						(String::from("module"), String::from("users_list")),
+						(String::from("level"), String::from("WARNING")),
+					],
+					Some(&format!(
+						"users list not found in `{}` : {}",
+						&users_path.to_str().unwrap_or_default(),
+						e
+					)),
+				);
+
+				logger.lock().unwrap().push(
+					vec![
+						(String::from("event"), String::from("setup")),
+						(String::from("module"), String::from("users_list")),
+						(String::from("level"), String::from("INFO")),
+					],
+					Some("trying to create a new users list"),
+				);
 
 				let mut admin_username = String::new();
 				let mut input_is_correct = false;
 				while !input_is_correct {
-					print!("\t\tPlease type new admin username (or abort all with Ctrl + C) : ");
+					print!("\tPlease type new admin username (or abort all with Ctrl + C) : ");
 					std::io::stdout().flush().ok();
 					if let Err(e) = std::io::stdin().lock().read_line(&mut admin_username) {
-						println!("\t\t\t❌ Can not read your input : {}", e);
+						println!("\t\t❌ Can not read your input : {}", e);
 					}
 
 					admin_username = admin_username.trim().to_lowercase();
 
 					if EASY_TO_GUESS_USERS.contains(&admin_username.as_str()) {
-						println!("\t\t\t❌ This username is too easy to guess");
+						println!("\t❌ This username is too easy to guess");
 						admin_username = String::new();
 					} else {
 						input_is_correct = true;
@@ -46,31 +78,40 @@ pub fn load_or_create_users(settings: &super::Settings) -> super::Users {
 				while !input_is_correct {
 					admin_password = String::new();
 
-					match rpassword::read_password_from_tty(Some(&format!("\t\tPlease type new password for `{}` (it do not shows for security purposes) : ", admin_username))) {
+					match rpassword::read_password_from_tty(Some(&format!("\tPlease type new password for `{}` (it do not shows for security purposes) : ", admin_username))) {
 						Ok(password1) => {
-							match rpassword::read_password_from_tty(Some("\t\tPlease type again this password to confirm it : ")) {
+							match rpassword::read_password_from_tty(Some("\tPlease type again this password to confirm it : ")) {
 								Ok(password2) => {
 									if password1 == password2 {
 										if password2.trim().chars().count() < 6 {
-											println!("\t\t\t❌ This password need at least 6 characters");
+											println!("\t❌ This password need at least 6 characters");
 										} else {
 											input_is_correct = true;
 											admin_password = String::from(password2.trim());
 										}
 									} else {
-										println!("\t\t❌ Passwords does not match, please try again");
+										println!("\t❌ Passwords does not match, please try again");
 									}
 								},
-								Err(e) => println!("\t\t\t❌ Can not read your input : {}", e),
+								Err(e) => println!("\t\t❌ Can not read your input : {}", e),
 							}
 						},
-						Err(e) => println!("\t\t\t❌ Can not read your input : {}", e),
+						Err(e) => println!("\t\t❌ Can not read your input : {}", e),
 					}
 				}
 
 				let mut users = super::Users::new();
 				if let Err(e) = users.insert(&admin_username, &mut admin_password) {
-					println!("\t\t❌ Can not add user `{}` : {}", admin_username, e);
+					logger.lock().unwrap().push(
+						vec![
+							(String::from("event"), String::from("setup")),
+							(String::from("module"), String::from("users_list")),
+							(String::from("level"), String::from("ERROR")),
+						],
+						Some(&format!("can not add user `{}` : {}", admin_username, e)),
+					);
+
+					panic!();
 				}
 
 				let dummy = super::UserRight::ManageUsers;
@@ -81,28 +122,57 @@ pub fn load_or_create_users(settings: &super::Settings) -> super::Users {
 				let rights = &[super::UserRight::ManageUsers];
 				for right in rights {
 					if let Err(e) = users.add_right(&admin_username, right.clone()) {
-						println!(
-							"\t\t❌ Can not add `{}` right to `{}` : {}",
-							right, admin_username, e
+						logger.lock().unwrap().push(
+							vec![
+								(String::from("event"), String::from("setup")),
+								(String::from("module"), String::from("users_list")),
+								(String::from("level"), String::from("WARNING")),
+							],
+							Some(&format!(
+								"can not add `{}` right to `{}` : {}",
+								right, admin_username, e
+							)),
 						);
 					}
 				}
 
 				if let Some(parent) = users_path.parent() {
 					if let Err(e) = std::fs::create_dir_all(parent) {
-						println!("\t\t❌ Can not create parent folders of user file : {}", e);
+						logger.lock().unwrap().push(
+							vec![
+								(String::from("event"), String::from("setup")),
+								(String::from("module"), String::from("users_list")),
+								(String::from("level"), String::from("WARNING")),
+							],
+							Some(&format!(
+								"can not create parent folders of user file : {}",
+								e
+							)),
+						);
 					}
 				}
 				if let Err(e) = std::fs::write(users_path, bincode::serialize(&users).unwrap()) {
-					println!("\t\t❌ Can not create user file : {}", e);
+					logger.lock().unwrap().push(
+						vec![
+							(String::from("event"), String::from("setup")),
+							(String::from("module"), String::from("users_list")),
+							(String::from("level"), String::from("WARNING")),
+						],
+						Some(&format!("can not create user file : {}", e)),
+					);
 				}
 
-				println!();
-				println!(
-					"\t\t✔ New users list successfully created, with administrator `{}`.",
-					&admin_username
+				logger.lock().unwrap().push(
+					vec![
+						(String::from("event"), String::from("setup")),
+						(String::from("module"), String::from("users_list")),
+						(String::from("level"), String::from("INFO")),
+					],
+					Some(&format!(
+						"new users list successfully created, with administrator `{}`",
+						&admin_username
+					)),
 				);
-				println!();
 
 				users
 			}
