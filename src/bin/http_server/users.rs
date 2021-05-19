@@ -25,7 +25,7 @@ pub fn load_or_create_users(
 					],
 					Some(&format!(
 						"users successfully loaded from `{}`",
-						&users_path.to_str().unwrap_or_default(),
+						&users_path.to_string_lossy(),
 					)),
 				);
 
@@ -40,7 +40,7 @@ pub fn load_or_create_users(
 					],
 					Some(&format!(
 						"users list not found in `{}` : {}",
-						&users_path.to_str().unwrap_or_default(),
+						&users_path.to_string_lossy(),
 						e
 					)),
 				);

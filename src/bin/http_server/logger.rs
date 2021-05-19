@@ -70,23 +70,21 @@ pub fn load_or_create_logger(
 							None => String::new(),
 						}
 					);
-				} else {
-					if let Some(content) = &new_log.content {
-						println!(
-							"{}{}{}",
-							match new_log.attributes.get("module") {
-								Some(module) => format!("[{}]\t", module.trim().to_uppercase()),
-								None => String::new(),
-							},
-							match new_log.attributes.get("level").unwrap_or(&empty).as_str() {
-								"INFO" => "ℹ ",
-								"WARNING" => "⚠ ",
-								"ERROR" => "❌ ",
-								_ => "",
-							},
-							content
-						);
-					}
+				} else if let Some(content) = &new_log.content {
+					println!(
+						"{}{}{}",
+						match new_log.attributes.get("module") {
+							Some(module) => format!("[{}]\t", module.trim().to_uppercase()),
+							None => String::new(),
+						},
+						match new_log.attributes.get("level").unwrap_or(&empty).as_str() {
+							"INFO" => "ℹ ",
+							"WARNING" => "⚠ ",
+							"ERROR" => "❌ ",
+							_ => "",
+						},
+						content
+					);
 				}
 
 				let mut result: Vec<charlie_buffalo::Log> = rmp_serde::decode::from_slice(

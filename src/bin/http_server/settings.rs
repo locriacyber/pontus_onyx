@@ -13,7 +13,7 @@ pub fn load_or_create_settings(
 					],
 					Some(&format!(
 						"settings successfully loaded from `{}`",
-						&settings_path.to_str().unwrap_or_default()
+						&settings_path.to_string_lossy()
 					)),
 				);
 

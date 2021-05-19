@@ -79,7 +79,7 @@ where
 			),
 		];
 		if let Some(peer_addr) = service_request.connection_info().realip_remote_addr() {
-			attributes.push((String::from("client_ip"), format!("{}", peer_addr)));
+			attributes.push((String::from("client_ip"), String::from(peer_addr)));
 		}
 		for (header_name, header_value) in service_request.headers() {
 			attributes.push((
