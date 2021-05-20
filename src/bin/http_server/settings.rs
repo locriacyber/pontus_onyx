@@ -122,6 +122,7 @@ pub struct Settings {
 	pub userfile_path: String,
 	pub data_path: String,
 	pub https: Option<SettingsHTTPS>,
+	pub oauth_wait_seconds: u64,
 }
 impl Default for Settings {
 	fn default() -> Self {
@@ -136,6 +137,7 @@ impl Default for Settings {
 			userfile_path: String::from("database/users.bin"),
 			data_path: String::from("database/data"),
 			https: Some(SettingsHTTPS::default()),
+			oauth_wait_seconds: 2,
 		}
 	}
 }

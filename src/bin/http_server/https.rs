@@ -48,7 +48,9 @@ pub fn setup_and_run_https_server(
 															.wrap(super::middlewares::Hsts {
 																enable: enable_hsts,
 															})
-															.wrap(super::middlewares::Auth {})
+															.wrap(super::middlewares::Auth {
+																logger: logger_for_server.clone(),
+															})
 															.wrap(super::middlewares::Logger {
 																logger: logger_for_server.clone(),
 															})

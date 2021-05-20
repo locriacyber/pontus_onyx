@@ -58,8 +58,6 @@ impl super::Database {
 													*old_content_type = new_content_type;
 													*old_last_modified = chrono::Utc::now();
 
-													// TODO : check if not modified
-
 													match super::utils::update_folders_etags(
 														&mut self.content,
 														&mut paths

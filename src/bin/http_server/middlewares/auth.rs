@@ -1,7 +1,10 @@
 use rand::seq::IteratorRandom;
 use rand::Rng;
+use std::sync::{Arc, Mutex};
 
-pub struct Auth;
+pub struct Auth {
+	pub logger: Arc<Mutex<charlie_buffalo::Logger>>,
+}
 
 impl<S> actix_web::dev::Transform<S> for Auth
 where
@@ -20,12 +23,16 @@ where
 	type Future = futures::future::Ready<Result<Self::Transform, Self::InitError>>;
 
 	fn new_transform(&self, service: S) -> Self::Future {
-		futures::future::ok(Self::Transform { service })
+		futures::future::ok(Self::Transform {
+			service,
+			logger: self.logger.clone(),
+		})
 	}
 }
 
 pub struct AuthMiddleware<S> {
 	service: S,
+	logger: Arc<Mutex<charlie_buffalo::Logger>>,
 }
 
 type OutputFuture = std::pin::Pin<
@@ -126,14 +133,18 @@ where
 									Box::pin(async move { future.await })
 								}
 								None => {
-									println!("unauthorized scope"); // TODO
+									self.logger.lock().unwrap().push(vec![
+										(String::from("event"), String::from("auth")),
+										(String::from("token"), String::from(search_token)),
+										(String::from("level"), String::from("DEBUG")),
+									], Some("unauthorized scope"));
 
 									Box::pin(async move {
 										Ok(actix_web::dev::ServiceResponse::new(
 											service_request.into_parts().0,
 											pontus_onyx::database::build_http_json_response(
 												&request_method,
-												actix_web::http::StatusCode::UNAUTHORIZED,
+												actix_web::http::StatusCode::FORBIDDEN,
 												None,
 												None,
 												true,
@@ -143,14 +154,18 @@ where
 								}
 							}
 						} else {
-							println!("expirated token"); // TODO
+							self.logger.lock().unwrap().push(vec![
+								(String::from("event"), String::from("auth")),
+								(String::from("token"), String::from(search_token)),
+								(String::from("level"), String::from("DEBUG")),
+							], Some("expirated token"));
 
 							Box::pin(async move {
 								Ok(actix_web::dev::ServiceResponse::new(
 									service_request.into_parts().0,
 									pontus_onyx::database::build_http_json_response(
 										&request_method,
-										actix_web::http::StatusCode::UNAUTHORIZED,
+										actix_web::http::StatusCode::FORBIDDEN,
 										None,
 										None,
 										true,
@@ -296,10 +311,15 @@ async fn hsv5femo2qgu80gbad0ov5() {
 		crate::http_server::Settings::default(),
 	));
 
+	let logger = Arc::new(Mutex::new(charlie_buffalo::Logger::new(
+		charlie_buffalo::new_dispatcher(Box::new(|_| {})),
+		None,
+	)));
+
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
 			.data(settings.clone())
-			.wrap(super::Auth {})
+			.wrap(super::Auth { logger })
 			.service(crate::http_server::favicon)
 			.service(crate::http_server::api::get_item)
 			.service(crate::http_server::webfinger_handle)
@@ -342,6 +362,7 @@ async fn hsv5femo2qgu80gbad0ov5() {
 #[cfg(test)]
 mod tests {
 	use actix_web::HttpMessage;
+	use std::sync::{Arc, Mutex};
 
 	#[actix_rt::test]
 	async fn kp6m20xdwvw6v4t3yxq() {
@@ -433,31 +454,40 @@ mod tests {
 			crate::http_server::Settings::default(),
 		));
 
+		let logger = Arc::new(Mutex::new(charlie_buffalo::Logger::new(
+			charlie_buffalo::new_dispatcher(Box::new(|_| {})),
+			None,
+		)));
+
 		let mut app = actix_web::test::init_service(
 			actix_web::App::new()
 				.data(database.clone())
 				.data(access_tokens.clone())
 				.data(settings.clone())
-				.wrap(super::Auth {})
+				.wrap(super::Auth { logger })
 				.service(crate::http_server::api::get_item)
 				.service(crate::http_server::api::put_item),
 		)
 		.await;
 
-		let tests: Vec<(actix_web::test::TestRequest, actix_web::http::StatusCode)> = vec![
+		let tests: Vec<(usize, actix_web::test::TestRequest, actix_web::http::StatusCode)> = vec![
 			(
+				010,
 				actix_web::test::TestRequest::get().uri("/storage/user/folder_read/"),
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
 			(
+				020,
 				actix_web::test::TestRequest::get().uri("/storage/user/folder_write/"),
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
 			(
+				030,
 				actix_web::test::TestRequest::get().uri("/storage/user/other/"),
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
 			(
+				040,
 				actix_web::test::TestRequest::get()
 					.uri("/storage/user/folder_read/")
 					.header(
@@ -467,15 +497,37 @@ mod tests {
 				actix_web::http::StatusCode::OK,
 			),
 			(
+				050,
 				actix_web::test::TestRequest::get()
 					.uri("/storage/other_user/folder_read/")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
 						format!("Bearer {}", token.get_name()),
 					),
-				actix_web::http::StatusCode::UNAUTHORIZED,
+				actix_web::http::StatusCode::FORBIDDEN,
 			),
 			(
+				055,
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/should_not_be_accessed_by_this_token/")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.get_name()),
+					),
+				actix_web::http::StatusCode::FORBIDDEN,
+			),
+			(
+				056,
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/should_not_be_accessed_by_this_token")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.get_name()),
+					),
+				actix_web::http::StatusCode::FORBIDDEN,
+			),
+			(
+				060,
 				actix_web::test::TestRequest::get()
 					.uri("/storage/user/folder_write/")
 					.header(
@@ -485,15 +537,27 @@ mod tests {
 				actix_web::http::StatusCode::OK,
 			),
 			(
+				070,
 				actix_web::test::TestRequest::get()
-					.uri("/storage/user/other/")
+					.uri("/storage/user/should_not_be_accessed_by_this_token/")
 					.header(
 						actix_web::http::header::AUTHORIZATION,
 						format!("Bearer {}", token.get_name()),
 					),
-				actix_web::http::StatusCode::UNAUTHORIZED,
+				actix_web::http::StatusCode::FORBIDDEN,
 			),
 			(
+				075,
+				actix_web::test::TestRequest::get()
+					.uri("/storage/user/should_not_be_accessed_by_this_token")
+					.header(
+						actix_web::http::header::AUTHORIZATION,
+						format!("Bearer {}", token.get_name()),
+					),
+				actix_web::http::StatusCode::FORBIDDEN,
+			),
+			(
+				080,
 				actix_web::test::TestRequest::get()
 					.uri("/storage/user/folder_read/")
 					.header(
@@ -503,6 +567,7 @@ mod tests {
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
 			(
+				090,
 				actix_web::test::TestRequest::get()
 					.uri("/storage/user/folder_write/")
 					.header(
@@ -512,6 +577,7 @@ mod tests {
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
 			(
+				100,
 				actix_web::test::TestRequest::get()
 					.uri("/storage/user/other/")
 					.header(
@@ -521,6 +587,7 @@ mod tests {
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
 			(
+				110,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/user/folder_read/b")
 					.header(
@@ -528,9 +595,10 @@ mod tests {
 						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
-				actix_web::http::StatusCode::UNAUTHORIZED,
+				actix_web::http::StatusCode::FORBIDDEN,
 			),
 			(
+				120,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/user/folder_write/b")
 					.header(
@@ -541,6 +609,7 @@ mod tests {
 				actix_web::http::StatusCode::CREATED,
 			),
 			(
+				130,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/other_user/folder_write/b")
 					.header(
@@ -548,9 +617,10 @@ mod tests {
 						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
-				actix_web::http::StatusCode::UNAUTHORIZED,
+				actix_web::http::StatusCode::FORBIDDEN,
 			),
 			(
+				140,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/user/other/b")
 					.header(
@@ -558,9 +628,10 @@ mod tests {
 						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
-				actix_web::http::StatusCode::UNAUTHORIZED,
+				actix_web::http::StatusCode::FORBIDDEN,
 			),
 			(
+				150,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/public/user/folder_read/b")
 					.header(
@@ -568,9 +639,10 @@ mod tests {
 						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
-				actix_web::http::StatusCode::UNAUTHORIZED,
+				actix_web::http::StatusCode::FORBIDDEN,
 			),
 			(
+				160,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/public/user/folder_write/b")
 					.header(
@@ -581,6 +653,7 @@ mod tests {
 				actix_web::http::StatusCode::CREATED,
 			),
 			(
+				170,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/public/user/other/b")
 					.header(
@@ -588,9 +661,10 @@ mod tests {
 						format!("Bearer {}", token.get_name()),
 					)
 					.set_json(&serde_json::json!({"value": "HELLO"})),
-				actix_web::http::StatusCode::UNAUTHORIZED,
+				actix_web::http::StatusCode::FORBIDDEN,
 			),
 			(
+				180,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/user/folder_read/b")
 					.header(
@@ -601,6 +675,7 @@ mod tests {
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
 			(
+				190,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/user/folder_write/b")
 					.header(
@@ -611,6 +686,7 @@ mod tests {
 				actix_web::http::StatusCode::UNAUTHORIZED,
 			),
 			(
+				200,
 				actix_web::test::TestRequest::put()
 					.uri("/storage/user/other/b")
 					.header(
@@ -624,10 +700,10 @@ mod tests {
 
 		let mut i = 0usize;
 		for test in tests {
-			let request = test.0.to_request();
+			let request = test.1.to_request();
 			print!(
 				"#{:03} : {} request to {} with Authorization = {:?} ... ",
-				i + 1,
+				test.0,
 				request.method(),
 				request.path(),
 				match request
@@ -642,7 +718,7 @@ mod tests {
 
 			let response = actix_web::test::call_service(&mut app, request).await;
 
-			assert_eq!(response.status(), test.1);
+			assert_eq!(response.status(), test.2);
 
 			println!("OK");
 

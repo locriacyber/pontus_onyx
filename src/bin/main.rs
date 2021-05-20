@@ -157,7 +157,9 @@ async fn main() -> std::io::Result<()> {
 			.wrap(http_server::middlewares::Hsts {
 				enable: enable_hsts,
 			})
-			.wrap(http_server::middlewares::Auth {})
+			.wrap(http_server::middlewares::Auth {
+				logger: logger_for_server.clone(),
+			})
 			.wrap(http_server::middlewares::Logger {
 				logger: logger_for_server.clone(),
 			})
@@ -207,12 +209,6 @@ TODO ?
 
 /*
 TODO :
-* 401 for all requests that require a valid bearer token and
-		where no valid one was sent (see also [BEARER, section
-		3.1]),
-* 403 for all requests that have insufficient scope, e.g.
-		accessing a <module> for which no scope was obtained, or
-		accessing data outside the user's <storage_root>,
 * 413 if the payload is too large, e.g. when the server has a
 		maximum upload size for documents
 * 414 if the request URI is too long,

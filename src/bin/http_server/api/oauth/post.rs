@@ -24,6 +24,7 @@ pub async fn post_oauth(
 	users: actix_web::web::Data<Arc<Mutex<crate::http_server::Users>>>,
 	settings: actix_web::web::Data<Arc<Mutex<crate::http_server::Settings>>>,
 	program_state: actix_web::web::Data<Arc<Mutex<crate::ProgramState>>>,
+	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> actix_web::Result<actix_web::web::HttpResponse> {
 	let _host = request.headers().get("host");
 	let origin = request.headers().get("origin");
@@ -66,7 +67,10 @@ pub async fn post_oauth(
 			}
 
 			if !allowed_domains.contains(&String::from(path.to_str().unwrap_or_default())) {
-				println!("security issue : wrong origin : {:?}", path);
+				logger.lock().unwrap().push(vec![
+					(String::from("event"), String::from("oauth_submit")),
+					(String::from("level"), String::from("ERROR")),
+				], Some(&format!("wrong origin : {:?}", path)));
 
 				return Ok(actix_web::HttpResponse::Found()
 					.header(
@@ -93,7 +97,10 @@ pub async fn post_oauth(
 			}
 		}
 		None => {
-			println!("security issue : no origin");
+			logger.lock().unwrap().push(vec![
+				(String::from("event"), String::from("oauth_submit")),
+				(String::from("level"), String::from("ERROR")),
+			], Some("no origin"));
 
 			return Ok(actix_web::HttpResponse::Found()
 				.header(
@@ -129,7 +136,10 @@ pub async fn post_oauth(
 	match token_search {
 		Some(token_found) => {
 			if token_found.has_expirated() {
-				println!("security issue : expirated token : {:?}", token_found);
+				logger.lock().unwrap().push(vec![
+					(String::from("event"), String::from("oauth_submit")),
+					(String::from("level"), String::from("ERROR")),
+				], Some(&format!("expirated form token : {:?}", token_found)));
 
 				return Ok(actix_web::HttpResponse::Found()
 					.header(
@@ -156,7 +166,10 @@ pub async fn post_oauth(
 			}
 		}
 		None => {
-			println!("security issue : token not found");
+			logger.lock().unwrap().push(vec![
+				(String::from("event"), String::from("oauth_submit")),
+				(String::from("level"), String::from("ERROR")),
+			], Some("token not found"));
 
 			return Ok(actix_web::HttpResponse::Found()
 				.header(
@@ -184,7 +197,7 @@ pub async fn post_oauth(
 	}
 
 	if form.allow == "Allow" {
-		std::thread::sleep(std::time::Duration::from_secs(0)); // TODO : anti brute-force
+		std::thread::sleep(std::time::Duration::from_secs(settings.lock().unwrap().oauth_wait_seconds));
 		if users
 			.lock()
 			.unwrap()
@@ -226,7 +239,10 @@ pub async fn post_oauth(
 				.header(actix_web::http::header::LOCATION, redirect)
 				.finish()) // todo : some text for users ?
 		} else {
-			println!("security issue : wrong credentials");
+			logger.lock().unwrap().push(vec![
+				(String::from("event"), String::from("oauth_submit")),
+				(String::from("level"), String::from("ERROR")),
+			], Some("wrong credentials"));
 
 			Ok(actix_web::HttpResponse::Found()
 				.header(
@@ -252,7 +268,10 @@ pub async fn post_oauth(
 				.finish()) // todo : some text for users ?
 		}
 	} else {
-		println!("security issue : not allowed");
+		logger.lock().unwrap().push(vec![
+			(String::from("event"), String::from("oauth_submit")),
+			(String::from("level"), String::from("ERROR")),
+		], Some("not allowed"));
 
 		Ok(actix_web::HttpResponse::Found()
 			.header(
