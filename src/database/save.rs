@@ -139,9 +139,10 @@ impl super::Database {
 
 							let mut podata_path = folder_path;
 							podata_path.push(format!(".{}.podata.toml", filename));
-							if let Err(e) = std::fs::write(&podata_path, file_content) {
-								return Err(SaveError::CanNotWriteFile(podata_path, e));
-							}
+							return match std::fs::write(&podata_path, file_content) {
+								Ok(()) => Ok(()),
+								Err(e) => Err(SaveError::CanNotWriteFile(podata_path, e)),
+							};
 						}
 						super::Event::Update {
 							path: item_path,
@@ -187,22 +188,103 @@ impl super::Database {
 
 							let mut podata_path = folder_path;
 							podata_path.push(format!(".{}.podata.toml", filename));
-							if let Err(e) = std::fs::write(&podata_path, file_content) {
-								return Err(SaveError::CanNotWriteFile(podata_path, e));
-							}
+							return match std::fs::write(&podata_path, file_content) {
+								Ok(()) => Ok(()),
+								Err(e) => Err(SaveError::CanNotWriteFile(podata_path, e)),
+							};
 						}
-						super::Event::Delete { .. } => todo!(),
-						super::Event::Create {
-							item: crate::Item::Folder { .. },
-							..
-						} => todo!(),
-						super::Event::Update {
-							item: crate::Item::Folder { .. },
-							..
-						} => todo!(),
-					}
+						super::Event::Delete { path: item_path } => {
+							let split_path = item_path.split('/');
+							let filename = split_path.clone().last();
+							if filename.is_none() {
+								return Err(SaveError::WrongFileName(item_path));
+							}
+							let filename = filename.unwrap();
 
-					Ok(())
+							let mut folder_path = data_folder;
+							for part in split_path.clone().take(split_path.count() - 1) {
+								folder_path.push(part);
+							}
+
+							let mut file_path = folder_path.clone();
+							file_path.push(filename);
+
+							let mut podata_path = folder_path;
+							podata_path.push(format!(".{}.podata.toml", filename));
+
+							if let Err(e) = std::fs::remove_file(&file_path) {
+								return Err(SaveError::CanNotWriteFile(file_path, e));
+							}
+
+							return match std::fs::remove_file(&podata_path) {
+								Ok(()) => Ok(()),
+								Err(e) => Err(SaveError::CanNotWriteFile(podata_path, e)),
+							};
+						}
+						super::Event::Create {
+							path: item_path,
+							item: crate::Item::Folder {
+								etag: folder_etag, ..
+							},
+						} => {
+							let split_path = item_path.split('/');
+
+							let mut folder_path = data_folder;
+							for part in split_path.filter(|e| !e.is_empty()) {
+								folder_path.push(part);
+							}
+
+							// TODO : generate .podata.toml for parent folders
+							if let Err(e) = std::fs::create_dir_all(&folder_path) {
+								return Err(SaveError::CanNotCreateParentDirs(folder_path, e));
+							}
+
+							let file_content = toml::to_string(&DataFolder {
+								datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+								etag: folder_etag,
+							});
+							if let Err(e) = file_content {
+								return Err(SaveError::CanNotSerializeData(e));
+							}
+							let file_content = file_content.unwrap();
+
+							let mut podata_path = folder_path;
+							podata_path.push(".folder.podata.toml");
+							return match std::fs::write(&podata_path, file_content) {
+								Ok(()) => Ok(()),
+								Err(e) => Err(SaveError::CanNotWriteFile(podata_path, e)),
+							};
+						}
+						super::Event::Update {
+							path: item_path,
+							item: crate::Item::Folder {
+								etag: folder_etag, ..
+							},
+						} => {
+							let split_path = item_path.split('/');
+
+							let mut folder_path = data_folder;
+							for part in split_path.filter(|e| !e.is_empty()) {
+								folder_path.push(part);
+							}
+
+							let file_content = toml::to_string(&DataFolder {
+								datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+								etag: folder_etag,
+							});
+							if let Err(e) = file_content {
+								return Err(SaveError::CanNotSerializeData(e));
+							}
+							let file_content = file_content.unwrap();
+
+							let mut podata_path = folder_path;
+							podata_path.push(".folder.podata.toml");
+							return match std::fs::write(&podata_path, file_content) {
+								Ok(()) => Ok(()),
+								Err(e) => Err(SaveError::CanNotWriteFile(podata_path, e)),
+							};
+						}
+					}
 				} else if file_path.is_file() {
 					let datasave = bincode::serialize(&DataMonolyth {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),

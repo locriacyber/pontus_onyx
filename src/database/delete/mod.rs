@@ -16,12 +16,7 @@ impl super::Database {
 				{
 					if paths.last().unwrap() != &"" {
 						match self.get(path, if_match, vec![]) {
-							Ok(crate::Item::Document {
-								etag: _,
-								content: _,
-								content_type: _,
-								last_modified: _,
-							}) => {
+							Ok(crate::Item::Document { .. }) => {
 								let parent = self.fetch_item_mut(
 									&paths
 										.clone()
@@ -31,7 +26,7 @@ impl super::Database {
 										.collect::<Vec<&str>>(),
 								);
 
-								if let Ok(Some(crate::Item::Folder { etag: _, content })) = parent {
+								if let Ok(Some(crate::Item::Folder { content, .. })) = parent {
 									match content.remove(*paths.last().unwrap()) {
 										Some(old_version) => {
 											match super::utils::update_folders_etags(
@@ -51,7 +46,19 @@ impl super::Database {
 														.ok(); // errors are not important here
 													}
 
-													Ok(old_version.get_etag())
+													match self.changes_tx.send(
+														crate::database::Event::Delete {
+															path: String::from(path),
+														},
+													) {
+														Ok(()) => Ok(old_version.get_etag()),
+														Err(e) => {
+															Err(ErrorDelete::CanNotSendEvent(
+																e,
+																old_version.get_etag(),
+															))
+														}
+													}
 												}
 												Err(e) => {
 													// TODO : is following conversion is OK ?
@@ -69,10 +76,9 @@ impl super::Database {
 									Err(ErrorDelete::NotFound)
 								}
 							}
-							Ok(crate::Item::Folder {
-								etag: _,
-								content: _,
-							}) => Err(ErrorDelete::WorksOnlyForDocument),
+							Ok(crate::Item::Folder { .. }) => {
+								Err(ErrorDelete::WorksOnlyForDocument)
+							}
 							Err(super::get::ErrorGet::CanNotBeListed) => {
 								Err(ErrorDelete::WorksOnlyForDocument)
 							} // TODO : is this OK ?

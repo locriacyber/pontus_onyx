@@ -5,7 +5,14 @@ pub async fn webfinger_handle(
 	program_state: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::ProgramState>>>,
 ) -> actix_web::web::HttpResponse {
 	let default_body = format!(
-		r#"{{"href":"/","rel":"http://tools.ietf.org/id/draft-dejong-remotestorage","properties":{{"http://remotestorage.io/spec/version":"{}","http://tools.ietf.org/html/rfc6749#section-4.2":"{}"}}}}"#,
+		r#"{{
+	"href":"/",
+	"rel":"http://tools.ietf.org/id/draft-dejong-remotestorage",
+	"properties":{{
+		"http://remotestorage.io/spec/version":"{}",
+		"http://tools.ietf.org/html/rfc6749#section-4.2":"{}"
+	}}
+}}"#,
 		"draft-dejong-remotestorage-16", "TODO"
 	);
 

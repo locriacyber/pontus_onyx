@@ -1,6 +1,8 @@
 pub fn build_folders(
 	content: &mut std::collections::HashMap<String, Box<crate::Item>>,
 	path: &mut dyn std::iter::Iterator<Item = &str>,
+	cumulated_path: &str,
+	tx: std::sync::mpsc::Sender<crate::database::Event>,
 ) -> Result<(), FolderBuildError> {
 	return match path.next() {
 		Some(needed) => {
@@ -10,30 +12,56 @@ pub fn build_folders(
 				match content.get_mut(needed) {
 					Some(item) => match &mut **item {
 						crate::Item::Folder {
-							etag: _,
 							content: folder_content,
-						} => super::utils::build_folders(folder_content, path),
-						crate::Item::Document {
-							etag: _,
-							content: _,
-							content_type: _,
-							last_modified: _,
-						} => Err(FolderBuildError::FolderDocumentConflict),
+							..
+						} => super::utils::build_folders(
+							folder_content,
+							path,
+							&format!("{}/{}", cumulated_path, needed),
+							tx,
+						),
+						crate::Item::Document { .. } => {
+							Err(FolderBuildError::FolderDocumentConflict)
+						}
 					},
 					None => {
 						let mut child_content = std::collections::HashMap::new();
 
-						let res = super::utils::build_folders(&mut child_content, path);
-
-						content.insert(
-							String::from(needed),
-							Box::new(crate::Item::Folder {
-								etag: ulid::Ulid::new().to_string(),
-								content: child_content,
-							}),
+						let res = super::utils::build_folders(
+							&mut child_content,
+							path,
+							&format!(
+								"{}{}",
+								if cumulated_path.ends_with('/') {
+									String::from(cumulated_path)
+								} else {
+									format!("{}/", cumulated_path)
+								},
+								if needed.ends_with('/') {
+									String::from(needed)
+								} else {
+									format!("{}/", needed)
+								}
+							),
+							tx.clone(),
 						);
 
-						res
+						let new_item = crate::Item::Folder {
+							etag: ulid::Ulid::new().to_string(),
+							content: child_content,
+						};
+
+						content.insert(String::from(needed), Box::new(new_item.clone()));
+
+						match tx.send(crate::database::Event::Create {
+							path: String::from(cumulated_path),
+							item: new_item.clone(),
+						}) {
+							Ok(()) => res,
+							Err(e) => {
+								Err(FolderBuildError::CanNotSendEvent(e, new_item.get_etag()))
+							}
+						}
 					}
 				}
 			}
@@ -46,6 +74,7 @@ pub fn build_folders(
 pub enum FolderBuildError {
 	FolderDocumentConflict,
 	WrongFolderName,
+	CanNotSendEvent(std::sync::mpsc::SendError<crate::database::Event>, String),
 }
 
 pub fn update_folders_etags(
@@ -75,12 +104,7 @@ pub fn update_folders_etags(
 				None => Ok(()),
 			}
 		}
-		crate::Item::Document {
-			etag: _,
-			content: _,
-			content_type: _,
-			last_modified: _,
-		} => match next {
+		crate::Item::Document { .. } => match next {
 			Some(_) => Err(UpdateFoldersEtagsError::FolderDocumentConflict),
 			None => Ok(()),
 		},

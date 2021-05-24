@@ -34,7 +34,7 @@ pub async fn get_item(
 				pontus_onyx::Item::Folder { .. } => !e.is_empty(),
 			}) {
 				match &**child {
-					pontus_onyx::Item::Folder { etag, content: _ } => {
+					pontus_onyx::Item::Folder { etag, .. } => {
 						items_result[format!("{}/", child_name)] = serde_json::json!({
 							"ETag": etag,
 						});

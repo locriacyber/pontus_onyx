@@ -3,12 +3,12 @@ use std::io::{BufRead, Write};
 pub fn load_or_create_users(
 	settings: &super::Settings,
 	logger: std::sync::Arc<std::sync::Mutex<charlie_buffalo::Logger>>,
-) -> super::Users {
+) -> crate::http_server::Users {
 	let users_path = std::path::PathBuf::from(settings.userfile_path.clone());
 
 	let users = {
 		let userlist = match std::fs::read(&settings.userfile_path) {
-			Ok(bytes) => match bincode::deserialize::<super::Users>(&bytes) {
+			Ok(bytes) => match bincode::deserialize::<crate::http_server::Users>(&bytes) {
 				Ok(users) => Ok(users),
 				Err(e) => Err(format!("can not parse users file : {}", e)),
 			},
@@ -100,7 +100,7 @@ pub fn load_or_create_users(
 					}
 				}
 
-				let mut users = super::Users::new();
+				let mut users = crate::http_server::Users::new();
 				if let Err(e) = users.insert(&admin_username, &mut admin_password) {
 					logger.lock().unwrap().push(
 						vec![
@@ -114,12 +114,24 @@ pub fn load_or_create_users(
 					panic!();
 				}
 
-				let dummy = super::UserRight::ManageUsers;
+				let dummy = crate::http_server::UserRight::ManageUsers;
 				// this is a little trick to remember to add rights when modified :
 				match dummy {
-					super::UserRight::ManageUsers => { /* remember to add this right to admin */ }
+					crate::http_server::UserRight::ManageServerSettings => {
+						/* remember to add this right to admin */
+					}
+					crate::http_server::UserRight::ManageUsers => {
+						/* remember to add this right to admin */
+					}
+					crate::http_server::UserRight::ManageApplications => {
+						/* remember to add this right to admin */
+					}
 				}
-				let rights = &[super::UserRight::ManageUsers];
+				let rights = &[
+					crate::http_server::UserRight::ManageServerSettings,
+					crate::http_server::UserRight::ManageUsers,
+					crate::http_server::UserRight::ManageApplications,
+				];
 				for right in rights {
 					if let Err(e) = users.add_right(&admin_username, right.clone()) {
 						logger.lock().unwrap().push(

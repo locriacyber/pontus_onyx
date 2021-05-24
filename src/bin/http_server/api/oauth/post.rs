@@ -67,10 +67,13 @@ pub async fn post_oauth(
 			}
 
 			if !allowed_domains.contains(&String::from(path.to_str().unwrap_or_default())) {
-				logger.lock().unwrap().push(vec![
-					(String::from("event"), String::from("oauth_submit")),
-					(String::from("level"), String::from("ERROR")),
-				], Some(&format!("wrong origin : {:?}", path)));
+				logger.lock().unwrap().push(
+					vec![
+						(String::from("event"), String::from("oauth_submit")),
+						(String::from("level"), String::from("ERROR")),
+					],
+					Some(&format!("wrong origin : {:?}", path)),
+				);
 
 				return Ok(actix_web::HttpResponse::Found()
 					.header(
@@ -97,10 +100,13 @@ pub async fn post_oauth(
 			}
 		}
 		None => {
-			logger.lock().unwrap().push(vec![
-				(String::from("event"), String::from("oauth_submit")),
-				(String::from("level"), String::from("ERROR")),
-			], Some("no origin"));
+			logger.lock().unwrap().push(
+				vec![
+					(String::from("event"), String::from("oauth_submit")),
+					(String::from("level"), String::from("ERROR")),
+				],
+				Some("no origin"),
+			);
 
 			return Ok(actix_web::HttpResponse::Found()
 				.header(
@@ -136,10 +142,13 @@ pub async fn post_oauth(
 	match token_search {
 		Some(token_found) => {
 			if token_found.has_expirated() {
-				logger.lock().unwrap().push(vec![
-					(String::from("event"), String::from("oauth_submit")),
-					(String::from("level"), String::from("ERROR")),
-				], Some(&format!("expirated form token : {:?}", token_found)));
+				logger.lock().unwrap().push(
+					vec![
+						(String::from("event"), String::from("oauth_submit")),
+						(String::from("level"), String::from("ERROR")),
+					],
+					Some(&format!("expirated form token : {:?}", token_found)),
+				);
 
 				return Ok(actix_web::HttpResponse::Found()
 					.header(
@@ -166,10 +175,13 @@ pub async fn post_oauth(
 			}
 		}
 		None => {
-			logger.lock().unwrap().push(vec![
-				(String::from("event"), String::from("oauth_submit")),
-				(String::from("level"), String::from("ERROR")),
-			], Some("token not found"));
+			logger.lock().unwrap().push(
+				vec![
+					(String::from("event"), String::from("oauth_submit")),
+					(String::from("level"), String::from("ERROR")),
+				],
+				Some("token not found"),
+			);
 
 			return Ok(actix_web::HttpResponse::Found()
 				.header(
@@ -197,7 +209,9 @@ pub async fn post_oauth(
 	}
 
 	if form.allow == "Allow" {
-		std::thread::sleep(std::time::Duration::from_secs(settings.lock().unwrap().oauth_wait_seconds));
+		std::thread::sleep(std::time::Duration::from_secs(
+			settings.lock().unwrap().oauth_wait_seconds,
+		));
 		if users
 			.lock()
 			.unwrap()
@@ -208,7 +222,7 @@ pub async fn post_oauth(
 			let scopes = percent_encoding::percent_decode(form.scope.as_bytes())
 				.decode_utf8()
 				.unwrap()
-				.split(',')
+				.split(' ')
 				.map(|e| crate::http_server::Scope::try_from(e.trim()).unwrap())
 				.collect();
 
@@ -239,10 +253,13 @@ pub async fn post_oauth(
 				.header(actix_web::http::header::LOCATION, redirect)
 				.finish()) // todo : some text for users ?
 		} else {
-			logger.lock().unwrap().push(vec![
-				(String::from("event"), String::from("oauth_submit")),
-				(String::from("level"), String::from("ERROR")),
-			], Some("wrong credentials"));
+			logger.lock().unwrap().push(
+				vec![
+					(String::from("event"), String::from("oauth_submit")),
+					(String::from("level"), String::from("ERROR")),
+				],
+				Some("wrong credentials"),
+			);
 
 			Ok(actix_web::HttpResponse::Found()
 				.header(
@@ -268,10 +285,13 @@ pub async fn post_oauth(
 				.finish()) // todo : some text for users ?
 		}
 	} else {
-		logger.lock().unwrap().push(vec![
-			(String::from("event"), String::from("oauth_submit")),
-			(String::from("level"), String::from("ERROR")),
-		], Some("not allowed"));
+		logger.lock().unwrap().push(
+			vec![
+				(String::from("event"), String::from("oauth_submit")),
+				(String::from("level"), String::from("ERROR")),
+			],
+			Some("not allowed"),
+		);
 
 		Ok(actix_web::HttpResponse::Found()
 			.header(

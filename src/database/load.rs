@@ -80,7 +80,7 @@ pub fn path_to_item(
 										Err(e) => Err(super::ErrorNewDatabase::IOError(e)),
 									}
 								} else {
-									todo!()
+									Err(super::ErrorNewDatabase::WrongSource)
 								}
 							}
 							Err(e) => Err(super::ErrorNewDatabase::IOError(e)),

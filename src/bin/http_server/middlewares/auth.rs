@@ -133,11 +133,14 @@ where
 									Box::pin(async move { future.await })
 								}
 								None => {
-									self.logger.lock().unwrap().push(vec![
-										(String::from("event"), String::from("auth")),
-										(String::from("token"), String::from(search_token)),
-										(String::from("level"), String::from("DEBUG")),
-									], Some("unauthorized scope"));
+									self.logger.lock().unwrap().push(
+										vec![
+											(String::from("event"), String::from("auth")),
+											(String::from("token"), String::from(search_token)),
+											(String::from("level"), String::from("DEBUG")),
+										],
+										Some("unauthorized scope"),
+									);
 
 									Box::pin(async move {
 										Ok(actix_web::dev::ServiceResponse::new(
@@ -154,11 +157,14 @@ where
 								}
 							}
 						} else {
-							self.logger.lock().unwrap().push(vec![
-								(String::from("event"), String::from("auth")),
-								(String::from("token"), String::from(search_token)),
-								(String::from("level"), String::from("DEBUG")),
-							], Some("expirated token"));
+							self.logger.lock().unwrap().push(
+								vec![
+									(String::from("event"), String::from("auth")),
+									(String::from("token"), String::from(search_token)),
+									(String::from("level"), String::from("DEBUG")),
+								],
+								Some("expirated token"),
+							);
 
 							Box::pin(async move {
 								Ok(actix_web::dev::ServiceResponse::new(
@@ -470,7 +476,11 @@ mod tests {
 		)
 		.await;
 
-		let tests: Vec<(usize, actix_web::test::TestRequest, actix_web::http::StatusCode)> = vec![
+		let tests: Vec<(
+			usize,
+			actix_web::test::TestRequest,
+			actix_web::http::StatusCode,
+		)> = vec![
 			(
 				010,
 				actix_web::test::TestRequest::get().uri("/storage/user/folder_read/"),
@@ -698,7 +708,6 @@ mod tests {
 			),
 		];
 
-		let mut i = 0usize;
 		for test in tests {
 			let request = test.1.to_request();
 			print!(
@@ -721,8 +730,6 @@ mod tests {
 			assert_eq!(response.status(), test.2);
 
 			println!("OK");
-
-			i += 1;
 		}
 	}
 }

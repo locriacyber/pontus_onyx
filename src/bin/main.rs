@@ -82,7 +82,6 @@ async fn main() -> std::io::Result<()> {
 		Arc::new(Mutex::new(vec![]));
 
 	let access_tokens: Arc<Mutex<Vec<http_server::AccessBearer>>> = Arc::new(Mutex::new(vec![]));
-	// TODO : save access_tokens in file ?
 
 	logger.lock().unwrap().push(
 		vec![

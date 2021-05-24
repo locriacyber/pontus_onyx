@@ -3,9 +3,9 @@ use std::sync::{Arc, Mutex};
 pub fn setup_and_run_https_server(
 	settings: Arc<Mutex<super::Settings>>,
 	database: Arc<Mutex<pontus_onyx::Database>>,
-	access_tokens: Arc<Mutex<Vec<super::AccessBearer>>>,
-	oauth_form_tokens: Arc<Mutex<Vec<super::middlewares::OauthFormToken>>>,
-	users: Arc<Mutex<super::Users>>,
+	access_tokens: Arc<Mutex<Vec<crate::http_server::AccessBearer>>>,
+	oauth_form_tokens: Arc<Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
+	users: Arc<Mutex<crate::http_server::Users>>,
 	program_state: Arc<Mutex<crate::ProgramState>>,
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
 ) {
@@ -45,26 +45,26 @@ pub fn setup_and_run_https_server(
 															.data(settings.clone())
 															.data(program_state_for_server.clone())
 															.data(logger_for_server.clone())
-															.wrap(super::middlewares::Hsts {
+															.wrap(crate::http_server::middlewares::Hsts {
 																enable: enable_hsts,
 															})
-															.wrap(super::middlewares::Auth {
+															.wrap(crate::http_server::middlewares::Auth {
 																logger: logger_for_server.clone(),
 															})
-															.wrap(super::middlewares::Logger {
+															.wrap(crate::http_server::middlewares::Logger {
 																logger: logger_for_server.clone(),
 															})
-															.service(super::favicon)
-															.service(super::get_oauth)
-															.service(super::post_oauth)
-															.service(super::webfinger_handle)
-															.service(super::get_item)
-															.service(super::head_item)
-															.service(super::options_item)
-															.service(super::put_item)
-															.service(super::delete_item)
-															.service(super::remotestoragesvg)
-															.service(super::index)
+															.service(crate::http_server::favicon)
+															.service(crate::http_server::get_oauth)
+															.service(crate::http_server::post_oauth)
+															.service(crate::http_server::webfinger_handle)
+															.service(crate::http_server::get_item)
+															.service(crate::http_server::head_item)
+															.service(crate::http_server::options_item)
+															.service(crate::http_server::put_item)
+															.service(crate::http_server::delete_item)
+															.service(crate::http_server::remotestoragesvg)
+															.service(crate::http_server::index)
 													})
 													.bind_rustls(
 														format!("localhost:{}", https_port),

@@ -42,7 +42,7 @@ impl std::convert::TryFrom<&str> for Scope {
 							return Err(ScopeParsingError::IncorrectModule(String::from(module)));
 						}
 
-						let regex = regex::Regex::new("^[a-z0-9]+$").unwrap();
+						let regex = regex::Regex::new("^[a-z0-9_]+$").unwrap();
 						if module == "*" || regex.is_match(module) {
 							let right_type = ScopeRightType::try_from(right)?;
 							let module = String::from(module);
@@ -191,9 +191,19 @@ mod tests {
 	#[test]
 	fn mt1ns651q04kfc() {
 		assert_eq!(
-			super::Scope::try_from("wrong_char:rw"),
+			super::Scope::try_from("wrong_char@:rw"),
 			Err(super::ScopeParsingError::IncorrectModule(String::from(
-				"wrong_char"
+				"wrong_char@"
+			)))
+		);
+	}
+
+	#[test]
+	fn gy8bajrpald87() {
+		assert_eq!(
+			super::Scope::try_from("wrong:char:rw"),
+			Err(super::ScopeParsingError::IncorrectFormat(String::from(
+				"wrong:char:rw"
 			)))
 		);
 	}

@@ -8,6 +8,7 @@ pub enum ErrorPut {
 	NotModified,
 	WorksOnlyForDocument,
 	WrongPath,
+	CanNotSendEvent(std::sync::mpsc::SendError<crate::database::Event>, String),
 }
 impl std::fmt::Display for ErrorPut {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
@@ -28,6 +29,7 @@ impl std::fmt::Display for ErrorPut {
 			Self::NotModified => f.write_str("this document was not modified"),
 			Self::WorksOnlyForDocument => f.write_str("this method works only on documents"),
 			Self::WrongPath => f.write_str("the path of the item is incorrect"),
+			Self::CanNotSendEvent(_, _) => f.write_str("the save event can not be send"),
 		}
 	}
 }
@@ -37,7 +39,7 @@ impl std::error::Error for ErrorPut {}
 impl std::convert::From<ErrorPut> for actix_web::HttpResponse {
 	fn from(input: ErrorPut) -> Self {
 		let request_method = actix_web::http::Method::PUT;
-		match input {
+		match &input {
 			ErrorPut::Conflict => crate::database::build_http_json_response(
 				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
@@ -91,6 +93,13 @@ impl std::convert::From<ErrorPut> for actix_web::HttpResponse {
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
+				Some(format!("{}", input)),
+				true,
+			),
+			ErrorPut::CanNotSendEvent(_, etag) => crate::database::build_http_json_response(
+				&request_method,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				Some(etag.clone()),
 				Some(format!("{}", input)),
 				true,
 			),

@@ -40,7 +40,7 @@ impl super::Database {
 								etag: new_etag,
 								content: new_content,
 								content_type: new_content_type,
-								last_modified: _,
+								..
 							} => {
 								if paths.iter().all(|e| super::utils::path::is_ok(e, false)) {
 									match self.fetch_item_mut(&paths) {
@@ -107,10 +107,9 @@ impl super::Database {
 									ResultPut::Err(ErrorPut::WrongPath)
 								}
 							}
-							crate::Item::Folder {
-								etag: _,
-								content: _,
-							} => ResultPut::Err(ErrorPut::WorksOnlyForDocument),
+							crate::Item::Folder { .. } => {
+								ResultPut::Err(ErrorPut::WorksOnlyForDocument)
+							}
 						}
 					}
 					Ok(crate::Item::Folder { .. }) => {
@@ -123,13 +122,15 @@ impl super::Database {
 
 						if paths.iter().all(|e| super::utils::path::is_ok(e, false)) {
 							if let crate::Item::Folder {
-								etag: _,
 								content: root_folder_content,
+								..
 							} = &mut self.content
 							{
 								match super::utils::build_folders(
 									root_folder_content,
 									&mut paths.iter().cloned().take(paths.len() - 1),
+									"/",
+									self.changes_tx.clone(),
 								) {
 									Ok(()) => {
 										match self.fetch_item_mut(&paths) {
@@ -143,8 +144,8 @@ impl super::Database {
 
 												match self.fetch_item_mut(&folder_path) {
 													Ok(Some(crate::Item::Folder {
-														etag: _,
 														content: folder_content,
+														..
 													})) => {
 														let etag = ulid::Ulid::new().to_string();
 
@@ -195,7 +196,13 @@ impl super::Database {
 															}
 														}
 													}
-													_ => todo!(),
+													Ok(Some(crate::Item::Document { .. })) => {
+														ResultPut::Err(ErrorPut::Conflict)
+													}
+													Ok(None) => ResultPut::Err(ErrorPut::NotFound),
+													Err(
+														super::FetchError::FolderDocumentConflict,
+													) => ResultPut::Err(ErrorPut::Conflict),
 												}
 											}
 											Err(super::FetchError::FolderDocumentConflict) => {
@@ -211,6 +218,9 @@ impl super::Database {
 											}
 											super::utils::FolderBuildError::WrongFolderName => {
 												ErrorPut::WrongPath
+											}
+											super::utils::FolderBuildError::CanNotSendEvent(error, etag) => {
+												ErrorPut::CanNotSendEvent(error, etag)
 											}
 										})
 									}

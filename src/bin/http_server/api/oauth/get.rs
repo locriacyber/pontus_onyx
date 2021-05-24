@@ -19,11 +19,12 @@ pub async fn get_oauth(
 	let mut response = actix_web::HttpResponse::build(actix_web::http::StatusCode::OK);
 
 	// TODO : sanitize user data before printing it ?
+	// TODO : do not panic if input data is incorrect (especially scopes)
 
 	let scopes = percent_encoding::percent_decode(query.scope.as_bytes())
 		.decode_utf8()
 		.unwrap()
-		.split(',')
+		.split(' ')
 		.map(|scope_string| {
 			(std::convert::TryFrom::try_from(scope_string.trim())
 				as Result<crate::http_server::Scope, crate::http_server::ScopeParsingError>)

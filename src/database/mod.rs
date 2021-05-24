@@ -26,11 +26,19 @@ pub enum DataSource {
 	File(std::path::PathBuf),
 }
 
-#[derive(Debug)]
 pub enum Event {
 	Create { path: String, item: crate::Item },
 	Update { path: String, item: crate::Item },
 	Delete { path: String },
+}
+impl std::fmt::Debug for Event {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		match self {
+			Self::Create { path, .. } => f.write_fmt(format_args!("create {}", path)),
+			Self::Update { path, .. } => f.write_fmt(format_args!("update {}", path)),
+			Self::Delete { path, .. } => f.write_fmt(format_args!("delete {}", path)),
+		}
+	}
 }
 
 impl Database {
@@ -41,17 +49,12 @@ impl Database {
 			if let Some(item) = result {
 				match item {
 					crate::Item::Folder {
-						etag: _,
 						content: folder_content,
+						..
 					} => {
 						result = folder_content.get(request_name).map(|b| &**b);
 					}
-					crate::Item::Document {
-						etag: _,
-						content: _,
-						content_type: _,
-						last_modified: _,
-					} => {
+					crate::Item::Document { .. } => {
 						return Err(FetchError::FolderDocumentConflict);
 					}
 				}
@@ -67,17 +70,12 @@ impl Database {
 			if let Some(item) = result {
 				match item {
 					crate::Item::Folder {
-						etag: _,
 						content: folder_content,
+						..
 					} => {
 						result = folder_content.get_mut(request_name).map(|b| &mut **b);
 					}
-					crate::Item::Document {
-						etag: _,
-						content: _,
-						content_type: _,
-						last_modified: _,
-					} => {
+					crate::Item::Document { .. } => {
 						return Err(FetchError::FolderDocumentConflict);
 					}
 				}
@@ -90,7 +88,7 @@ impl Database {
 		let splitted_path: Vec<&str> = path.split('/').collect();
 
 		match self.fetch_item_mut(&splitted_path) {
-			Ok(Some(crate::Item::Folder { etag: _, content })) => {
+			Ok(Some(crate::Item::Folder { content, .. })) => {
 				if content.is_empty() && splitted_path.len() > 1 {
 					let temp = self.fetch_item_mut(
 						&splitted_path
@@ -101,8 +99,8 @@ impl Database {
 					);
 
 					if let Ok(Some(crate::Item::Folder {
-						etag: _,
 						content: parent_content,
+						..
 					})) = temp
 					{
 						parent_content.remove(
