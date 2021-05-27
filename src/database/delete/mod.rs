@@ -46,19 +46,15 @@ impl super::Database {
 														.ok(); // errors are not important here
 													}
 
-													match self.changes_tx.send(
-														crate::database::Event::Delete {
-															path: String::from(path),
-														},
-													) {
-														Ok(()) => Ok(old_version.get_etag()),
-														Err(e) => {
-															Err(ErrorDelete::CanNotSendEvent(
-																e,
-																old_version.get_etag(),
-															))
-														}
+													if let Some(listener) = &self.listener {
+														(listener.lock().unwrap())(
+															crate::database::Event::Delete {
+																path: String::from(path),
+															},
+														);
 													}
+
+													Ok(old_version.get_etag())
 												}
 												Err(e) => {
 													// TODO : is following conversion is OK ?

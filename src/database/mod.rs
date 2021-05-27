@@ -11,13 +11,14 @@ pub use load::ErrorNewDatabase;
 pub use put::{ErrorPut, ResultPut};
 pub use save::{DataDocument, DataFolder, DataMonolyth};
 
-#[cfg(feature = "server_bin")]
-pub use save::do_not_handle_events;
+pub type EventListener = std::sync::Arc<std::sync::Mutex<dyn FnMut(crate::database::Event) + Send>>;
 
-#[derive(Debug)]
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
 pub struct Database {
 	content: crate::Item,
-	changes_tx: std::sync::mpsc::Sender<crate::database::Event>,
+	#[derivative(Debug = "ignore")]
+	listener: Option<EventListener>,
 }
 
 #[derive(Debug, Clone)]

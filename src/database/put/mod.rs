@@ -66,17 +66,21 @@ impl super::Database {
 															.take(paths.len()),
 													) {
 														Ok(()) => {
-															match self.get(path, &new_etag, vec![]) {
+															match self.get(path, &new_etag, vec![])
+															{
 																Ok(change_item) => {
-																	if let Err(e) = self.changes_tx.send(crate::database::Event::Update{
-																		path: String::from(path),
-																		item: change_item.clone(),
-																	}) {
-																		eprintln!("WARNING: error sending event in change chanel for {} (ETag {}) : {}", path, new_etag, e);
+																	if let Some(listener) =
+																		&self.listener
+																	{
+																		(listener.lock().unwrap())(crate::database::Event::Update{
+																			path: String::from(path),
+																			item: change_item.clone(),
+																		});
 																	}
 																}
 																Err(e) => {
 																	eprintln!("WARNING: error while internal get of {} (ETag {}) in order to send it in change chanel : {}", path, new_etag, e);
+																	// TODO
 																}
 															}
 
@@ -130,7 +134,7 @@ impl super::Database {
 									root_folder_content,
 									&mut paths.iter().cloned().take(paths.len() - 1),
 									"/",
-									self.changes_tx.clone(),
+									&self.listener,
 								) {
 									Ok(()) => {
 										match self.fetch_item_mut(&paths) {
@@ -170,17 +174,21 @@ impl super::Database {
 																.take(paths.len() - 1),
 														) {
 															Ok(()) => {
-																match self.get(path, &etag, vec![]) {
+																match self.get(path, &etag, vec![])
+																{
 																	Ok(change_item) => {
-																		if let Err(e) = self.changes_tx.send(crate::database::Event::Update{
-																			path: String::from(path),
-																			item: change_item.clone(),
-																		}) {
-																			eprintln!("WARNING: error sending event in change chanel for {} (ETag {}) : {}", path, etag, e);
+																		if let Some(listener) =
+																			&self.listener
+																		{
+																			(listener.lock().unwrap())(crate::database::Event::Update{
+																				path: String::from(path),
+																				item: change_item.clone(),
+																			});
 																		}
 																	}
 																	Err(e) => {
 																		eprintln!("WARNING: error while internal get of {} (ETag {}) in order to send it in change chanel : {}", path, etag, e);
+																		// TODO
 																	}
 																}
 
@@ -218,9 +226,6 @@ impl super::Database {
 											}
 											super::utils::FolderBuildError::WrongFolderName => {
 												ErrorPut::WrongPath
-											}
-											super::utils::FolderBuildError::CanNotSendEvent(error, etag) => {
-												ErrorPut::CanNotSendEvent(error, etag)
 											}
 										})
 									}

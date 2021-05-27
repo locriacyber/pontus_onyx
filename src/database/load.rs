@@ -1,63 +1,58 @@
+// TODO : do not load all document content in memory !
+
 impl super::Database {
 	pub fn new(
-		source: super::DataSource,
-	) -> Result<(Self, std::sync::mpsc::Receiver<crate::database::Event>), ErrorNewDatabase> {
+		source: &super::DataSource,
+		listener: Option<super::EventListener>,
+	) -> Result<Self, ErrorNewDatabase> {
 		match source {
 			super::DataSource::Memory(item) => match item {
-				crate::Item::Folder { .. } => {
-					let (tx, rx) = std::sync::mpsc::channel();
-					Ok((
-						Self {
-							content: item,
-							changes_tx: tx,
-						},
-						rx,
-					))
-				}
+				crate::Item::Folder { .. } => Ok(Self {
+					content: item.clone(),
+					listener,
+				}),
 				crate::Item::Document { .. } => Err(ErrorNewDatabase::WorksOnlyForFolder),
 			},
 			#[cfg(feature = "server_bin")]
-			super::DataSource::File(path) => {
-				let (tx, rx) = std::sync::mpsc::channel();
-				match path_to_item(path, tx.clone()) {
-					Ok((_, data)) => Ok((
-						Self {
-							content: *data,
-							changes_tx: tx,
-						},
-						rx,
-					)),
-					Err(e) => Err(e),
-				}
-			}
+			super::DataSource::File(path) => match path_to_item(path, &listener) {
+				Ok((_, data)) => Ok(Self {
+					content: *data,
+					listener,
+				}),
+				Err(e) => Err(e),
+			},
+			#[cfg(not(feature = "server_bin"))]
+			super::DataSource::File(_) => Err(ErrorNewDatabase::DisabledFeature(String::from(
+				"server_bin",
+			))),
 		}
 	}
 }
 
 #[cfg(feature = "server_bin")]
 pub fn path_to_item(
-	path: std::path::PathBuf,
-	tx: std::sync::mpsc::Sender<super::Event>,
+	path: &std::path::Path,
+	listener: &Option<super::EventListener>,
 ) -> Result<(String, Box<crate::Item>), super::ErrorNewDatabase> {
 	if !path.exists() {
 		return Err(super::ErrorNewDatabase::FileDoesNotExists);
 	}
 
 	if path.is_dir() {
-		match std::fs::read_dir(path.clone()) {
+		match std::fs::read_dir(path.to_path_buf()) {
 			Ok(items) => {
 				let content: Vec<Result<(String, Box<crate::Item>), super::ErrorNewDatabase>> =
 					items
 						.map(|item| match item {
 							Ok(entry) => {
 								if entry.path().is_dir() {
-									path_to_item(entry.path(), tx.clone())
+									path_to_item(&entry.path(), listener)
 								} else if entry.path().is_file() {
 									let filename = String::from(
 										entry.file_name().as_os_str().to_str().unwrap(),
 									);
 
-									let mut podata = path.clone();
+									let mut podata = path.to_path_buf();
 									podata.push(format!(".{}.podata.toml", filename));
 
 									let podata = std::fs::read(podata);
@@ -99,7 +94,7 @@ pub fn path_to_item(
 				if content.iter().all(|e| !e.is_err()) {
 					let folder_name = path.file_name().unwrap().to_str().unwrap();
 
-					let mut podata = path.clone();
+					let mut podata = path.to_path_buf();
 					podata.push(".folder.podata.toml");
 
 					let podata = std::fs::read(podata);
@@ -168,6 +163,7 @@ pub enum ErrorNewDatabase {
 	IOError(std::io::Error),
 	WorksOnlyForFolder,
 	WrongSource,
+	DisabledFeature(String),
 }
 impl std::fmt::Display for ErrorNewDatabase {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
@@ -182,6 +178,10 @@ impl std::fmt::Display for ErrorNewDatabase {
 			)),
 			Self::WorksOnlyForFolder => f.write_str("this item should be only type Item::Folder"),
 			Self::WrongSource => f.write_str("this database can not be created from this source"),
+			Self::DisabledFeature(feature) => f.write_fmt(format_args!(
+				"this feature is disabled, it needs `{}` feature at least",
+				feature
+			)),
 		}
 	}
 }

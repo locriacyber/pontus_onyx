@@ -391,8 +391,8 @@ mod tests {
 		);
 		access_tokens.lock().unwrap().push(token.clone());
 
-		let (database, handle) = pontus_onyx::Database::new(
-			pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
+		let database = pontus_onyx::Database::new(
+			&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
 				"user",
 				pontus_onyx::Item::new_folder(vec![
 					(
@@ -450,11 +450,10 @@ mod tests {
 					),
 				]),
 			)])),
+			None,
 		)
 		.unwrap();
 		let database = std::sync::Arc::new(std::sync::Mutex::new(database));
-
-		pontus_onyx::database::do_not_handle_events(handle);
 
 		let settings = std::sync::Arc::new(std::sync::Mutex::new(
 			crate::http_server::Settings::default(),
