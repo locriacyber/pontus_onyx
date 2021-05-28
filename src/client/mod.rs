@@ -19,3 +19,15 @@ client request = <storage_root> with
 	'/' plus one or more <folder> '/' strings indicating a path in the
 	folder tree, followed by zero or one <document> strings
 */
+
+/*
+TODO : disabled functionalities ?
+	- (rs.js) modules
+	- access
+*/
+
+mod base_client;
+mod storage;
+
+pub use base_client::*;
+pub use storage::*;

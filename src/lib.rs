@@ -1,6 +1,7 @@
 #![allow(clippy::needless_return)]
 
-mod client;
+#[cfg(feature = "client_lib")]
+pub mod client;
 
 #[cfg(feature = "server_lib")]
 pub mod database;
