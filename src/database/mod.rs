@@ -144,6 +144,7 @@ struct JsonResponse {
 
 #[cfg(feature = "server_bin")]
 pub fn build_http_json_response(
+	origin: &str,
 	request_method: &actix_web::http::Method,
 	code: actix_web::http::StatusCode,
 	etag: Option<String>,
@@ -153,21 +154,28 @@ pub fn build_http_json_response(
 	let mut response = actix_web::HttpResponse::build(code);
 	response.content_type("application/ld+json");
 	if request_method == actix_web::http::Method::GET && code.is_success() {
-		response.header("Cache-Control", "no-cache");
+		response.header(actix_web::http::header::CACHE_CONTROL, "no-cache");
 	}
-	response.header("Access-Control-Allow-Origin", "*");
+	response.header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+
+	if origin != "*" {
+		response.header(actix_web::http::header::VARY, "Origin");
+	}
 
 	let mut expose_headers = String::from("Content-Length, Content-Type");
 	if etag.is_some() {
 		expose_headers += ", ETag";
 	}
-	response.header("Access-Control-Expose-Headers", expose_headers);
+	response.header(
+		actix_web::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
+		expose_headers,
+	);
 
 	if let Some(etag) = &etag {
-		response.header("ETag", etag.clone());
+		response.header(actix_web::http::header::ETAG, etag.clone());
 	}
 
-	return if should_have_body {
+	return if should_have_body || request_method != actix_web::http::Method::HEAD {
 		response.body(
 			serde_json::to_string(&JsonResponse {
 				http_code: code.as_u16(),

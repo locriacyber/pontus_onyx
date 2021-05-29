@@ -34,65 +34,73 @@ impl std::fmt::Display for ErrorDelete {
 impl std::error::Error for ErrorDelete {}
 
 #[cfg(feature = "server_bin")]
-impl std::convert::From<ErrorDelete> for actix_web::HttpResponse {
-	fn from(input: ErrorDelete) -> Self {
+impl ErrorDelete {
+	pub fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		let request_method = actix_web::http::Method::DELETE;
-		match &input {
+		match self {
 			ErrorDelete::Conflict => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorDelete::IfMatchNotFound => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorDelete::IfNoneMatch => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorDelete::InternalError => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorDelete::NotFound => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorDelete::WorksOnlyForDocument => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorDelete::WrongPath => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorDelete::CanNotSendEvent(_, etag) => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				Some(etag.clone()),
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 		}
 	}

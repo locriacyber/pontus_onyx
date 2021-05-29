@@ -143,9 +143,20 @@ where
 									);
 
 									Box::pin(async move {
+										// TODO : check security issue about this ?
+										let all_origins =
+											actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+										let headers = service_request.headers().clone();
+										let origin = headers
+											.get(actix_web::http::header::ORIGIN)
+											.unwrap_or(&all_origins)
+											.to_str()
+											.unwrap();
+
 										Ok(actix_web::dev::ServiceResponse::new(
 											service_request.into_parts().0,
 											pontus_onyx::database::build_http_json_response(
+												origin,
 												&request_method,
 												actix_web::http::StatusCode::FORBIDDEN,
 												None,
@@ -167,9 +178,20 @@ where
 							);
 
 							Box::pin(async move {
+								// TODO : check security issue about this ?
+								let all_origins =
+									actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+								let headers = service_request.headers().clone();
+								let origin = headers
+									.get(actix_web::http::header::ORIGIN)
+									.unwrap_or(&all_origins)
+									.to_str()
+									.unwrap();
+
 								Ok(actix_web::dev::ServiceResponse::new(
 									service_request.into_parts().0,
 									pontus_onyx::database::build_http_json_response(
+										origin,
 										&request_method,
 										actix_web::http::StatusCode::FORBIDDEN,
 										None,
@@ -180,18 +202,31 @@ where
 							})
 						}
 					}
-					None => Box::pin(async move {
-						Ok(actix_web::dev::ServiceResponse::new(
-							service_request.into_parts().0,
-							pontus_onyx::database::build_http_json_response(
-								&request_method,
-								actix_web::http::StatusCode::UNAUTHORIZED,
-								None,
-								None,
-								true,
-							),
-						))
-					}),
+					None => {
+						Box::pin(async move {
+							// TODO : check security issue about this ?
+							let all_origins =
+								actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+							let headers = service_request.headers().clone();
+							let origin = headers
+								.get(actix_web::http::header::ORIGIN)
+								.unwrap_or(&all_origins)
+								.to_str()
+								.unwrap();
+
+							Ok(actix_web::dev::ServiceResponse::new(
+								service_request.into_parts().0,
+								pontus_onyx::database::build_http_json_response(
+									origin,
+									&request_method,
+									actix_web::http::StatusCode::UNAUTHORIZED,
+									None,
+									None,
+									true,
+								),
+							))
+						})
+					}
 				}
 			}
 			None => {
@@ -241,9 +276,19 @@ where
 					Box::pin(async move { future.await })
 				} else {
 					Box::pin(async move {
+						// TODO : check security issue about this ?
+						let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+						let headers = service_request.headers().clone();
+						let origin = headers
+							.get(actix_web::http::header::ORIGIN)
+							.unwrap_or(&all_origins)
+							.to_str()
+							.unwrap();
+
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
 							pontus_onyx::database::build_http_json_response(
+								origin,
 								&request_method,
 								actix_web::http::StatusCode::UNAUTHORIZED,
 								None,

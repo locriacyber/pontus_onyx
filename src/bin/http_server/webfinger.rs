@@ -1,5 +1,6 @@
 #[actix_web::get("/.well-known/webfinger")]
 pub async fn webfinger_handle(
+	request: actix_web::web::HttpRequest,
 	query: actix_web::web::Query<WebfingerQuery>,
 	settings: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<super::Settings>>>,
 	program_state: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::ProgramState>>>,
@@ -31,8 +32,23 @@ pub async fn webfinger_handle(
 					&program_state.lock().unwrap(),
 				);
 
-				actix_web::HttpResponse::Ok()
-					.header("Access-Control-Allow-Origin", "*")
+				// TODO : check security issue about this ?
+				let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+				let origin = request
+					.headers()
+					.get(actix_web::http::header::ORIGIN)
+					.unwrap_or(&all_origins)
+					.to_str()
+					.unwrap();
+
+				let mut response = actix_web::HttpResponse::Ok();
+				response.header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+
+				if origin != "*" {
+					response.header(actix_web::http::header::VARY, "Origin");
+				}
+
+				response
 					.content_type("application/ld+json")
 					.body(format!(
 						r#"{{"links":[{{"href":"{}","rel":"{}","properties":{{"{}":"{}","{}":"{}","{}":{},"{}":{},"{}":{}}}}}]}}"#,

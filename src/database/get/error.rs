@@ -28,51 +28,57 @@ impl std::fmt::Display for ErrorGet {
 impl std::error::Error for ErrorGet {}
 
 #[cfg(feature = "server_bin")]
-impl std::convert::From<ErrorGet> for actix_web::HttpResponse {
-	fn from(input: ErrorGet) -> Self {
+impl ErrorGet {
+	pub fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		let request_method = actix_web::http::Method::GET;
-		match input {
+		match self {
 			ErrorGet::CanNotBeListed => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorGet::Conflict => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorGet::IfMatchNotFound => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorGet::IfNoneMatch => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorGet::NotFound => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorGet::WrongPath => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 		}
 	}

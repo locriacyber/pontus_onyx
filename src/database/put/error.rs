@@ -36,72 +36,81 @@ impl std::fmt::Display for ErrorPut {
 impl std::error::Error for ErrorPut {}
 
 #[cfg(feature = "server_bin")]
-impl std::convert::From<ErrorPut> for actix_web::HttpResponse {
-	fn from(input: ErrorPut) -> Self {
+impl ErrorPut {
+	pub fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		let request_method = actix_web::http::Method::PUT;
-		match &input {
+		match self {
 			ErrorPut::Conflict => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::CONFLICT,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorPut::IfMatchNotFound => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorPut::IfNoneMatch => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::PRECONDITION_FAILED,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorPut::InternalError => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorPut::NotFound => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorPut::NotModified => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::NOT_MODIFIED,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorPut::WorksOnlyForDocument => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorPut::WrongPath => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 			ErrorPut::CanNotSendEvent(_, etag) => crate::database::build_http_json_response(
+				origin,
 				&request_method,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				Some(etag.clone()),
-				Some(format!("{}", input)),
-				true,
+				Some(format!("{}", self)),
+				should_have_body,
 			),
 		}
 	}

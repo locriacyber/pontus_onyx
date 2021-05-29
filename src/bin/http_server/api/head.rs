@@ -4,6 +4,15 @@ pub async fn head_item(
 	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
 ) -> actix_web::web::HttpResponse {
+	// TODO : check security issue about this ?
+	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+	let origin = request
+		.headers()
+		.get(actix_web::http::header::ORIGIN)
+		.unwrap_or(&all_origins)
+		.to_str()
+		.unwrap();
+
 	match database.lock().unwrap().get(
 		&path,
 		super::convert_actix_if_match(&request)
@@ -14,12 +23,18 @@ pub async fn head_item(
 		Ok(pontus_onyx::Item::Document {
 			etag, content_type, ..
 		}) => {
-			return actix_web::HttpResponse::Ok()
-				.header("ETag", etag.clone())
-				.header("Cache-Control", "no-cache")
-				.header("Access-Control-Allow-Origin", "*")
-				.content_type(content_type)
-				.finish();
+			let mut response = actix_web::HttpResponse::Ok();
+			response.header(actix_web::http::header::ETAG, etag.clone());
+			response.header(actix_web::http::header::CACHE_CONTROL, "no-cache");
+			response.header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+
+			if origin != "*" {
+				response.header(actix_web::http::header::VARY, "Origin");
+			}
+
+			response.content_type(content_type);
+
+			return response.finish();
 		}
 		Ok(pontus_onyx::Item::Folder {
 			etag: folder_etag,
@@ -52,13 +67,18 @@ pub async fn head_item(
 				}
 			}
 
-			return actix_web::HttpResponse::Ok()
-				.content_type("application/ld+json")
-				.header("ETag", folder_etag.clone())
-				.header("Cache-Control", "no-cache")
-				.header("Access-Control-Allow-Origin", "*")
-				.finish();
+			let mut response = actix_web::HttpResponse::Ok();
+			response.content_type("application/ld+json");
+			response.header(actix_web::http::header::ETAG, folder_etag.clone());
+			response.header(actix_web::http::header::CACHE_CONTROL, "no-cache");
+			response.header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+
+			if origin != "*" {
+				response.header(actix_web::http::header::VARY, "Origin");
+			}
+
+			return response.finish();
 		}
-		Err(e) => actix_web::HttpResponse::from(e),
+		Err(e) => e.to_response(origin, false),
 	}
 }

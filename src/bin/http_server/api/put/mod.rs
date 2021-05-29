@@ -21,8 +21,18 @@ pub async fn put_item(
 
 	let content_type = request.headers().get("content-type");
 
+	// TODO : check security issue about this ?
+	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+	let origin = request
+		.headers()
+		.get(actix_web::http::header::ORIGIN)
+		.unwrap_or(&all_origins)
+		.to_str()
+		.unwrap();
+
 	if content_type.is_none() {
 		return pontus_onyx::database::build_http_json_response(
+			origin,
 			request.method(),
 			actix_web::http::StatusCode::BAD_REQUEST,
 			None,
@@ -46,6 +56,7 @@ pub async fn put_item(
 	) {
 		pontus_onyx::database::ResultPut::Created(new_etag) => {
 			return pontus_onyx::database::build_http_json_response(
+				origin,
 				request.method(),
 				actix_web::http::StatusCode::CREATED,
 				Some(new_etag),
@@ -55,6 +66,7 @@ pub async fn put_item(
 		}
 		pontus_onyx::database::ResultPut::Updated(new_etag) => {
 			return pontus_onyx::database::build_http_json_response(
+				origin,
 				request.method(),
 				actix_web::http::StatusCode::OK,
 				Some(new_etag),
@@ -62,7 +74,7 @@ pub async fn put_item(
 				true,
 			);
 		}
-		pontus_onyx::database::ResultPut::Err(e) => actix_web::HttpResponse::from(e),
+		pontus_onyx::database::ResultPut::Err(e) => e.to_response(origin, true),
 	}
 }
 
