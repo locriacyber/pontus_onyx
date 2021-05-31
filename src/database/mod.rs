@@ -28,9 +28,9 @@ pub enum DataSource {
 }
 
 pub enum Event {
-	Create { path: String, item: crate::Item },
-	Update { path: String, item: crate::Item },
-	Delete { path: String },
+	Create { path: crate::ItemPath, item: crate::Item },
+	Update { path: crate::ItemPath, item: crate::Item },
+	Delete { path: crate::ItemPath },
 }
 impl std::fmt::Debug for Event {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -137,7 +137,7 @@ struct JsonResponse {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	http_description: Option<&'static str>,
 	#[serde(rename = "ETag", skip_serializing_if = "Option::is_none")]
-	etag: Option<String>,
+	etag: Option<crate::Etag>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	hint: Option<String>,
 }
@@ -147,7 +147,7 @@ pub fn build_http_json_response(
 	origin: &str,
 	request_method: &actix_web::http::Method,
 	code: actix_web::http::StatusCode,
-	etag: Option<String>,
+	etag: Option<crate::Etag>,
 	hint: Option<String>,
 	should_have_body: bool,
 ) -> actix_web::HttpResponse {

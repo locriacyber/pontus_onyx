@@ -2,7 +2,7 @@ use actix_web::http::{header::EntityTag, StatusCode};
 
 #[actix_rt::test]
 async fn basics() {
-	let database = pontus_onyx::Database::new(
+	let database = pontus_onyx::database::Database::new(
 		&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![])),
 		None,
 	)
@@ -80,7 +80,7 @@ async fn basics() {
 
 #[actix_rt::test]
 async fn if_none_match() {
-	let database = pontus_onyx::Database::new(
+	let database = pontus_onyx::database::Database::new(
 		&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
 			"user",
 			pontus_onyx::Item::new_folder(vec![(
@@ -91,18 +91,18 @@ async fn if_none_match() {
 						(
 							"c",
 							pontus_onyx::Item::Document {
-								etag: String::from("A"),
+								etag: pontus_onyx::Etag::from("A"),
 								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
+								content_type: pontus_onyx::ContentType::from("text/plain"),
 								last_modified: chrono::Utc::now(),
 							},
 						),
 						(
 							"d",
 							pontus_onyx::Item::Document {
-								etag: String::from("A"),
+								etag: pontus_onyx::Etag::from("A"),
 								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
+								content_type: pontus_onyx::ContentType::from("text/plain"),
 								last_modified: chrono::Utc::now(),
 							},
 						),
@@ -194,7 +194,7 @@ async fn if_none_match() {
 
 #[actix_rt::test]
 async fn if_match() {
-	let database = pontus_onyx::Database::new(
+	let database = pontus_onyx::database::Database::new(
 		&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
 			"user",
 			pontus_onyx::Item::new_folder(vec![(
@@ -204,9 +204,9 @@ async fn if_match() {
 					pontus_onyx::Item::new_folder(vec![(
 						"c",
 						pontus_onyx::Item::Document {
-							etag: String::from("A"),
+							etag: pontus_onyx::Etag::from("A"),
 							content: b"HELLO".to_vec(),
-							content_type: String::from("text/plain"),
+							content_type: pontus_onyx::ContentType::from("text/plain"),
 							last_modified: chrono::Utc::now(),
 						},
 					)]),

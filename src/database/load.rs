@@ -121,7 +121,7 @@ pub fn path_to_item(
 							content: content
 								.into_iter()
 								.map(|e| e.unwrap())
-								.collect::<std::collections::HashMap<String, Box<crate::Item>>>(
+								.collect::<std::collections::HashMap<crate::ItemPath, Box<crate::Item>>>(
 							),
 						}),
 					))

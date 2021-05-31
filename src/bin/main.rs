@@ -146,13 +146,6 @@ async fn main() -> std::io::Result<()> {
 	let http_binding = actix_web::HttpServer::new(move || {
 		// same code in https module
 		actix_web::App::new()
-			.data(database.clone())
-			.data(oauth_form_tokens.clone())
-			.data(access_tokens.clone())
-			.data(users.clone())
-			.data(settings.clone())
-			.data(program_state.clone())
-			.data(logger_for_server.clone())
 			.wrap(http_server::middlewares::Hsts {
 				enable: enable_hsts,
 			})
@@ -162,17 +155,15 @@ async fn main() -> std::io::Result<()> {
 			.wrap(http_server::middlewares::Logger {
 				logger: logger_for_server.clone(),
 			})
-			.service(http_server::favicon)
-			.service(http_server::get_oauth)
-			.service(http_server::post_oauth)
-			.service(http_server::webfinger_handle)
-			.service(http_server::get_item)
-			.service(http_server::head_item)
-			.service(http_server::options_item)
-			.service(http_server::put_item)
-			.service(http_server::delete_item)
-			.service(http_server::remotestoragesvg)
-			.service(http_server::index)
+			.configure(http_server::configure_server(
+				settings.clone(),
+				database.clone(),
+				access_tokens.clone(),
+				oauth_form_tokens.clone(),
+				users.clone(),
+				program_state.clone(),
+				logger_for_server.clone(),
+			))
 	})
 	.bind(format!("localhost:{}", http_post));
 

@@ -1,5 +1,5 @@
 pub fn build_folders(
-	content: &mut std::collections::HashMap<String, Box<crate::Item>>,
+	content: &mut std::collections::HashMap<crate::ItemPath, Box<crate::Item>>,
 	path: &mut dyn std::iter::Iterator<Item = &str>,
 	cumulated_path: &str,
 	listener: &Option<super::EventListener>,
@@ -55,7 +55,7 @@ pub fn build_folders(
 
 						if let Some(listener) = listener {
 							(listener.lock().unwrap())(crate::database::Event::Create {
-								path: String::from(cumulated_path),
+								path: crate::ItemPath::from(cumulated_path),
 								item: new_item,
 							});
 						}

@@ -15,7 +15,7 @@ pub async fn get_oauth(
 	form_tokens: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	>,
-) -> actix_web::web::HttpResponse {
+) -> impl actix_web::Responder {
 	let mut response = actix_web::HttpResponse::build(actix_web::http::StatusCode::OK);
 
 	// TODO : sanitize user data before printing it ?

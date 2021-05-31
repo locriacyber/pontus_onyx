@@ -49,7 +49,7 @@ impl super::Database {
 													if let Some(listener) = &self.listener {
 														(listener.lock().unwrap())(
 															crate::database::Event::Delete {
-																path: String::from(path),
+																path: crate::ItemPath::from(path),
 															},
 														);
 													}

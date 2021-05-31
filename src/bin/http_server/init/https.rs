@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 pub fn setup_and_run_https_server(
 	settings: Arc<Mutex<super::Settings>>,
-	database: Arc<Mutex<pontus_onyx::Database>>,
+	database: Arc<Mutex<pontus_onyx::database::Database>>,
 	access_tokens: Arc<Mutex<Vec<crate::http_server::AccessBearer>>>,
 	oauth_form_tokens: Arc<Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	users: Arc<Mutex<crate::http_server::Users>>,
@@ -38,13 +38,6 @@ pub fn setup_and_run_https_server(
 													let logger_for_server = logger.clone();
 													match actix_web::HttpServer::new(move || {
 														actix_web::App::new()
-															.data(database.clone())
-															.data(oauth_form_tokens.clone())
-															.data(access_tokens.clone())
-															.data(users.clone())
-															.data(settings.clone())
-															.data(program_state_for_server.clone())
-															.data(logger_for_server.clone())
 															.wrap(crate::http_server::middlewares::Hsts {
 																enable: enable_hsts,
 															})
@@ -54,17 +47,17 @@ pub fn setup_and_run_https_server(
 															.wrap(crate::http_server::middlewares::Logger {
 																logger: logger_for_server.clone(),
 															})
-															.service(crate::http_server::favicon)
-															.service(crate::http_server::get_oauth)
-															.service(crate::http_server::post_oauth)
-															.service(crate::http_server::webfinger_handle)
-															.service(crate::http_server::get_item)
-															.service(crate::http_server::head_item)
-															.service(crate::http_server::options_item)
-															.service(crate::http_server::put_item)
-															.service(crate::http_server::delete_item)
-															.service(crate::http_server::remotestoragesvg)
-															.service(crate::http_server::index)
+															.configure(
+																crate::http_server::configure_server(
+																	settings.clone(),
+																	database.clone(),
+																	access_tokens.clone(),
+																	oauth_form_tokens.clone(),
+																	users.clone(),
+																	program_state_for_server.clone(),
+																	logger_for_server.clone()
+																)
+															)
 													})
 													.bind_rustls(
 														format!("localhost:{}", https_port),

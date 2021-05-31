@@ -2,8 +2,8 @@
 pub async fn delete_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::web::HttpRequest,
-	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
-) -> actix_web::web::HttpResponse {
+	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>>,
+) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
 	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
 	let origin = request

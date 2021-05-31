@@ -1,8 +1,8 @@
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct DataDocument {
 	pub datastruct_version: String,
-	pub etag: String,
-	pub content_type: String,
+	pub etag: crate::Etag,
+	pub content_type: crate::ContentType,
 	pub last_modified: chrono::DateTime<chrono::Utc>,
 }
 impl Default for DataDocument {
@@ -10,7 +10,7 @@ impl Default for DataDocument {
 		Self {
 			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 			etag: ulid::Ulid::new().to_string(),
-			content_type: String::from("application/octet-stream"),
+			content_type: crate::ContentType::from("application/octet-stream"),
 			last_modified: chrono::Utc::now(),
 		}
 	}
@@ -19,7 +19,7 @@ impl Default for DataDocument {
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct DataFolder {
 	pub datastruct_version: String,
-	pub etag: String,
+	pub etag: crate::Etag,
 }
 impl Default for DataFolder {
 	fn default() -> Self {

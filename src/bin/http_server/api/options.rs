@@ -12,7 +12,7 @@ TODO :
 pub async fn options_item(
 	_path: actix_web::web::Path<String>,
 	request: actix_web::web::HttpRequest,
-) -> actix_web::web::HttpResponse {
+) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
 	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
 	let origin = request

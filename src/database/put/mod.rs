@@ -4,7 +4,7 @@ impl super::Database {
 		path: &str,
 		content: crate::Item,
 		if_match: &str,
-		if_none_match: Vec<String>,
+		if_none_match: crate::IfNoneMatch,
 	) -> ResultPut {
 		match &content {
 			crate::Item::Document {
@@ -73,7 +73,7 @@ impl super::Database {
 																		&self.listener
 																	{
 																		(listener.lock().unwrap())(crate::database::Event::Update{
-																			path: String::from(path),
+																			path: crate::ItemPath::from(path),
 																			item: change_item.clone(),
 																		});
 																	}
@@ -181,7 +181,7 @@ impl super::Database {
 																			&self.listener
 																		{
 																			(listener.lock().unwrap())(crate::database::Event::Update{
-																				path: String::from(path),
+																				path: crate::ItemPath::from(path),
 																				item: change_item.clone(),
 																			});
 																		}
@@ -262,8 +262,8 @@ impl super::Database {
 }
 
 pub enum ResultPut {
-	Created(String),
-	Updated(String),
+	Created(crate::Etag),
+	Updated(crate::Etag),
 	Err(ErrorPut),
 }
 

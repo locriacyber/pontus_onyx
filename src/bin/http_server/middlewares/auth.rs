@@ -436,7 +436,7 @@ mod tests {
 		);
 		access_tokens.lock().unwrap().push(token.clone());
 
-		let database = pontus_onyx::Database::new(
+		let database = pontus_onyx::database::Database::new(
 			&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
 				"user",
 				pontus_onyx::Item::new_folder(vec![
@@ -447,7 +447,7 @@ mod tests {
 							pontus_onyx::Item::Document {
 								etag: ulid::Ulid::new().to_string(),
 								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
+								content_type: pontus_onyx::ContentType::from("text/plain"),
 								last_modified: chrono::Utc::now(),
 							},
 						)]),
@@ -459,7 +459,7 @@ mod tests {
 							pontus_onyx::Item::Document {
 								etag: ulid::Ulid::new().to_string(),
 								content: b"HELLO".to_vec(),
-								content_type: String::from("text/plain"),
+								content_type: pontus_onyx::ContentType::from("text/plain"),
 								last_modified: chrono::Utc::now(),
 							},
 						)]),
@@ -474,7 +474,7 @@ mod tests {
 									pontus_onyx::Item::Document {
 										etag: ulid::Ulid::new().to_string(),
 										content: b"HELLO".to_vec(),
-										content_type: String::from("text/plain"),
+										content_type: pontus_onyx::ContentType::from("text/plain"),
 										last_modified: chrono::Utc::now(),
 									},
 								)]),
@@ -486,7 +486,7 @@ mod tests {
 									pontus_onyx::Item::Document {
 										etag: ulid::Ulid::new().to_string(),
 										content: b"HELLO".to_vec(),
-										content_type: String::from("text/plain"),
+										content_type: pontus_onyx::ContentType::from("text/plain"),
 										last_modified: chrono::Utc::now(),
 									},
 								)]),

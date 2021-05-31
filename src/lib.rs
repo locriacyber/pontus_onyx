@@ -5,21 +5,25 @@ pub mod client;
 
 #[cfg(feature = "server_lib")]
 pub mod database;
-#[cfg(feature = "server_lib")]
-pub use database::Database;
+
+pub type ItemPath = String;
+pub type Etag = String;
+pub type IfMatch = String;
+pub type IfNoneMatch = Vec<String>;
+pub type ContentType = String;
 
 #[derive(derivative::Derivative, Clone, serde::Serialize, serde::Deserialize)]
 #[derivative(Debug)]
 pub enum Item {
 	Folder {
-		etag: String,
-		content: std::collections::HashMap<String, Box<Item>>,
+		etag: crate::Etag,
+		content: std::collections::HashMap<crate::ItemPath, Box<crate::Item>>,
 	},
 	Document {
-		etag: String,
+		etag: crate::Etag,
 		#[derivative(Debug = "ignore")]
 		content: Vec<u8>,
-		content_type: String,
+		content_type: crate::ContentType,
 		last_modified: chrono::DateTime<chrono::offset::Utc>,
 	},
 }

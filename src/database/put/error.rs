@@ -8,7 +8,7 @@ pub enum ErrorPut {
 	NotModified,
 	WorksOnlyForDocument,
 	WrongPath,
-	CanNotSendEvent(std::sync::mpsc::SendError<crate::database::Event>, String),
+	CanNotSendEvent(std::sync::mpsc::SendError<crate::database::Event>, crate::Etag),
 }
 impl std::fmt::Display for ErrorPut {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 pub fn load_or_create_database(
 	settings: &super::Settings,
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
-) -> Arc<Mutex<pontus_onyx::Database>> {
+) -> Arc<Mutex<pontus_onyx::database::Database>> {
 	let db_path = std::path::PathBuf::from(settings.data_path.clone());
 	let data_source = pontus_onyx::database::DataSource::File(db_path.clone());
 
@@ -456,7 +456,7 @@ pub fn load_or_create_database(
 	}));
 
 	let database = Arc::new(Mutex::new(
-		match pontus_onyx::Database::new(&data_source, Some(event_listener.clone())) {
+		match pontus_onyx::database::Database::new(&data_source, Some(event_listener.clone())) {
 			Ok(result) => {
 				logger.lock().unwrap().push(
 					vec![
@@ -485,7 +485,7 @@ pub fn load_or_create_database(
 					)),
 				);
 
-				let res = pontus_onyx::Database::new(
+				let res = pontus_onyx::database::Database::new(
 					&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(
 						vec![],
 					)),

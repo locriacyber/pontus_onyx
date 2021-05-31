@@ -296,9 +296,9 @@ impl BaseClient {
 
 pub struct ChangeEvent {
 	/// Absolute path of the changed node, from the storage root
-	pub path: String,
+	pub path: crate::ItemPath,
 	/// Path of the changed node, relative to this baseclient's scope root
-	pub relative_path: String,
+	pub relative_path: crate::ItemPath,
 	/// See origin descriptions below
 	pub origin: EventOrigin,
 	/// Old body of the changed node (local version in conflicts; undefined if creation)
@@ -306,9 +306,9 @@ pub struct ChangeEvent {
 	/// New body of the changed node (remote version in conflicts; undefined if deletion)
 	pub new_value: Vec<u8>,
 	/// Old contentType of the changed node (local version for conflicts; undefined if creation)
-	pub old_content_type: Option<String>,
+	pub old_content_type: Option<crate::ContentType>,
 	/// New contentType of the changed node (remote version for conflicts; undefined if deletion)
-	pub new_content_type: String,
+	pub new_content_type: crate::ContentType,
 }
 
 pub enum EventOrigin {

@@ -10,8 +10,8 @@ pub async fn put_item(
 	mut request_payload: actix_web::web::Payload,
 	request: actix_web::web::HttpRequest,
 	path: actix_web::web::Path<String>,
-	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::Database>>>,
-) -> actix_web::web::HttpResponse {
+	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>>,
+) -> impl actix_web::Responder {
 	let mut content = actix_web::web::BytesMut::new();
 	while let Some(request_body) = futures::StreamExt::next(&mut request_payload).await {
 		let request_body = request_body.unwrap();
@@ -44,9 +44,9 @@ pub async fn put_item(
 	match database.lock().unwrap().put(
 		&path,
 		pontus_onyx::Item::Document {
-			etag: String::new(),
+			etag: pontus_onyx::Etag::new(),
 			content: content.to_vec(),
-			content_type: String::from(content_type.unwrap().to_str().unwrap()),
+			content_type: pontus_onyx::ContentType::from(content_type.unwrap().to_str().unwrap()),
 			last_modified: chrono::Utc::now(),
 		},
 		super::convert_actix_if_match(&request)

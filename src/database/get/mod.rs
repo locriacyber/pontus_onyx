@@ -3,7 +3,7 @@ impl super::Database {
 		&self,
 		path: &str,
 		if_match: &str,
-		if_none_match: Vec<String>,
+		if_none_match: crate::IfNoneMatch,
 	) -> Result<&crate::Item, ErrorGet> {
 		let paths: Vec<&str> = path.split('/').collect();
 		let should_be_folder = paths.last().unwrap().is_empty();
