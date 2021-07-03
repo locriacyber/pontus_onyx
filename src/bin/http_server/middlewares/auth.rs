@@ -436,68 +436,72 @@ mod tests {
 		);
 		access_tokens.lock().unwrap().push(token.clone());
 
-		let database = pontus_onyx::database::Database::new(
-			&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
-				"user",
-				pontus_onyx::Item::new_folder(vec![
-					(
-						"folder_write",
-						pontus_onyx::Item::new_folder(vec![(
-							"a",
-							pontus_onyx::Item::Document {
-								etag: ulid::Ulid::new().to_string(),
-								content: b"HELLO".to_vec(),
-								content_type: pontus_onyx::ContentType::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						)]),
-					),
-					(
-						"folder_read",
-						pontus_onyx::Item::new_folder(vec![(
-							"a",
-							pontus_onyx::Item::Document {
-								etag: ulid::Ulid::new().to_string(),
-								content: b"HELLO".to_vec(),
-								content_type: pontus_onyx::ContentType::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						)]),
-					),
-					(
-						"public",
-						pontus_onyx::Item::new_folder(vec![
-							(
-								"folder_write",
-								pontus_onyx::Item::new_folder(vec![(
-									"a",
-									pontus_onyx::Item::Document {
-										etag: ulid::Ulid::new().to_string(),
-										content: b"HELLO".to_vec(),
-										content_type: pontus_onyx::ContentType::from("text/plain"),
-										last_modified: chrono::Utc::now(),
-									},
-								)]),
-							),
-							(
-								"folder_read",
-								pontus_onyx::Item::new_folder(vec![(
-									"a",
-									pontus_onyx::Item::Document {
-										etag: ulid::Ulid::new().to_string(),
-										content: b"HELLO".to_vec(),
-										content_type: pontus_onyx::ContentType::from("text/plain"),
-										last_modified: chrono::Utc::now(),
-									},
-								)]),
-							),
-						]),
-					),
-				]),
-			)])),
-			None,
-		)
-		.unwrap();
+		let database = pontus_onyx::database::Database {
+			source: pontus_onyx::database::DataSource::Memory {
+				root_item: pontus_onyx::Item::new_folder(vec![(
+					"user",
+					pontus_onyx::Item::new_folder(vec![
+						(
+							"folder_write",
+							pontus_onyx::Item::new_folder(vec![(
+								"a",
+								pontus_onyx::Item::Document {
+									etag: pontus_onyx::Etag::new(),
+									content: Some(b"HELLO".to_vec()),
+									content_type: pontus_onyx::ContentType::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
+						),
+						(
+							"folder_read",
+							pontus_onyx::Item::new_folder(vec![(
+								"a",
+								pontus_onyx::Item::Document {
+									etag: pontus_onyx::Etag::new(),
+									content: Some(b"HELLO".to_vec()),
+									content_type: pontus_onyx::ContentType::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							)]),
+						),
+						(
+							"public",
+							pontus_onyx::Item::new_folder(vec![
+								(
+									"folder_write",
+									pontus_onyx::Item::new_folder(vec![(
+										"a",
+										pontus_onyx::Item::Document {
+											etag: pontus_onyx::Etag::new(),
+											content: Some(b"HELLO".to_vec()),
+											content_type: pontus_onyx::ContentType::from(
+												"text/plain",
+											),
+											last_modified: chrono::Utc::now(),
+										},
+									)]),
+								),
+								(
+									"folder_read",
+									pontus_onyx::Item::new_folder(vec![(
+										"a",
+										pontus_onyx::Item::Document {
+											etag: pontus_onyx::Etag::new(),
+											content: Some(b"HELLO".to_vec()),
+											content_type: pontus_onyx::ContentType::from(
+												"text/plain",
+											),
+											last_modified: chrono::Utc::now(),
+										},
+									)]),
+								),
+							]),
+						),
+					]),
+				)]),
+			},
+		};
 		let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 		let settings = std::sync::Arc::new(std::sync::Mutex::new(

@@ -10,7 +10,9 @@ pub async fn put_item(
 	mut request_payload: actix_web::web::Payload,
 	request: actix_web::web::HttpRequest,
 	path: actix_web::web::Path<String>,
-	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>>,
+	database: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+	>,
 ) -> impl actix_web::Responder {
 	let mut content = actix_web::web::BytesMut::new();
 	while let Some(request_body) = futures::StreamExt::next(&mut request_payload).await {
@@ -42,17 +44,19 @@ pub async fn put_item(
 	}
 
 	match database.lock().unwrap().put(
-		&path,
+		&std::path::PathBuf::from(path.to_string()),
 		pontus_onyx::Item::Document {
-			etag: pontus_onyx::Etag::new(),
-			content: content.to_vec(),
+			etag: pontus_onyx::Etag::from(""),
+			content: Some(content.to_vec()),
 			content_type: pontus_onyx::ContentType::from(content_type.unwrap().to_str().unwrap()),
 			last_modified: chrono::Utc::now(),
 		},
-		super::convert_actix_if_match(&request)
+		&super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&String::new()),
-		super::convert_actix_if_none_match(&request),
+			.unwrap_or(&&pontus_onyx::Etag::from("")),
+		&super::convert_actix_if_none_match(&request)
+			.iter()
+			.collect::<Vec<&pontus_onyx::Etag>>(),
 	) {
 		pontus_onyx::database::ResultPut::Created(new_etag) => {
 			return pontus_onyx::database::build_http_json_response(

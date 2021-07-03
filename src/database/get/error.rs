@@ -6,6 +6,7 @@ pub enum ErrorGet {
 	IfNoneMatch,
 	NotFound,
 	WrongPath,
+	InternalError,
 }
 impl std::fmt::Display for ErrorGet {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
@@ -22,6 +23,7 @@ impl std::fmt::Display for ErrorGet {
 			),
 			Self::NotFound => f.write_str("requested item was not found"),
 			Self::WrongPath => f.write_str("the path of the item is incorrect"),
+			Self::InternalError => f.write_str("an internal error occured"),
 		}
 	}
 }
@@ -76,6 +78,14 @@ impl ErrorGet {
 				origin,
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			ErrorGet::InternalError => crate::database::build_http_json_response(
+				origin,
+				&request_method,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				None,
 				Some(format!("{}", self)),
 				should_have_body,

@@ -2,7 +2,9 @@
 pub async fn delete_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::web::HttpRequest,
-	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>>,
+	database: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+	>,
 ) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
 	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
@@ -14,10 +16,10 @@ pub async fn delete_item(
 		.unwrap();
 
 	match database.lock().unwrap().delete(
-		&path,
+		&std::path::PathBuf::from(path.to_string()),
 		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&String::new()),
+			.unwrap_or(&&pontus_onyx::Etag::from("")),
 	) {
 		Ok(etag) => {
 			return pontus_onyx::database::build_http_json_response(

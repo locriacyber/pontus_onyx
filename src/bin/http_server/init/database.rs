@@ -1,11 +1,14 @@
 use std::sync::{Arc, Mutex};
 
 pub fn load_or_create_database(
-	settings: &super::Settings,
-	logger: Arc<Mutex<charlie_buffalo::Logger>>,
+	_settings: &super::Settings,
+	_logger: Arc<Mutex<charlie_buffalo::Logger>>,
 ) -> Arc<Mutex<pontus_onyx::database::Database>> {
+	/*
 	let db_path = std::path::PathBuf::from(settings.data_path.clone());
-	let data_source = pontus_onyx::database::DataSource::File(db_path.clone());
+	// TODO : let data_source = pontus_onyx::database::DataSource::File(db_path.clone());
+	let data_source =
+		pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![]));
 
 	let logger_for_listener = logger.clone();
 	let data_source_for_listener = data_source.clone();
@@ -455,69 +458,21 @@ pub fn load_or_create_database(
 		// TODO : restore mononolyth save ?
 	}));
 
-	let database = Arc::new(Mutex::new(
-		match pontus_onyx::database::Database::new(&data_source, Some(event_listener.clone())) {
-			Ok(result) => {
-				logger.lock().unwrap().push(
-					vec![
-						(String::from("event"), String::from("setup")),
-						(String::from("module"), String::from("database")),
-						(String::from("level"), String::from("INFO")),
-					],
-					Some(&format!(
-						"database succesfully loaded from `{}`",
-						db_path.to_string_lossy()
-					)),
-				);
+	logger.lock().unwrap().push(
+		vec![
+			(String::from("event"), String::from("setup")),
+			(String::from("module"), String::from("database")),
+			(String::from("level"), String::from("INFO")),
+		],
+		Some("new empty database created"),
+	);
 
-				result
-			}
-			Err(pontus_onyx::database::ErrorNewDatabase::FileDoesNotExists) => {
-				logger.lock().unwrap().push(
-					vec![
-						(String::from("event"), String::from("setup")),
-						(String::from("module"), String::from("database")),
-						(String::from("level"), String::from("WARNING")),
-					],
-					Some(&format!(
-						"database does not exists in `{}`",
-						db_path.to_string_lossy()
-					)),
-				);
-
-				let res = pontus_onyx::database::Database::new(
-					&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(
-						vec![],
-					)),
-					Some(event_listener),
-				)
-				.unwrap();
-
-				logger.lock().unwrap().push(
-					vec![
-						(String::from("event"), String::from("setup")),
-						(String::from("module"), String::from("database")),
-						(String::from("level"), String::from("INFO")),
-					],
-					Some("new empty database created"),
-				);
-
-				res
-			}
-			Err(e) => {
-				logger.lock().unwrap().push(
-					vec![
-						(String::from("event"), String::from("setup")),
-						(String::from("module"), String::from("database")),
-						(String::from("level"), String::from("ERROR")),
-					],
-					Some(&format!("{}", e)),
-				);
-
-				panic!();
-			}
-		},
-	));
+	let database = Arc::new(Mutex::new(pontus_onyx::database::Database {
+		source: data_source,
+	}));
 
 	return database;
+	*/
+
+	todo!()
 }

@@ -14,7 +14,11 @@ impl RemoteStorage {
 }
 impl RemoteStorage {
 	/// Register an event handler.
-	pub fn on(&mut self, _event: EventName, _listener: crate::database::EventListener) {
+	pub fn on(
+		&mut self,
+		_event: EventName,
+		_listener: std::sync::Arc<std::sync::Mutex<dyn FnMut(Event) + Send>>,
+	) {
 		todo!()
 	}
 	/// Connect to a remoteStorage server.
@@ -163,7 +167,7 @@ impl RemoteStorage {
 
 pub enum CacheCondition {
 	All,
-	StartsWith(String),
+	StartsWith(std::path::PathBuf),
 }
 
 pub enum EventName {
@@ -203,3 +207,5 @@ pub enum ApiKey {
 	Dropbox(String),
 	GoogleDrive(String),
 }
+
+pub enum Event {}

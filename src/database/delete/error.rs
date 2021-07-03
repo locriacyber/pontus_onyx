@@ -7,7 +7,6 @@ pub enum ErrorDelete {
 	NotFound,
 	WorksOnlyForDocument,
 	WrongPath,
-	CanNotSendEvent(std::sync::mpsc::SendError<crate::database::Event>, crate::Etag),
 }
 impl std::fmt::Display for ErrorDelete {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
@@ -27,7 +26,6 @@ impl std::fmt::Display for ErrorDelete {
 			Self::NotFound => f.write_str("requested item was not found"),
 			Self::WorksOnlyForDocument => f.write_str("this method works only on documents"),
 			Self::WrongPath => f.write_str("the path of the item is incorrect"),
-			Self::CanNotSendEvent(_, _) => f.write_str("the save event can not be send"),
 		}
 	}
 }
@@ -91,14 +89,6 @@ impl ErrorDelete {
 				&request_method,
 				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
-				Some(format!("{}", self)),
-				should_have_body,
-			),
-			ErrorDelete::CanNotSendEvent(_, etag) => crate::database::build_http_json_response(
-				origin,
-				&request_method,
-				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-				Some(etag.clone()),
 				Some(format!("{}", self)),
 				should_have_body,
 			),

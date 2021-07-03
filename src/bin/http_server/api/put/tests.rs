@@ -2,11 +2,11 @@ use actix_web::http::{header::EntityTag, StatusCode};
 
 #[actix_rt::test]
 async fn basics() {
-	let database = pontus_onyx::database::Database::new(
-		&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![])),
-		None,
-	)
-	.unwrap();
+	let database = pontus_onyx::database::Database {
+		source: pontus_onyx::database::DataSource::Memory {
+			root_item: pontus_onyx::Item::new_folder(vec![]),
+		},
+	};
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut app = actix_web::test::init_service(
@@ -80,39 +80,39 @@ async fn basics() {
 
 #[actix_rt::test]
 async fn if_none_match() {
-	let database = pontus_onyx::database::Database::new(
-		&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
-			"user",
-			pontus_onyx::Item::new_folder(vec![(
-				"a",
+	let database = pontus_onyx::database::Database {
+		source: pontus_onyx::database::DataSource::Memory {
+			root_item: pontus_onyx::Item::new_folder(vec![(
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
-					pontus_onyx::Item::new_folder(vec![
-						(
-							"c",
-							pontus_onyx::Item::Document {
-								etag: pontus_onyx::Etag::from("A"),
-								content: b"HELLO".to_vec(),
-								content_type: pontus_onyx::ContentType::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						),
-						(
-							"d",
-							pontus_onyx::Item::Document {
-								etag: pontus_onyx::Etag::from("A"),
-								content: b"HELLO".to_vec(),
-								content_type: pontus_onyx::ContentType::from("text/plain"),
-								last_modified: chrono::Utc::now(),
-							},
-						),
-					]),
+					"a",
+					pontus_onyx::Item::new_folder(vec![(
+						"b",
+						pontus_onyx::Item::new_folder(vec![
+							(
+								"c",
+								pontus_onyx::Item::Document {
+									etag: pontus_onyx::Etag::from("A"),
+									content: Some(b"HELLO".to_vec()),
+									content_type: pontus_onyx::ContentType::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							),
+							(
+								"d",
+								pontus_onyx::Item::Document {
+									etag: pontus_onyx::Etag::from("A"),
+									content: Some(b"HELLO".to_vec()),
+									content_type: pontus_onyx::ContentType::from("text/plain"),
+									last_modified: chrono::Utc::now(),
+								},
+							),
+						]),
+					)]),
 				)]),
 			)]),
-		)])),
-		None,
-	)
-	.unwrap();
+		},
+	};
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut app = actix_web::test::init_service(
@@ -126,49 +126,49 @@ async fn if_none_match() {
 		(
 			010,
 			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("A"))],
+			vec![EntityTag::new(false, "A".into())],
 			StatusCode::PRECONDITION_FAILED,
 		),
 		(
 			020,
 			"/storage/user/a/b/c",
 			vec![
-				EntityTag::new(false, String::from("A")),
-				EntityTag::new(false, String::from("B")),
+				EntityTag::new(false, "A".into()),
+				EntityTag::new(false, "B".into()),
 			],
 			StatusCode::PRECONDITION_FAILED,
 		),
 		(
 			030,
 			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("*"))],
+			vec![EntityTag::new(false, "*".into())],
 			StatusCode::PRECONDITION_FAILED,
 		),
 		(
 			040,
 			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
+			vec![EntityTag::new(false, "ANOTHER_ETAG".into())],
 			StatusCode::OK,
 		),
 		(
 			050,
 			"/storage/user/a/b/d",
 			vec![
-				EntityTag::new(false, String::from("ANOTHER_ETAG_1")),
-				EntityTag::new(false, String::from("ANOTHER_ETAG_2")),
+				EntityTag::new(false, "ANOTHER_ETAG_1".into()),
+				EntityTag::new(false, "ANOTHER_ETAG_2".into()),
 			],
 			StatusCode::OK,
 		),
 		(
 			060,
 			"/storage/user/new/a",
-			vec![EntityTag::new(false, String::from("*"))],
+			vec![EntityTag::new(false, "*".into())],
 			StatusCode::CREATED,
 		),
 		(
 			070,
 			"/storage/user/new/a",
-			vec![EntityTag::new(false, String::from("*"))],
+			vec![EntityTag::new(false, "*".into())],
 			StatusCode::PRECONDITION_FAILED,
 		),
 	];
@@ -194,28 +194,28 @@ async fn if_none_match() {
 
 #[actix_rt::test]
 async fn if_match() {
-	let database = pontus_onyx::database::Database::new(
-		&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
-			"user",
-			pontus_onyx::Item::new_folder(vec![(
-				"a",
+	let database = pontus_onyx::database::Database {
+		source: pontus_onyx::database::DataSource::Memory {
+			root_item: pontus_onyx::Item::new_folder(vec![(
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: pontus_onyx::Etag::from("A"),
-							content: b"HELLO".to_vec(),
-							content_type: pontus_onyx::ContentType::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
+						"b",
+						pontus_onyx::Item::new_folder(vec![(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: pontus_onyx::Etag::from("A"),
+								content: Some(b"HELLO".to_vec()),
+								content_type: pontus_onyx::ContentType::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
 					)]),
 				)]),
 			)]),
-		)])),
-		None,
-	)
-	.unwrap();
+		},
+	};
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut app = actix_web::test::init_service(
@@ -239,7 +239,7 @@ async fn if_match() {
 		let request = actix_web::test::TestRequest::put()
 			.uri("/storage/user/a/b/c")
 			.set(actix_web::http::header::IfMatch::Items(vec![
-				EntityTag::new(false, String::from("ANOTHER_ETAG")),
+				EntityTag::new(false, "ANOTHER_ETAG".into()),
 			]))
 			.set_json(&serde_json::json!({"value": "C"}))
 			.to_request();
@@ -252,7 +252,7 @@ async fn if_match() {
 		let request = actix_web::test::TestRequest::put()
 			.uri("/storage/user/a/b/c")
 			.set(actix_web::http::header::IfMatch::Items(vec![
-				EntityTag::new(false, String::from("A")),
+				EntityTag::new(false, "A".into()),
 			]))
 			.set_json(&serde_json::json!({"value": "C"}))
 			.to_request();

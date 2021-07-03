@@ -296,9 +296,9 @@ impl BaseClient {
 
 pub struct ChangeEvent {
 	/// Absolute path of the changed node, from the storage root
-	pub path: crate::ItemPath,
+	pub path: String,
 	/// Path of the changed node, relative to this baseclient's scope root
-	pub relative_path: crate::ItemPath,
+	pub relative_path: String,
 	/// See origin descriptions below
 	pub origin: EventOrigin,
 	/// Old body of the changed node (local version in conflicts; undefined if creation)

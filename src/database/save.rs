@@ -9,9 +9,29 @@ impl Default for DataDocument {
 	fn default() -> Self {
 		Self {
 			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
-			etag: ulid::Ulid::new().to_string(),
+			etag: crate::Etag::new(),
 			content_type: crate::ContentType::from("application/octet-stream"),
 			last_modified: chrono::Utc::now(),
+		}
+	}
+}
+impl std::convert::TryFrom<crate::Item> for DataDocument {
+	type Error = String;
+
+	fn try_from(input: crate::Item) -> Result<Self, Self::Error> {
+		match input {
+			crate::Item::Document {
+				etag,
+				content_type,
+				last_modified,
+				..
+			} => Ok(Self {
+				datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+				etag,
+				content_type,
+				last_modified,
+			}),
+			_ => Err(String::from("input should be Item::Document and it is not")),
 		}
 	}
 }
@@ -25,21 +45,7 @@ impl Default for DataFolder {
 	fn default() -> Self {
 		Self {
 			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
-			etag: ulid::Ulid::new().to_string(),
-		}
-	}
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct DataMonolyth {
-	pub datastruct_version: String,
-	pub content: crate::Item,
-}
-impl Default for DataMonolyth {
-	fn default() -> Self {
-		Self {
-			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
-			content: crate::Item::new_folder(vec![]),
+			etag: crate::Etag::new(),
 		}
 	}
 }

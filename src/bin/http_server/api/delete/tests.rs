@@ -2,28 +2,28 @@ use actix_web::http::{header::EntityTag, Method, StatusCode};
 
 #[actix_rt::test]
 async fn basics() {
-	let database = pontus_onyx::database::Database::new(
-		&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
-			"user",
-			pontus_onyx::Item::new_folder(vec![(
-				"a",
+	let database = pontus_onyx::database::Database {
+		source: pontus_onyx::database::DataSource::Memory {
+			root_item: pontus_onyx::Item::new_folder(vec![(
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: ulid::Ulid::new().to_string(),
-							content: b"HELLO".to_vec(),
-							content_type: pontus_onyx::ContentType::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
+						"b",
+						pontus_onyx::Item::new_folder(vec![(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: pontus_onyx::Etag::new(),
+								content: Some(b"HELLO".to_vec()),
+								content_type: pontus_onyx::ContentType::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
 					)]),
 				)]),
 			)]),
-		)])),
-		None,
-	)
-	.unwrap();
+		},
+	};
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut app = actix_web::test::init_service(
@@ -106,28 +106,28 @@ async fn basics() {
 
 #[actix_rt::test]
 async fn if_match() {
-	let database = pontus_onyx::database::Database::new(
-		&pontus_onyx::database::DataSource::Memory(pontus_onyx::Item::new_folder(vec![(
-			"user",
-			pontus_onyx::Item::new_folder(vec![(
-				"a",
+	let database = pontus_onyx::database::Database {
+		source: pontus_onyx::database::DataSource::Memory {
+			root_item: pontus_onyx::Item::new_folder(vec![(
+				"user",
 				pontus_onyx::Item::new_folder(vec![(
-					"b",
+					"a",
 					pontus_onyx::Item::new_folder(vec![(
-						"c",
-						pontus_onyx::Item::Document {
-							etag: pontus_onyx::Etag::from("A"),
-							content: b"HELLO".to_vec(),
-							content_type: pontus_onyx::ContentType::from("text/plain"),
-							last_modified: chrono::Utc::now(),
-						},
+						"b",
+						pontus_onyx::Item::new_folder(vec![(
+							"c",
+							pontus_onyx::Item::Document {
+								etag: pontus_onyx::Etag::from("A"),
+								content: Some(b"HELLO".to_vec()),
+								content_type: pontus_onyx::ContentType::from("text/plain"),
+								last_modified: chrono::Utc::now(),
+							},
+						)]),
 					)]),
 				)]),
 			)]),
-		)])),
-		None,
-	)
-	.unwrap();
+		},
+	};
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut app = actix_web::test::init_service(
@@ -150,7 +150,7 @@ async fn if_match() {
 			020,
 			Method::DELETE,
 			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
+			vec![EntityTag::new(false, "ANOTHER_ETAG".into())],
 			StatusCode::PRECONDITION_FAILED,
 		),
 		(
@@ -171,7 +171,7 @@ async fn if_match() {
 			050,
 			Method::DELETE,
 			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("A"))],
+			vec![EntityTag::new(false, "A".into())],
 			StatusCode::OK,
 		),
 		(
@@ -185,14 +185,14 @@ async fn if_match() {
 			070,
 			Method::DELETE,
 			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("A"))],
+			vec![EntityTag::new(false, "A".into())],
 			StatusCode::NOT_FOUND,
 		),
 		(
 			080,
 			Method::DELETE,
 			"/storage/user/a/b/c",
-			vec![EntityTag::new(false, String::from("ANOTHER_ETAG"))],
+			vec![EntityTag::new(false, "ANOTHER_ETAG".into())],
 			StatusCode::NOT_FOUND,
 		),
 	];
