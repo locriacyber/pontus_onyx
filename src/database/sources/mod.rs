@@ -1,5 +1,5 @@
-mod folder;
-mod memory;
+pub mod folder;
+pub mod memory;
 
 #[derive(Debug)]
 pub enum DataSource {
@@ -16,19 +16,21 @@ pub enum DataSource {
 impl DataSource {
 	pub fn read(
 		&self,
-		path: &std::path::PathBuf,
+		path: &std::path::Path,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
-		recursive: bool,
-	) -> Result<crate::Item, Box<dyn std::error::Error>> {
+		_recursive: bool,
+	) -> Result<crate::Item, Box<dyn std::any::Any>> {
 		match self {
 			Self::Memory { root_item } => {
 				match memory::read(&root_item, path, if_match, if_none_match) {
 					Ok(item) => Ok(item), // TODO : item.empty_clone() if recursive = false
-					Err(e) => Err(Box::new(e)),
+					Err(e) => Err(e),
 				}
 			}
-			Self::Folder { root_folder_path } => {
+			Self::Folder {
+				root_folder_path: _,
+			} => {
 				// TODO : path.starts_with("public/")
 
 				/*
@@ -45,43 +47,29 @@ impl DataSource {
 
 	pub fn put(
 		&mut self,
-		path: &std::path::PathBuf,
+		path: &std::path::Path,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
 		item: crate::Item,
-	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
+	) -> crate::database::put::ResultPut {
 		match self {
 			Self::Memory { root_item } => {
-				match memory::put(root_item, path, if_match, if_none_match, item) {
-					Ok(etag) => Ok(etag),
-					Err(e) => Err(Box::new(e)),
-				}
+				memory::put(root_item, path, if_match, if_none_match, item)
 			}
 			Self::Folder { root_folder_path } => {
-				match folder::put(root_folder_path, path, if_match, if_none_match, item) {
-					Ok(etag) => Ok(etag),
-					Err(e) => Err(Box::new(e)),
-				}
+				folder::put(root_folder_path, path, if_match, if_none_match, item)
 			}
 		}
 	}
 
 	pub fn delete(
 		&mut self,
-		path: &std::path::PathBuf,
+		path: &std::path::Path,
 		if_match: &crate::Etag,
-	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
+	) -> Result<crate::Etag, Box<dyn std::any::Any>> {
 		match self {
-			Self::Memory { root_item } => match memory::delete(root_item, path, if_match) {
-				Ok(etag) => Ok(etag),
-				Err(e) => Err(Box::new(e)),
-			},
-			Self::Folder { root_folder_path } => {
-				match folder::delete(root_folder_path, path, if_match) {
-					Ok(etag) => Ok(etag),
-					Err(e) => Err(Box::new(e)),
-				}
-			}
+			Self::Memory { root_item } => memory::delete(root_item, path, if_match),
+			Self::Folder { root_folder_path } => folder::delete(root_folder_path, path, if_match),
 		}
 	}
 }

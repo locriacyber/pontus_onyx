@@ -10,11 +10,6 @@ pub mod database;
 #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
 #[serde(from = "String", into = "String")]
 pub struct ItemPath(String);
-impl Into<String> for ItemPath {
-	fn into(self) -> String {
-		self.0
-	}
-}
 impl From<String> for ItemPath {
 	fn from(input: String) -> Self {
 		Self(input)
@@ -23,6 +18,11 @@ impl From<String> for ItemPath {
 impl From<&str> for ItemPath {
 	fn from(input: &str) -> Self {
 		Self(String::from(input))
+	}
+}
+impl From<ItemPath> for String {
+	fn from(input: ItemPath) -> Self {
+		input.0
 	}
 }
 impl std::cmp::PartialEq<&str> for ItemPath {
@@ -64,11 +64,6 @@ impl std::ops::AddAssign<&Self> for ItemPath {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
 #[serde(from = "String", into = "String")]
 pub struct ContentType(String);
-impl Into<String> for ContentType {
-	fn into(self) -> String {
-		self.0
-	}
-}
 impl From<String> for ContentType {
 	fn from(input: String) -> Self {
 		Self(input)
@@ -77,6 +72,11 @@ impl From<String> for ContentType {
 impl From<&str> for ContentType {
 	fn from(input: &str) -> Self {
 		Self(String::from(input))
+	}
+}
+impl From<ContentType> for String {
+	fn from(input: ContentType) -> Self {
+		input.0
 	}
 }
 impl std::cmp::PartialEq<&str> for ContentType {
@@ -98,11 +98,6 @@ impl std::fmt::Display for ContentType {
 #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(from = "String", into = "String")]
 pub struct Etag(String);
-impl Into<String> for Etag {
-	fn into(self) -> String {
-		self.0
-	}
-}
 impl From<String> for Etag {
 	fn from(input: String) -> Self {
 		Self(input)
@@ -111,6 +106,11 @@ impl From<String> for Etag {
 impl From<&str> for Etag {
 	fn from(input: &str) -> Self {
 		Self(String::from(input))
+	}
+}
+impl From<Etag> for String {
+	fn from(input: Etag) -> Self {
+		input.0
 	}
 }
 impl std::cmp::PartialEq<&str> for Etag {
@@ -129,6 +129,7 @@ impl std::fmt::Debug for Etag {
 	}
 }
 impl Etag {
+	#![allow(clippy::new_without_default)]
 	pub fn new() -> Self {
 		Self(ulid::Ulid::new().to_string())
 	}
@@ -228,7 +229,7 @@ impl Item {
 				.into_iter()
 				.rev()
 				.skip(1)
-				.take(ancestors.count().checked_sub(1).unwrap_or(0))
+				.take(ancestors.count().saturating_sub(1))
 				.collect();
 			paths
 		};
@@ -264,7 +265,7 @@ impl Item {
 				.into_iter()
 				.rev()
 				.skip(1)
-				.take(ancestors.count().checked_sub(1).unwrap_or(0))
+				.take(ancestors.count().saturating_sub(1))
 				.collect();
 			paths
 		};

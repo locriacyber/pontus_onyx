@@ -30,8 +30,8 @@ pub async fn get_item(
 			content_type,
 			..
 		}) => {
-			let etag: String = etag.clone().into();
-			let content_type: String = content_type.clone().into();
+			let etag: String = etag.into();
+			let content_type: String = content_type.into();
 
 			let mut response = actix_web::HttpResponse::Ok();
 			response.header(actix_web::http::header::ETAG, etag);
@@ -48,7 +48,7 @@ pub async fn get_item(
 			);
 			response.content_type(content_type);
 
-			return response.body(content.clone());
+			return response.body(content);
 		}
 		Ok(pontus_onyx::Item::Folder {
 			etag: folder_etag,
@@ -75,7 +75,7 @@ pub async fn get_item(
 						content_type,
 						last_modified,
 					} => {
-						let child_name: String = child_name.clone().into();
+						let child_name: String = child_name.into();
 						items_result[child_name] = serde_json::json!({
 							"ETag": etag,
 							"Content-Type": content_type,
@@ -96,7 +96,7 @@ pub async fn get_item(
 				}
 			}
 
-			let folder_etag: String = folder_etag.clone().into();
+			let folder_etag: String = folder_etag.into();
 
 			let mut response = actix_web::HttpResponse::Ok();
 			response.content_type("application/ld+json");
@@ -141,7 +141,32 @@ pub async fn get_item(
 				true,
 			);
 		}
-		Err(e) => e.to_response(origin, true),
+		Err(e) => {
+			if e.is::<pontus_onyx::database::memory::ReadError>() {
+				pontus_onyx::database::Error::to_response(
+					&*e.downcast::<pontus_onyx::database::memory::ReadError>()
+						.unwrap(),
+					origin,
+					true,
+				)
+			} else if e.is::<pontus_onyx::database::folder::ReadError>() {
+				pontus_onyx::database::Error::to_response(
+					&*e.downcast::<pontus_onyx::database::folder::ReadError>()
+						.unwrap(),
+					origin,
+					true,
+				)
+			} else {
+				pontus_onyx::database::build_http_json_response(
+					origin,
+					request.method(),
+					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+					None,
+					None,
+					true,
+				)
+			}
+		}
 	}
 }
 

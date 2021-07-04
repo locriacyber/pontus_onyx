@@ -1,16 +1,18 @@
 pub fn put(
-	_root_folder_path: &std::path::PathBuf,
-	_path: &std::path::PathBuf,
+	_root_folder_path: &std::path::Path,
+	_path: &std::path::Path,
 	_if_match: &crate::Etag,
 	_if_none_match: &[&crate::Etag],
 	_item: crate::Item,
-) -> Result<crate::Etag, UpdateError> {
-	todo!()
+) -> crate::database::put::ResultPut {
+	crate::database::put::ResultPut::Err(Box::new(PutError::InternalError))
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum UpdateError {}
-impl std::fmt::Display for UpdateError {
+pub enum PutError {
+	InternalError,
+}
+impl std::fmt::Display for PutError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		/*
 		match self {
@@ -22,6 +24,9 @@ impl std::fmt::Display for UpdateError {
 		f.write_str("TODO")
 	}
 }
-// TODO : public_display (without details)
-// TODO : to_http_response
-impl std::error::Error for UpdateError {}
+impl std::error::Error for PutError {}
+impl crate::database::Error for PutError {
+	fn to_response(&self, _: &str, _: bool) -> actix_web::HttpResponse {
+		todo!() // TODO
+	}
+}

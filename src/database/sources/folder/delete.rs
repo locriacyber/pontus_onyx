@@ -1,13 +1,15 @@
 pub fn delete(
-	_root_folder_path: &std::path::PathBuf,
-	_path: &std::path::PathBuf,
+	_root_folder_path: &std::path::Path,
+	_path: &std::path::Path,
 	_if_match: &crate::Etag,
-) -> Result<crate::Etag, DeleteError> {
-	todo!()
+) -> Result<crate::Etag, Box<dyn std::any::Any>> {
+	Err(Box::new(DeleteError::InternalError))
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum DeleteError {}
+pub enum DeleteError {
+	InternalError,
+}
 impl std::fmt::Display for DeleteError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		/*
@@ -20,6 +22,9 @@ impl std::fmt::Display for DeleteError {
 		f.write_str("TODO")
 	}
 }
-// TODO : public_display (without details)
-// TODO : to_http_response
 impl std::error::Error for DeleteError {}
+impl crate::database::Error for DeleteError {
+	fn to_response(&self, _: &str, _: bool) -> actix_web::HttpResponse {
+		todo!() // TODO
+	}
+}

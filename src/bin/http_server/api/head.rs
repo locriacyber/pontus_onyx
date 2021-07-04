@@ -27,7 +27,7 @@ pub async fn head_item(
 		Ok(pontus_onyx::Item::Document {
 			etag, content_type, ..
 		}) => {
-			let etag: String = etag.clone().into();
+			let etag: String = etag.into();
 			let mut response = actix_web::HttpResponse::Ok();
 			response.header(actix_web::http::header::ETAG, etag);
 			response.header(actix_web::http::header::CACHE_CONTROL, "no-cache");
@@ -37,7 +37,7 @@ pub async fn head_item(
 				response.header(actix_web::http::header::VARY, "Origin");
 			}
 
-			let content_type: String = content_type.clone().into();
+			let content_type: String = content_type.into();
 			response.content_type(content_type);
 
 			return response.finish();
@@ -67,7 +67,7 @@ pub async fn head_item(
 						content_type,
 						last_modified,
 					} => {
-						let child_name: String = child_name.clone().into();
+						let child_name: String = child_name.clone();
 						items_result[child_name] = serde_json::json!({
 							"ETag": etag,
 							"Content-Type": content_type,
@@ -88,7 +88,7 @@ pub async fn head_item(
 				}
 			}
 
-			let folder_etag: String = folder_etag.clone().into();
+			let folder_etag: String = folder_etag.into();
 			let mut response = actix_web::HttpResponse::Ok();
 			response.content_type("application/ld+json");
 			response.header(actix_web::http::header::ETAG, folder_etag);
@@ -111,6 +111,31 @@ pub async fn head_item(
 				false,
 			)
 		}
-		Err(e) => e.to_response(origin, false),
+		Err(e) => {
+			if e.is::<pontus_onyx::database::memory::ReadError>() {
+				pontus_onyx::database::Error::to_response(
+					&*e.downcast::<pontus_onyx::database::memory::ReadError>()
+						.unwrap(),
+					origin,
+					true,
+				)
+			} else if e.is::<pontus_onyx::database::folder::ReadError>() {
+				pontus_onyx::database::Error::to_response(
+					&*e.downcast::<pontus_onyx::database::folder::ReadError>()
+						.unwrap(),
+					origin,
+					true,
+				)
+			} else {
+				pontus_onyx::database::build_http_json_response(
+					origin,
+					request.method(),
+					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+					None,
+					None,
+					true,
+				)
+			}
+		}
 	}
 }

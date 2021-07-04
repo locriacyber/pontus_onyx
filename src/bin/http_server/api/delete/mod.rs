@@ -31,7 +31,32 @@ pub async fn delete_item(
 				true,
 			);
 		}
-		Err(e) => e.to_response(origin, true),
+		Err(e) => {
+			if e.is::<pontus_onyx::database::memory::DeleteError>() {
+				pontus_onyx::database::Error::to_response(
+					&*e.downcast::<pontus_onyx::database::memory::DeleteError>()
+						.unwrap(),
+					origin,
+					true,
+				)
+			} else if e.is::<pontus_onyx::database::folder::DeleteError>() {
+				pontus_onyx::database::Error::to_response(
+					&*e.downcast::<pontus_onyx::database::folder::DeleteError>()
+						.unwrap(),
+					origin,
+					true,
+				)
+			} else {
+				pontus_onyx::database::build_http_json_response(
+					origin,
+					request.method(),
+					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+					None,
+					None,
+					true,
+				)
+			}
+		}
 	}
 }
 

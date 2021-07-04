@@ -1,14 +1,14 @@
 pub fn read(
-	root_folder_path: &std::path::PathBuf,
-	path: &std::path::PathBuf,
-	recursive: bool,
-) -> Result<crate::Item, ReadError> {
-
-	todo!()
+	_root_folder_path: &std::path::Path,
+	_path: &std::path::Path,
+	_recursive: bool,
+) -> Result<crate::Item, Box<impl crate::database::Error>> {
+	Err(Box::new(ReadError::InternalError))
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ReadError {
+	/*
 	Conflict {
 		item_path: std::path::PathBuf,
 	},
@@ -34,16 +34,22 @@ pub enum ReadError {
 		path: std::path::PathBuf,
 	},
 	CanNotBeListed,
+	*/
+	InternalError,
 }
 impl std::fmt::Display for ReadError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		f.write_str("TODO")
 	}
 }
-// TODO : public_display (without details)
-// TODO : to_http_reponse
 impl std::error::Error for ReadError {}
+impl crate::database::Error for ReadError {
+	fn to_response(&self, _: &str, _: bool) -> actix_web::HttpResponse {
+		todo!() // TODO
+	}
+}
 
+/*
 #[cfg(test)]
 mod tests {
 	#![allow(non_snake_case)]
@@ -474,3 +480,4 @@ mod tests {
 		tmp_folder.close().unwrap();
 	}
 }
+*/

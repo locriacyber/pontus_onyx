@@ -1,20 +1,20 @@
 pub fn delete(
 	root_item: &mut crate::Item,
-	path: &std::path::PathBuf,
+	path: &std::path::Path,
 	if_match: &crate::Etag,
-) -> Result<crate::Etag, DeleteError> {
+) -> Result<crate::Etag, Box<dyn std::any::Any>> {
 	if path.ends_with("/") {
-		return Err(DeleteError::DoesNotWorksForFolders);
+		return Err(Box::new(DeleteError::DoesNotWorksForFolders));
 	}
 
 	let mut cumulated_path = std::path::PathBuf::new();
 	for path_part in path {
 		cumulated_path = cumulated_path.join(path_part);
 		if let Err(error) = crate::database::utils::is_ok(path_part.to_str().unwrap()) {
-			return Err(DeleteError::IncorrectItemName {
-				item_path: cumulated_path.clone(),
+			return Err(Box::new(DeleteError::IncorrectItemName {
+				item_path: cumulated_path,
 				error,
-			});
+			}));
 		}
 	}
 
@@ -22,9 +22,9 @@ pub fn delete(
 	for path_part in path {
 		cumulated_path = cumulated_path.join(path_part);
 		if root_item.get_child(&cumulated_path).is_none() {
-			return Err(DeleteError::NotFound {
+			return Err(Box::new(DeleteError::NotFound {
 				item_path: cumulated_path,
-			});
+			}));
 		}
 	}
 
@@ -38,14 +38,12 @@ pub fn delete(
 				crate::Item::Document {
 					etag: found_etag, ..
 				} => {
-					if !if_match.is_empty() {
-						if if_match != found_etag {
-							return Err(DeleteError::NoIfMatch {
-								item_path: path.clone(),
-								search: if_match.clone(),
-								found: found_etag.clone(),
-							});
-						}
+					if !if_match.is_empty() && if_match != found_etag {
+						return Err(Box::new(DeleteError::NoIfMatch {
+							item_path: path.to_path_buf(),
+							search: if_match.clone(),
+							found: found_etag.clone(),
+						}));
 					}
 					let old_etag = found_etag.clone();
 
@@ -89,36 +87,34 @@ pub fn delete(
 					return Ok(old_etag);
 				}
 				crate::Item::Folder { .. } => {
-					return Err(DeleteError::DoesNotWorksForFolders);
+					return Err(Box::new(DeleteError::DoesNotWorksForFolders));
 				}
 			},
 			None => {
-				return Err(DeleteError::NotFound {
+				return Err(Box::new(DeleteError::NotFound {
 					item_path: path.to_path_buf(),
-				});
+				}));
 			}
 		},
 		Some(crate::Item::Folder { content: None, .. }) => {
-			return Err(DeleteError::MissingContent {
+			return Err(Box::new(DeleteError::NoContentInside {
 				item_path: parent_path.to_path_buf(),
-			});
+			}));
 		}
 		Some(crate::Item::Document { .. }) => {
-			return Err(DeleteError::Conflict {
+			return Err(Box::new(DeleteError::Conflict {
 				item_path: parent_path.to_path_buf(),
-			});
+			}));
 		}
 		None => {
-			return Err(DeleteError::NotFound {
+			return Err(Box::new(DeleteError::NotFound {
 				item_path: parent_path.to_path_buf(),
-			});
+			}));
 		}
 	}
-
-	return Err(DeleteError::InternalError);
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum DeleteError {
 	Conflict {
 		item_path: std::path::PathBuf,
@@ -136,10 +132,9 @@ pub enum DeleteError {
 		search: crate::Etag,
 		found: crate::Etag,
 	},
-	MissingContent {
+	NoContentInside {
 		item_path: std::path::PathBuf,
 	},
-	InternalError,
 }
 impl std::fmt::Display for DeleteError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -153,9 +148,12 @@ impl std::fmt::Display for DeleteError {
 		f.write_str("TODO")
 	}
 }
-// TODO : public_display (without details)
-// TODO : to_http_response
 impl std::error::Error for DeleteError {}
+impl crate::database::Error for DeleteError {
+	fn to_response(&self, _: &str, _: bool) -> actix_web::HttpResponse {
+		todo!() // TODO
+	}
+}
 
 #[cfg(test)]
 mod tests {
@@ -269,14 +267,17 @@ mod tests {
 		let root_etag = root.get_etag().clone();
 
 		assert_eq!(
-			delete(
+			*delete(
 				&mut root,
 				&std::path::PathBuf::from("A/AA/AAA/AAAA"),
 				&crate::Etag::from(""),
-			),
-			Err(DeleteError::NotFound {
+			)
+			.unwrap_err()
+			.downcast::<DeleteError>()
+			.unwrap(),
+			DeleteError::NotFound {
 				item_path: std::path::PathBuf::from("A/")
-			})
+			}
 		);
 
 		if let crate::Item::Folder {
@@ -340,12 +341,15 @@ mod tests {
 		let (mut root, root_etag, A_etag, AA_etag, AAA_etag, AAAA_etag, _) = build_test_db();
 
 		assert_eq!(
-			delete(
+			*delete(
 				&mut root,
 				&std::path::PathBuf::from("A/AA/"),
 				&crate::Etag::from(""),
-			),
-			Err(DeleteError::DoesNotWorksForFolders),
+			)
+			.unwrap_err()
+			.downcast::<DeleteError>()
+			.unwrap(),
+			DeleteError::DoesNotWorksForFolders,
 		);
 
 		if let crate::Item::Folder {
@@ -397,16 +401,19 @@ mod tests {
 		let (mut root, root_etag, A_etag, AA_etag, AAA_etag, AAAA_etag, _) = build_test_db();
 
 		assert_eq!(
-			delete(
+			*delete(
 				&mut root,
 				&std::path::PathBuf::from("A/AA/AAA/AAAA"),
 				&crate::Etag::from("OTHER_ETAG"),
-			),
-			Err(DeleteError::NoIfMatch {
+			)
+			.unwrap_err()
+			.downcast::<DeleteError>()
+			.unwrap(),
+			DeleteError::NoIfMatch {
 				item_path: std::path::PathBuf::from("A/AA/AAA/AAAA"),
 				found: AAAA_etag.clone(),
 				search: crate::Etag::from("OTHER_ETAG")
-			})
+			}
 		);
 
 		if let crate::Item::Folder {
@@ -524,15 +531,18 @@ mod tests {
 		let root_etag = root.get_etag().clone();
 
 		assert_eq!(
-			delete(
+			*delete(
 				&mut root,
 				&std::path::PathBuf::from("A/../AA"),
 				&crate::Etag::from(""),
-			),
-			Err(DeleteError::IncorrectItemName {
+			)
+			.unwrap_err()
+			.downcast::<DeleteError>()
+			.unwrap(),
+			DeleteError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/../"),
 				error: String::from("`..` is not allowed")
-			})
+			}
 		);
 
 		if let crate::Item::Folder {

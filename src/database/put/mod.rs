@@ -1,7 +1,7 @@
 impl super::Database {
 	pub fn put(
 		&mut self,
-		path: &std::path::PathBuf,
+		path: &std::path::Path,
 		content: crate::Item,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
@@ -13,18 +13,29 @@ impl super::Database {
 				section 7.2].
 		*/
 
-		self.source
-			.put(path, if_match, if_none_match, content)
-			.map(|item| ResultPut::Created(item))
-			.unwrap_or(ResultPut::Err(ErrorPut::InternalError)) // TODO
+		self.source.put(path, if_match, if_none_match, content)
 	}
 }
 
+#[derive(Debug)]
 pub enum ResultPut {
 	Created(crate::Etag),
 	Updated(crate::Etag),
-	Err(ErrorPut),
+	Err(Box<dyn std::any::Any>),
 }
-
-mod error;
-pub use error::*;
+impl ResultPut {
+	pub fn unwrap(self) -> crate::Etag {
+		match self {
+			Self::Created(etag) => etag,
+			Self::Updated(etag) => etag,
+			Self::Err(_) => panic!(),
+		}
+	}
+	pub fn unwrap_err(self) -> Box<dyn std::any::Any> {
+		match self {
+			Self::Created(_) => panic!(),
+			Self::Updated(_) => panic!(),
+			Self::Err(e) => e,
+		}
+	}
+}

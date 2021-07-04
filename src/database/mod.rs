@@ -5,11 +5,9 @@ mod save;
 mod sources;
 mod utils;
 
-pub use delete::ErrorDelete;
-pub use get::ErrorGet;
-pub use put::{ErrorPut, ResultPut};
+pub use put::ResultPut;
 pub use save::{DataDocument, DataFolder};
-pub use sources::DataSource;
+pub use sources::*;
 
 #[derive(Debug)]
 pub struct Database {
@@ -80,4 +78,8 @@ pub fn build_http_json_response(
 	} else {
 		response.finish()
 	};
+}
+
+pub trait Error: std::fmt::Debug + std::error::Error {
+	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse;
 }

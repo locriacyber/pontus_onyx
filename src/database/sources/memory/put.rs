@@ -4,15 +4,15 @@ pub fn put(
 	if_match: &crate::Etag,
 	if_none_match: &[&crate::Etag],
 	item: crate::Item,
-) -> Result<crate::Etag, PutError> {
+) -> crate::database::put::ResultPut {
 	let mut cumultated_path = std::path::PathBuf::new();
 	for path_part in path {
 		cumultated_path = cumultated_path.join(path_part);
 		if let Err(error) = crate::database::utils::is_ok(path_part.to_str().unwrap()) {
-			return Err(PutError::IncorrectItemName {
+			return crate::database::put::ResultPut::Err(Box::new(PutError::IncorrectItemName {
 				item_path: cumultated_path,
 				error,
-			});
+			}));
 		}
 	}
 
@@ -24,31 +24,22 @@ pub fn put(
 				.into_iter()
 				.rev()
 				.skip(1)
-				.take(
-					ancestors
-						.count()
-						.checked_sub(1)
-						.unwrap_or(0)
-						.checked_sub(1)
-						.unwrap_or(0),
-				)
+				.take(ancestors.count().saturating_sub(1).saturating_sub(1))
 				.collect();
 			paths
 		};
 
 		for path_part in parents {
-			if let None = root_item.get_child(path_part) {
-				if let Some(parent) = root_item.get_child_mut(path_part.parent().unwrap()) {
-					if let crate::Item::Folder {
-						content: Some(content),
-						..
-					} = parent
-					{
-						content.insert(
-							path_part.file_name().unwrap().to_str().unwrap().to_string(),
-							Box::new(crate::Item::new_folder(vec![])),
-						);
-					}
+			if root_item.get_child(path_part).is_none() {
+				if let Some(crate::Item::Folder {
+					content: Some(content),
+					..
+				}) = root_item.get_child_mut(path_part.parent().unwrap())
+				{
+					content.insert(
+						path_part.file_name().unwrap().to_str().unwrap().to_string(),
+						Box::new(crate::Item::new_folder(vec![])),
+					);
 				}
 			}
 		}
@@ -71,18 +62,20 @@ pub fn put(
 				{
 					let new_etag = crate::Etag::new();
 
-					if if_match.trim() != "" {
-						if etag != if_match && if_match != "*" {
-							return Err(PutError::NoIfMatch {
+					if if_match.trim() != "" && (etag != if_match && if_match != "*") {
+						return crate::database::put::ResultPut::Err(Box::new(
+							PutError::NoIfMatch {
 								item_path: path.strip_prefix("/").unwrap_or(&path).into(),
 								found: etag.clone(),
 								search: if_match.clone(),
-							});
-						}
+							},
+						));
 					}
 
 					if content_type == &new_content_type && content == &new_content {
-						return Err(PutError::ContentNotChanged);
+						return crate::database::put::ResultPut::Err(Box::new(
+							PutError::ContentNotChanged,
+						));
 					}
 
 					*etag = new_etag.clone();
@@ -97,7 +90,7 @@ pub fn put(
 							paths = paths
 								.into_iter()
 								.rev()
-								.take(ancestors.count().checked_sub(1).unwrap_or(0))
+								.take(ancestors.count().saturating_sub(1))
 								.collect();
 							paths
 						};
@@ -111,18 +104,24 @@ pub fn put(
 									*etag = crate::Etag::new();
 								}
 								None => {
-									return Err(PutError::InternalError);
+									return crate::database::put::ResultPut::Err(Box::new(
+										PutError::InternalError,
+									));
 								}
 							}
 						}
 					}
 
-					return Ok(new_etag);
+					return crate::database::put::ResultPut::Updated(new_etag);
 				} else {
-					return Err(PutError::DoesNotWorksForFolders);
+					return crate::database::put::ResultPut::Err(Box::new(
+						PutError::DoesNotWorksForFolders,
+					));
 				}
 			} else {
-				return Err(PutError::DoesNotWorksForFolders);
+				return crate::database::put::ResultPut::Err(Box::new(
+					PutError::DoesNotWorksForFolders,
+				));
 			}
 		}
 		Err(super::ReadError::NotFound { .. }) => {
@@ -163,7 +162,7 @@ pub fn put(
 									paths = paths
 										.into_iter()
 										.rev()
-										.take(ancestors.count().checked_sub(1).unwrap_or(0))
+										.take(ancestors.count().saturating_sub(1))
 										.collect();
 									paths
 								};
@@ -177,68 +176,82 @@ pub fn put(
 											*etag = crate::Etag::new();
 										}
 										None => {
-											return Err(PutError::InternalError);
+											return crate::database::put::ResultPut::Err(Box::new(
+												PutError::InternalError,
+											));
 										}
 									}
 								}
 							}
 
-							return Ok(new_etag);
+							return crate::database::put::ResultPut::Created(new_etag);
 						}
 					}
 					crate::Item::Folder { content: None, .. } => {
-						return Err(PutError::MissingContent {
-							item_path: path.to_path_buf(),
-						});
+						return crate::database::put::ResultPut::Err(Box::new(
+							PutError::NoContentInside {
+								item_path: path.to_path_buf(),
+							},
+						));
 					}
 					_ => {
-						return Err(PutError::InternalError);
+						return crate::database::put::ResultPut::Err(Box::new(
+							PutError::InternalError,
+						));
 					}
 				},
 				Err(error) => {
-					return Err(PutError::CanNotFetchParent {
-						item_path: path.to_path_buf(),
-						error,
-					});
+					return crate::database::put::ResultPut::Err(Box::new(
+						PutError::CanNotFetchParent {
+							item_path: path.to_path_buf(),
+							error,
+						},
+					));
 				}
 			}
 		}
 		Err(super::ReadError::CanNotBeListed) => {
-			return Err(PutError::DoesNotWorksForFolders);
+			return crate::database::put::ResultPut::Err(Box::new(
+				PutError::DoesNotWorksForFolders,
+			));
 		}
 		Err(super::ReadError::IncorrectItemName { item_path, error }) => {
-			return Err(PutError::IncorrectItemName { item_path, error });
+			return crate::database::put::ResultPut::Err(Box::new(PutError::IncorrectItemName {
+				item_path,
+				error,
+			}));
 		}
 		Err(super::ReadError::Conflict { item_path }) => {
-			return Err(PutError::Conflict { item_path });
+			return crate::database::put::ResultPut::Err(Box::new(PutError::Conflict {
+				item_path,
+			}));
 		}
 		Err(super::ReadError::NoContentInside { item_path }) => {
-			return Err(PutError::NoContentInside { item_path });
+			return crate::database::put::ResultPut::Err(Box::new(PutError::NoContentInside {
+				item_path,
+			}));
 		}
 		Err(super::ReadError::NoIfMatch {
 			found,
 			item_path,
 			search,
 		}) => {
-			return Err(PutError::NoIfMatch {
+			return crate::database::put::ResultPut::Err(Box::new(PutError::NoIfMatch {
 				found,
 				item_path,
 				search,
-			});
-		}
-		Err(super::ReadError::MissingContent { item_path }) => {
-			return Err(PutError::MissingContent { item_path });
+			}));
 		}
 		Err(super::ReadError::IfNoneMatch {
 			item_path,
 			search,
 			found,
 		}) => {
-			return Err(PutError::IfNoneMatch {
+			return crate::database::put::ResultPut::Err(Box::new(PutError::IfNoneMatch {
 				item_path,
 				search,
 				found,
-			});
+			}));
 		}
 	}
 
@@ -274,9 +287,6 @@ pub enum PutError {
 		item_path: std::path::PathBuf,
 		error: super::ReadError,
 	},
-	MissingContent {
-		item_path: std::path::PathBuf,
-	},
 }
 impl std::fmt::Display for PutError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -290,9 +300,12 @@ impl std::fmt::Display for PutError {
 		f.write_str("TODO")
 	}
 }
-// TODO : public_display (without details)
-// TODO : to_http_response
 impl std::error::Error for PutError {}
+impl crate::database::Error for PutError {
+	fn to_response(&self, _: &str, _: bool) -> actix_web::HttpResponse {
+		todo!() // TODO
+	}
+}
 
 #[cfg(test)]
 mod tests {
@@ -431,14 +444,17 @@ mod tests {
 		let (mut root, root_etag, A_etag, AA_etag) = build_test_db();
 
 		assert_eq!(
-			put(
+			*put(
 				&mut root,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AA", "text/plain")
-			),
-			Err(PutError::ContentNotChanged)
+			)
+			.unwrap_err()
+			.downcast::<PutError>()
+			.unwrap(),
+			PutError::ContentNotChanged
 		);
 
 		if let crate::Item::Folder {
@@ -484,14 +500,17 @@ mod tests {
 		let root_etag = root.get_etag().clone();
 
 		assert_eq!(
-			put(
+			*put(
 				&mut root,
 				&std::path::PathBuf::from(""),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_folder(vec![])
-			),
-			Err(PutError::DoesNotWorksForFolders)
+			)
+			.unwrap_err()
+			.downcast::<PutError>()
+			.unwrap(),
+			PutError::DoesNotWorksForFolders
 		);
 		if let crate::Item::Folder {
 			etag,
@@ -560,18 +579,21 @@ mod tests {
 		let (mut root, root_etag, A_etag, AA_etag) = build_test_db();
 
 		assert_eq!(
-			put(
+			*put(
 				&mut root,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				crate::Item::new_doc(b"AA", "text/plain"),
-			),
-			Err(PutError::IfNoneMatch {
+			)
+			.unwrap_err()
+			.downcast::<PutError>()
+			.unwrap(),
+			PutError::IfNoneMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				found: AA_etag.clone(),
 				search: crate::Etag::from("*"),
-			})
+			}
 		);
 
 		if let crate::Item::Folder {
@@ -616,18 +638,21 @@ mod tests {
 		let (mut root, root_etag, A_etag, AA_etag) = build_test_db();
 
 		assert_eq!(
-			put(
+			*put(
 				&mut root,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&[],
 				crate::Item::new_doc(b"AA2", "text/plain2"),
-			),
-			Err(PutError::NoIfMatch {
+			)
+			.unwrap_err()
+			.downcast::<PutError>()
+			.unwrap(),
+			PutError::NoIfMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				found: AA_etag.clone(),
 				search: crate::Etag::from("ANOTHER_ETAG"),
-			})
+			}
 		);
 
 		if let crate::Item::Folder {
@@ -719,9 +744,9 @@ mod tests {
 
 	#[test]
 	fn put_with_if_match_all() {
-		let (mut root, root_etag, A_etag, mut AA_etag) = build_test_db();
+		let (mut root, root_etag, A_etag, old_AA_etag) = build_test_db();
 
-		AA_etag = put(
+		let AA_etag = put(
 			&mut root,
 			&std::path::PathBuf::from("A/AA"),
 			&crate::Etag::from("*"),
@@ -729,6 +754,8 @@ mod tests {
 			crate::Item::new_doc(b"AA2", "text/plain2"),
 		)
 		.unwrap();
+
+		assert_ne!(old_AA_etag, AA_etag);
 
 		if let crate::Item::Folder {
 			etag,
@@ -772,16 +799,19 @@ mod tests {
 		let (mut root, root_etag, A_etag, AA_etag) = build_test_db();
 
 		assert_eq!(
-			put(
+			*put(
 				&mut root,
 				&std::path::PathBuf::from("A"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"A", "text/plain")
-			),
-			Err(PutError::Conflict {
+			)
+			.unwrap_err()
+			.downcast::<PutError>()
+			.unwrap(),
+			PutError::Conflict {
 				item_path: std::path::PathBuf::from("A")
-			})
+			}
 		);
 
 		if let crate::Item::Folder {
@@ -884,17 +914,20 @@ mod tests {
 		let root_etag = root.get_etag().clone();
 
 		assert_eq!(
-			put(
+			*put(
 				&mut root,
 				&std::path::PathBuf::from("A/../AA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AA", "text/plain"),
-			),
-			Err(PutError::IncorrectItemName {
+			)
+			.unwrap_err()
+			.downcast::<PutError>()
+			.unwrap(),
+			PutError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/../"),
 				error: String::from("`..` is not allowed")
-			})
+			}
 		);
 
 		if let crate::Item::Folder {

@@ -120,11 +120,8 @@ impl BaseClient {
 		&self,
 		_path: &str,
 		_max_age: Option<usize>,
-	) -> Box<dyn std::future::Future<Output = Result<serde_json::Value, crate::database::ErrorGet>>>
-	{
-		Box::new(std::future::ready(Err(
-			crate::database::ErrorGet::WrongPath,
-		))) // todo
+	) -> Box<dyn std::future::Future<Output = Result<serde_json::Value, Box<dyn std::any::Any>>>> {
+		todo!()
 	}
 	/// Get the file at the given path. A file is raw data, as opposed to a JSON object (use `getObject()` for that).
 	///
@@ -143,11 +140,8 @@ impl BaseClient {
 		&self,
 		_path: &str,
 		_max_age: Option<usize>,
-	) -> Box<dyn std::future::Future<Output = Result<(String, Vec<u8>), crate::database::ErrorGet>>>
-	{
-		Box::new(std::future::ready(Err(
-			crate::database::ErrorGet::WrongPath,
-		))) // todo
+	) -> Box<dyn std::future::Future<Output = Result<(String, Vec<u8>), Box<dyn std::any::Any>>>> {
+		todo!()
 	}
 }
 impl BaseClient {
@@ -205,13 +199,11 @@ impl BaseClient {
 		_type_alias: &str,
 		_path: &str,
 		_object: Object,
-	) -> Box<dyn std::future::Future<Output = Result<String, crate::database::ErrorPut>>>
+	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>>
 	where
 		Object: serde::ser::Serialize,
 	{
-		Box::new(std::future::ready(Err(
-			crate::database::ErrorPut::WrongPath,
-		))) // todo
+		todo!()
 	}
 	/// Store raw data at a given path.
 	///
@@ -236,10 +228,8 @@ impl BaseClient {
 		_mime_type: &str,
 		_path: &str,
 		_body: &[u8],
-	) -> Box<dyn std::future::Future<Output = Result<String, crate::database::ErrorPut>>> {
-		Box::new(std::future::ready(Err(
-			crate::database::ErrorPut::WrongPath,
-		))) // todo
+	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>> {
+		todo!()
 	}
 	/// Remove node at given path from storage. Triggers synchronization.
 	///
@@ -249,10 +239,8 @@ impl BaseClient {
 	pub fn remove(
 		&mut self,
 		_path: &str,
-	) -> Box<dyn std::future::Future<Output = Result<String, crate::database::ErrorDelete>>> {
-		Box::new(std::future::ready(Err(
-			crate::database::ErrorDelete::WrongPath,
-		))) // todo
+	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>> {
+		todo!()
 	}
 }
 impl BaseClient {

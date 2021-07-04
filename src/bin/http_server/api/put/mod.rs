@@ -78,7 +78,32 @@ pub async fn put_item(
 				true,
 			);
 		}
-		pontus_onyx::database::ResultPut::Err(e) => e.to_response(origin, true),
+		pontus_onyx::database::ResultPut::Err(e) => {
+			if e.is::<pontus_onyx::database::memory::PutError>() {
+				pontus_onyx::database::Error::to_response(
+					&*e.downcast::<pontus_onyx::database::memory::PutError>()
+						.unwrap(),
+					origin,
+					true,
+				)
+			} else if e.is::<pontus_onyx::database::folder::PutError>() {
+				pontus_onyx::database::Error::to_response(
+					&*e.downcast::<pontus_onyx::database::folder::PutError>()
+						.unwrap(),
+					origin,
+					true,
+				)
+			} else {
+				pontus_onyx::database::build_http_json_response(
+					origin,
+					request.method(),
+					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+					None,
+					None,
+					true,
+				)
+			}
+		}
 	}
 }
 
