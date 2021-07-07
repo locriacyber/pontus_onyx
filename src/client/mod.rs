@@ -12,7 +12,7 @@ TODO :
 	can however be reused in subsequent interactions with the same
 	client, as long as that client is still trusted. Example:
 	'ofb24f1ac3973e70j6vts19qr9v2eei'
-* <storage_api>, always 'draft-dejong-remotestorage-16' for this
+* <storage_api>, always 'draft-dejong-remotestorage-17' for this
 	alternative version of the specification.
 
 client request = <storage_root> with

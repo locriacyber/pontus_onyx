@@ -14,7 +14,7 @@ pub async fn webfinger_handle(
 		"http://tools.ietf.org/html/rfc6749#section-4.2":"{}"
 	}}
 }}"#,
-		"draft-dejong-remotestorage-16", "TODO"
+		"draft-dejong-remotestorage-17", "TODO"
 	);
 
 	match &query.resource {
@@ -55,7 +55,7 @@ pub async fn webfinger_handle(
 						format!("{}storage/{}", server_addr, user),
 						"http://tools.ietf.org/id/draft-dejong-remotestorage",
 						"http://remotestorage.io/spec/version",
-						"draft-dejong-remotestorage-16",
+						"draft-dejong-remotestorage-17",
 						"http://tools.ietf.org/html/rfc6749#section-4.2",
 						format!("{}oauth/{}", server_addr, user),
 						"http://tools.ietf.org/html/rfc6750#section-2.3", "null",
