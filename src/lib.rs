@@ -128,6 +128,11 @@ impl std::fmt::Debug for Etag {
 		f.write_fmt(format_args!("Etag(\"{}\")", self.0))
 	}
 }
+impl std::fmt::Display for Etag {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		self.0.fmt(f)
+	}
+}
 impl Etag {
 	#![allow(clippy::new_without_default)]
 	pub fn new() -> Self {

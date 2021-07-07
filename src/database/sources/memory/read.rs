@@ -355,20 +355,89 @@ pub enum ReadError {
 }
 impl std::fmt::Display for ReadError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-		/*
 		match self {
-			Self::Conflict{item_path} => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path)),
-			Self::NotFound{item_path} => f.write_fmt(format_args!("path not found : `{}`", item_path)),
-			Self::NoContentInside{item_path} => f.write_fmt(format_args!("no content found in `{}`", item_path)),
+			Self::Conflict{item_path} => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
+			Self::NotFound{item_path} => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
+			Self::NoContentInside{item_path} => f.write_fmt(format_args!("no content found in `{}`", item_path.to_string_lossy())),
+			Self::IncorrectItemName{item_path, error} => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
+			Self::CanNotBeListed => f.write_fmt(format_args!("this folder can not be listed")),
+			Self::NoIfMatch{item_path, search, found} => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
+			Self::IfNoneMatch{item_path, search, found} => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
 		}
-		*/
-		f.write_str("TODO")
 	}
 }
 impl std::error::Error for ReadError {}
 impl crate::database::Error for ReadError {
-	fn to_response(&self, _: &str, _: bool) -> actix_web::HttpResponse {
-		todo!() // TODO
+	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
+		match self {
+			Self::Conflict { item_path: _ } => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::CONFLICT,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::NotFound { item_path: _ } => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::NOT_FOUND,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::NoContentInside { item_path: _ } => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::IncorrectItemName {
+				item_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::BAD_REQUEST,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::CanNotBeListed => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::UNAUTHORIZED,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::NoIfMatch {
+				item_path: _,
+				search: _,
+				found: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::PRECONDITION_FAILED,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::IfNoneMatch {
+				item_path: _,
+				search: _,
+				found: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::PRECONDITION_FAILED,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+		}
 	}
 }
 

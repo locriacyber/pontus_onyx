@@ -270,19 +270,19 @@ pub enum PutError {
 		item_path: std::path::PathBuf,
 		error: String,
 	},
-	DoesNotWorksForFolders,
-	InternalError,
-	ContentNotChanged,
-	IfNoneMatch {
-		item_path: std::path::PathBuf,
-		search: crate::Etag,
-		found: crate::Etag,
-	},
 	NoIfMatch {
 		item_path: std::path::PathBuf,
 		search: crate::Etag,
 		found: crate::Etag,
 	},
+	IfNoneMatch {
+		item_path: std::path::PathBuf,
+		search: crate::Etag,
+		found: crate::Etag,
+	},
+	DoesNotWorksForFolders,
+	InternalError,
+	ContentNotChanged,
 	CanNotFetchParent {
 		item_path: std::path::PathBuf,
 		error: super::ReadError,
@@ -290,20 +290,110 @@ pub enum PutError {
 }
 impl std::fmt::Display for PutError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-		/*
 		match self {
-			Self::Conflict{item_path} => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path)),
-			Self::NotFound{item_path} => f.write_fmt(format_args!("path not found : `{}`", item_path)),
-			Self::NoContentInside{item_path} => f.write_fmt(format_args!("no content found in `{}`", item_path)),
+			Self::Conflict{item_path} => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
+			Self::NoContentInside{item_path} => f.write_fmt(format_args!("no content found in `{}`", item_path.to_string_lossy())),
+			Self::IncorrectItemName{item_path, error} => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
+			Self::NoIfMatch{item_path, search, found} => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
+			Self::IfNoneMatch{item_path, search, found} => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
+			Self::DoesNotWorksForFolders => f.write_str("this method does not works on folders"),
+			Self::InternalError => f.write_str("internal server error"),
+			Self::ContentNotChanged => f.write_str("content not changed"),
+			Self::CanNotFetchParent { item_path, error } => f.write_fmt(format_args!("can not fetch parent of `{}`, because : `{}`", item_path.to_string_lossy(), error)),
 		}
-		*/
-		f.write_str("TODO")
 	}
 }
 impl std::error::Error for PutError {}
 impl crate::database::Error for PutError {
-	fn to_response(&self, _: &str, _: bool) -> actix_web::HttpResponse {
-		todo!() // TODO
+	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
+		match self {
+			Self::Conflict { item_path: _ } => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::CONFLICT,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::NoContentInside { item_path: _ } => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::IncorrectItemName {
+				item_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::BAD_REQUEST,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::NoIfMatch {
+				item_path: _,
+				search: _,
+				found: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::PRECONDITION_FAILED,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::IfNoneMatch {
+				item_path: _,
+				search: _,
+				found: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::PRECONDITION_FAILED,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::DoesNotWorksForFolders => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::BAD_REQUEST,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::InternalError => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::ContentNotChanged => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::NOT_MODIFIED,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+			Self::CanNotFetchParent {
+				item_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				Some(format!("{}", self)),
+				should_have_body,
+			),
+		}
 	}
 }
 
