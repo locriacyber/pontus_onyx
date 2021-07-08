@@ -34,8 +34,7 @@ impl BaseClient {
 	pub fn new() -> Self {
 		todo!()
 	}
-}
-impl BaseClient {
+
 	/// Instantiate a new client, scoped to a subpath of the current client’s path.
 	///
 	/// # Arguments
@@ -45,20 +44,20 @@ impl BaseClient {
 	/// # Returns
 	///
 	/// A new client operating on a subpath of the current base path.
-	pub fn scope(&self, _path: &str) -> Self {
+	pub fn scope(&self, _path: &std::path::Path) -> Self {
 		todo!()
 	}
+
 	/// Set caching strategy for a given path and its children.
 	///
 	/// # Arguments
 	///
 	/// - path : path to cache
 	/// - strategy : caching strategy.
-	pub fn cache(&self, _path: &str, _strategy: CacheStrategy) -> Self {
+	pub fn cache(&self, _path: &std::path::Path, _strategy: CacheStrategy) -> Self {
 		todo!()
 	}
-}
-impl BaseClient {
+
 	/// Get a list of child nodes below a given path.
 	///
 	/// # Arguments
@@ -76,16 +75,19 @@ impl BaseClient {
 	/// # Example
 	///
 	/// ```
-	/// let client = BaseClient::new();
-	/// let listing = client.get_listing("", None).await;
+	/// async {
+	///     let client = pontus_onyx::client::BaseClient::new();
+	///     let listing = client.get_listing(&std::path::PathBuf::from(""), None).await;
+	/// };
 	/// ```
-	pub fn get_listing(
+	pub async fn get_listing(
 		&self,
-		_path: &str,
-		_max_age: Option<usize>,
+		_path: &std::path::Path,
+		_max_age: Option<std::time::Duration>,
 	) -> Box<dyn std::future::Future<Output = Vec<crate::Item>>> {
-		Box::new(std::future::ready(vec![])) // todo
+		todo!()
 	}
+
 	/// Get all objects directly below a given path.
 	///
 	/// # Arguments
@@ -98,11 +100,12 @@ impl BaseClient {
 	/// For items that are not JSON-stringified objects (e.g. stored using storeFile instead of storeObject), the object’s value is filled in with true.
 	pub fn get_all(
 		&self,
-		_path: &str,
-		_max_age: Option<usize>,
+		_path: &std::path::Path,
+		_max_age: Option<std::time::Duration>,
 	) -> Box<dyn std::future::Future<Output = Vec<crate::Item>>> {
-		Box::new(std::future::ready(vec![])) // todo
+		todo!()
 	}
+
 	/// Get a JSON object from the given path.
 	///
 	/// # Arguments
@@ -113,16 +116,19 @@ impl BaseClient {
 	/// # Example
 	///
 	/// ```
-	/// let client = BaseClient::new();
-	/// let listing = client.get_object("/path/to/object", None).await;
+	/// async {
+	///     let client = pontus_onyx::client::BaseClient::new();
+	///     let listing = client.get_object(&std::path::PathBuf::from("/path/to/object"), None).await;
+	/// };
 	/// ```
-	pub fn get_object(
+	pub async fn get_object(
 		&self,
-		_path: &str,
-		_max_age: Option<usize>,
+		_path: &std::path::Path,
+		_max_age: Option<std::time::Duration>,
 	) -> Box<dyn std::future::Future<Output = Result<serde_json::Value, Box<dyn std::any::Any>>>> {
 		todo!()
 	}
+
 	/// Get the file at the given path. A file is raw data, as opposed to a JSON object (use `getObject()` for that).
 	///
 	/// # Arguments
@@ -133,18 +139,19 @@ impl BaseClient {
 	/// # Example
 	///
 	/// ```
-	/// let client = BaseClient::new();
-	/// let file = client.get_file("path/to/some/image").await;
+	/// async {
+	///     let client = pontus_onyx::client::BaseClient::new();
+	///     let file = client.get_file(&std::path::PathBuf::from("path/to/some/image"), None).await;
+	/// };
 	/// ```
-	pub fn get_file(
+	pub async fn get_file(
 		&self,
-		_path: &str,
-		_max_age: Option<usize>,
+		_path: &std::path::Path,
+		_max_age: Option<std::time::Duration>,
 	) -> Box<dyn std::future::Future<Output = Result<(String, Vec<u8>), Box<dyn std::any::Any>>>> {
 		todo!()
 	}
-}
-impl BaseClient {
+
 	/// Retrieve full URL of a document. Useful for example for sharing the public URL of an item in the `/public` folder.
 	///
 	/// # Arguments
@@ -154,11 +161,10 @@ impl BaseClient {
 	/// # Returns
 	///
 	/// The full URL of the item, including the storage origin
-	pub fn get_item_url(&self, _path: &str) -> &str {
+	pub fn get_item_url(&self, _path: &std::path::Path) -> &str {
 		todo!()
 	}
-}
-impl BaseClient {
+
 	/// Store object at given path. Triggers synchronization.
 	///
 	/// See `declareType()`
@@ -189,15 +195,17 @@ impl BaseClient {
 	///     ],
 	/// };
 	///
-	/// let path = ulid::Ulid::new();
+	/// let path = std::path::PathBuf::from("/bookmark.json");
 	///
-	/// let mut client = RemoteStorage::new();
-	/// client.store_object("bookmark", path, bookmark).await;
+	/// let mut client = pontus_onyx::client::BaseClient::new();
+	/// async {
+	///     client.store_object("bookmark", &path, bookmark).await;
+	/// };
 	/// ```
-	pub fn store_object<Object>(
+	pub async fn store_object<Object>(
 		&mut self,
 		_type_alias: &str,
-		_path: &str,
+		_path: &std::path::Path,
 		_object: Object,
 	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>>
 	where
@@ -205,6 +213,7 @@ impl BaseClient {
 	{
 		todo!()
 	}
+
 	/// Store raw data at a given path.
 	///
 	/// # Arguments
@@ -220,17 +229,20 @@ impl BaseClient {
 	/// # Example
 	///
 	/// ```
-	/// let mut client = RemoteStorage::new();
-	/// client.store_file("text/html", "index.html", b"<h1>Hello World!</h1>").await;
+	/// async {
+	///     let mut client = pontus_onyx::client::BaseClient::new();
+	///     client.store_file(&pontus_onyx::ContentType::from("text/html"), &std::path::PathBuf::from("index.html"), b"<h1>Hello World!</h1>").await;
+	/// };
 	/// ````
-	pub fn store_file(
+	pub async fn store_file(
 		&mut self,
-		_mime_type: &str,
-		_path: &str,
+		_mime_type: &crate::ContentType,
+		_path: &std::path::Path,
 		_body: &[u8],
 	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>> {
 		todo!()
 	}
+
 	/// Remove node at given path from storage. Triggers synchronization.
 	///
 	/// # Arguments
@@ -238,12 +250,11 @@ impl BaseClient {
 	/// - path : path relative to the module root.
 	pub fn remove(
 		&mut self,
-		_path: &str,
+		_path: &std::path::Path,
 	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>> {
 		todo!()
 	}
-}
-impl BaseClient {
+
 	/// `BaseClient` offers a single event, named change, which you can add a handler for using this function.
 	///
 	/// Using this event, you can stay informed about data changes, both remote (from other devices or browsers), as well as locally (e.g. other browser tabs).
@@ -252,14 +263,12 @@ impl BaseClient {
 	pub fn on_change(&mut self, _listener: Box<dyn FnMut(ChangeEvent)>) {
 		todo!()
 	}
-}
-impl BaseClient {
+
 	/// TODO: document
-	pub fn flush(&mut self, _path: &str) {
+	pub fn flush(&mut self, _path: &std::path::Path) {
 		todo!()
 	}
-}
-impl BaseClient {
+
 	/// Declare a remoteStorage object type using a JSON schema.
 	///
 	/// Visit [http://json-schema.org](http://json-schema.org) for details on how to use JSON Schema.
@@ -272,6 +281,7 @@ impl BaseClient {
 	pub fn declare_type(&mut self, _alias: &str, _uri: Option<&str>, _schema: serde_json::Value) {
 		todo!()
 	}
+
 	/// Validate an object against the associated schema.
 	///
 	/// # Arguments
@@ -284,9 +294,9 @@ impl BaseClient {
 
 pub struct ChangeEvent {
 	/// Absolute path of the changed node, from the storage root
-	pub path: String,
+	pub path: std::path::PathBuf,
 	/// Path of the changed node, relative to this baseclient's scope root
-	pub relative_path: String,
+	pub relative_path: std::path::PathBuf,
 	/// See origin descriptions below
 	pub origin: EventOrigin,
 	/// Old body of the changed node (local version in conflicts; undefined if creation)

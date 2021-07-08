@@ -38,7 +38,7 @@ pub fn delete(
 				crate::Item::Document {
 					etag: found_etag, ..
 				} => {
-					if !if_match.is_empty() && if_match != found_etag {
+					if !if_match.is_empty() && if_match.trim() != "*" && if_match != found_etag {
 						return Err(Box::new(DeleteError::NoIfMatch {
 							item_path: path.to_path_buf(),
 							search: if_match.clone(),
@@ -87,7 +87,20 @@ pub fn delete(
 					return Ok(old_etag);
 				}
 				crate::Item::Folder { .. } => {
-					return Err(Box::new(DeleteError::DoesNotWorksForFolders));
+					if cumulated_path
+						.as_os_str()
+						.to_str()
+						.unwrap()
+						.trim()
+						.replace(std::path::MAIN_SEPARATOR, "/")
+						== path.as_os_str().to_str().unwrap().trim()
+					{
+						return Err(Box::new(DeleteError::Conflict {
+							item_path: cumulated_path,
+						}));
+					} else {
+						return Err(Box::new(DeleteError::DoesNotWorksForFolders));
+					}
 				}
 			},
 			None => {
@@ -546,6 +559,106 @@ mod tests {
 				assert!(!content.is_empty());
 
 				assert_eq!(content.get("AA"), None);
+				assert!(content.get("AB").is_some());
+			} else {
+				panic!();
+			}
+		} else {
+			panic!();
+		}
+	}
+
+	#[test]
+	fn delete_with_if_match_all() {
+		let (mut root, root_etag, A_etag, _, _, AAAA_etag, _) = build_test_db();
+
+		let old_AAAA_etag = delete(
+			&mut root,
+			&std::path::PathBuf::from("A/AA/AAA/AAAA"),
+			&crate::Etag::from("*"),
+		)
+		.unwrap();
+
+		assert_eq!(old_AAAA_etag, AAAA_etag);
+
+		if let crate::Item::Folder {
+			etag,
+			content: Some(content),
+		} = &root
+		{
+			assert_ne!(etag, &root_etag);
+			assert!(!content.is_empty());
+
+			if let crate::Item::Folder {
+				etag,
+				content: Some(content),
+			} = &**content.get("A").unwrap()
+			{
+				assert_ne!(etag, &A_etag);
+				assert!(!content.is_empty());
+
+				assert_eq!(content.get("AA"), None);
+				assert!(content.get("AB").is_some());
+			} else {
+				panic!();
+			}
+		} else {
+			panic!();
+		}
+	}
+
+	#[test]
+	fn delete_with_existing_folder_conflict() {
+		let (mut root, root_etag, A_etag, AA_etag, AAA_etag, _, _) = build_test_db();
+
+		assert_eq!(
+			*delete(
+				&mut root,
+				&std::path::PathBuf::from("A/AA"),
+				&crate::Etag::from(""),
+			)
+			.unwrap_err()
+			.downcast::<DeleteError>()
+			.unwrap(),
+			DeleteError::Conflict {
+				item_path: std::path::PathBuf::from("A/AA/")
+			}
+		);
+
+		if let crate::Item::Folder {
+			etag,
+			content: Some(content),
+		} = &root
+		{
+			assert_eq!(etag, &root_etag);
+			assert!(!content.is_empty());
+
+			if let crate::Item::Folder {
+				etag,
+				content: Some(content),
+			} = &**content.get("A").unwrap()
+			{
+				assert_eq!(etag, &A_etag);
+				assert!(!content.is_empty());
+
+				if let crate::Item::Folder {
+					etag,
+					content: Some(content),
+				} = &**content.get("AA").unwrap()
+				{
+					assert_eq!(etag, &AA_etag);
+					assert!(!content.is_empty());
+
+					if let crate::Item::Folder {
+						etag,
+						content: Some(content),
+					} = &**content.get("AAA").unwrap()
+					{
+						assert_eq!(etag, &AAA_etag);
+						assert!(!content.is_empty());
+					}
+				}
+
 				assert!(content.get("AB").is_some());
 			} else {
 				panic!();

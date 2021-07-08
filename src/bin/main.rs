@@ -16,6 +16,8 @@ TODO : continue to :
 
 // TODO : anti brute-force for auth & /public/
 
+// TODO : gracefull panic (like `human_panic` crate but compatible with async) ?
+
 #[cfg(feature = "server_bin")]
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

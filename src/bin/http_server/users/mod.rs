@@ -27,8 +27,7 @@ impl Users {
 
 		Self { salt, list: vec![] }
 	}
-}
-impl Users {
+
 	pub fn check(&self, username: &str, password: &mut String) -> bool {
 		let mut hasher = hmac_sha512::Hash::new();
 		hasher.update(self.salt.as_bytes());
@@ -43,15 +42,13 @@ impl Users {
 			None => false,
 		}
 	}
-}
-/*
-impl Users {
+
+	/*
 	pub fn get_usernames(&self) -> Vec<&String> {
 		self.list.iter().map(|user| &user.name).collect()
 	}
-}
-*/
-impl Users {
+	*/
+
 	pub fn insert(&mut self, username: &str, password: &mut String) -> Result<(), String> {
 		let mut hasher = hmac_sha512::Hash::new();
 		hasher.update(self.salt.as_bytes());
@@ -72,6 +69,7 @@ impl Users {
 
 		return Ok(());
 	}
+
 	pub fn add_right(&mut self, username: &str, right: UserRight) -> Result<(), String> {
 		match self.list.iter_mut().find(|user| user.name == username) {
 			Some(user) => {
@@ -85,6 +83,7 @@ impl Users {
 			None => Err(String::from("user not found")),
 		}
 	}
+
 	/*
 	pub fn remove_right(&mut self, username: &str, right: UserRight) -> Result<(), String> {
 		match self.list.iter_mut().find(|user| user.name == username) {

@@ -48,12 +48,7 @@ async fn basics() {
 			StatusCode::NOT_FOUND,
 		),
 		(030, Method::GET, "/storage/user/a/b/c", StatusCode::OK),
-		(
-			040,
-			Method::DELETE,
-			"/storage/user/a",
-			StatusCode::BAD_REQUEST,
-		),
+		(040, Method::DELETE, "/storage/user/a", StatusCode::CONFLICT),
 		(
 			050,
 			Method::DELETE,

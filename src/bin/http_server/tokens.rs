@@ -95,8 +95,7 @@ impl AccessBearer {
 			emit_time: std::time::Instant::now(),
 		}
 	}
-}
-impl AccessBearer {
+
 	pub fn get_name(&self) -> &str {
 		&self.name
 	}

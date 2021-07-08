@@ -327,22 +327,25 @@ impl OauthFormToken {
 
 		Self { ip, forged, value }
 	}
-}
-impl OauthFormToken {
+
 	/*
 	pub fn get_ip(&self) -> &std::net::SocketAddr {
 		&self.ip
 	}
+
 	pub fn get_forged(&self) -> &std::time::Instant {
 		&self.forged
 	}
 	*/
+
 	pub fn get_value(&self) -> &str {
 		&self.value
 	}
+
 	pub fn has_expirated(&self) -> bool {
 		(std::time::Instant::now() - self.forged) == std::time::Duration::from_secs(5 * 60)
 	}
+
 	pub fn should_be_cleaned(&self, ip: &std::net::SocketAddr) -> bool {
 		if self.has_expirated() {
 			return true;

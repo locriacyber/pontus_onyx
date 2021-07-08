@@ -7,60 +7,6 @@ pub mod client;
 #[cfg(feature = "server_lib")]
 pub mod database;
 
-#[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
-#[serde(from = "String", into = "String")]
-pub struct ItemPath(String);
-impl From<String> for ItemPath {
-	fn from(input: String) -> Self {
-		Self(input)
-	}
-}
-impl From<&str> for ItemPath {
-	fn from(input: &str) -> Self {
-		Self(String::from(input))
-	}
-}
-impl From<ItemPath> for String {
-	fn from(input: ItemPath) -> Self {
-		input.0
-	}
-}
-impl std::cmp::PartialEq<&str> for ItemPath {
-	fn eq(&self, other: &&str) -> bool {
-		self.0 == *other
-	}
-}
-impl std::cmp::PartialEq<&str> for &ItemPath {
-	fn eq(&self, other: &&str) -> bool {
-		self.0 == *other
-	}
-}
-impl std::fmt::Display for ItemPath {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-		self.0.fmt(f)
-	}
-}
-impl std::fmt::Debug for ItemPath {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-		f.write_fmt(format_args!("ItemPath(\"{}\")", self.0))
-	}
-}
-impl std::ops::AddAssign<&str> for ItemPath {
-	fn add_assign(&mut self, other: &str) {
-		self.0 += other;
-	}
-}
-impl std::ops::AddAssign<String> for ItemPath {
-	fn add_assign(&mut self, other: String) {
-		self.0 += &other;
-	}
-}
-impl std::ops::AddAssign<&Self> for ItemPath {
-	fn add_assign(&mut self, other: &Self) {
-		self.0 += &other.0;
-	}
-}
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
 #[serde(from = "String", into = "String")]
 pub struct ContentType(String);
@@ -177,6 +123,7 @@ impl Item {
 			content: Some(content),
 		};
 	}
+
 	pub fn new_doc(content: &[u8], content_type: &str) -> Self {
 		return Self::Document {
 			etag: crate::Etag::new(),
@@ -185,8 +132,7 @@ impl Item {
 			last_modified: chrono::Utc::now(),
 		};
 	}
-}
-impl Item {
+
 	pub fn empty_clone(&self) -> Self {
 		return match self {
 			Self::Folder { etag, .. } => Self::Folder {
@@ -206,26 +152,28 @@ impl Item {
 			},
 		};
 	}
-}
-impl Item {
+
 	pub fn is_folder(&self) -> bool {
 		match self {
 			Self::Folder { .. } => true,
 			Self::Document { .. } => false,
 		}
 	}
+
 	pub fn is_document(&self) -> bool {
 		match self {
 			Self::Document { .. } => true,
 			Self::Folder { .. } => false,
 		}
 	}
+
 	pub fn get_etag(&self) -> &crate::Etag {
 		return match self {
 			Self::Folder { etag, .. } => etag,
 			Self::Document { etag, .. } => etag,
 		};
 	}
+
 	pub fn get_child_mut(&mut self, path: &std::path::Path) -> Option<&mut Self> {
 		let parents = {
 			let ancestors = path.ancestors();
@@ -262,6 +210,7 @@ impl Item {
 
 		return pending_parent.map(|e| &mut **e);
 	}
+
 	pub fn get_child(&self, path: &std::path::Path) -> Option<&Self> {
 		let parents = {
 			let ancestors = path.ancestors();
