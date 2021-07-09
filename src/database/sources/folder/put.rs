@@ -4,8 +4,8 @@ pub fn put(
 	_if_match: &crate::Etag,
 	_if_none_match: &[&crate::Etag],
 	_item: crate::Item,
-) -> crate::database::put::ResultPut {
-	crate::database::put::ResultPut::Err(Box::new(PutError::InternalError))
+) -> crate::database::PutResult {
+	crate::database::PutResult::Err(Box::new(PutError::InternalError))
 }
 
 #[derive(Debug, PartialEq, Eq)]

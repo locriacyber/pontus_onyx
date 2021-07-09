@@ -142,16 +142,16 @@ pub async fn get_item(
 			);
 		}
 		Err(e) => {
-			if e.is::<pontus_onyx::database::memory::ReadError>() {
+			if e.is::<pontus_onyx::database::memory::GetError>() {
 				pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::memory::ReadError>()
+					&*e.downcast::<pontus_onyx::database::memory::GetError>()
 						.unwrap(),
 					origin,
 					true,
 				)
-			} else if e.is::<pontus_onyx::database::folder::ReadError>() {
+			} else if e.is::<pontus_onyx::database::folder::GetError>() {
 				pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::folder::ReadError>()
+					&*e.downcast::<pontus_onyx::database::folder::GetError>()
 						.unwrap(),
 					origin,
 					true,

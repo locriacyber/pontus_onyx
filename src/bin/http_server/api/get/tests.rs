@@ -2,8 +2,8 @@ use actix_web::http::{header::EntityTag, Method, StatusCode};
 
 #[actix_rt::test]
 async fn basics() {
-	let database = pontus_onyx::database::Database {
-		source: pontus_onyx::database::DataSource::Memory {
+	let database =
+		pontus_onyx::database::Database::new(pontus_onyx::database::DataSource::Memory {
 			root_item: pontus_onyx::Item::new_folder(vec![
 				(
 					"user",
@@ -45,8 +45,7 @@ async fn basics() {
 					)]),
 				),
 			]),
-		},
-	};
+		});
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut app = actix_web::test::init_service(
@@ -146,8 +145,8 @@ async fn basics() {
 
 #[actix_rt::test]
 async fn if_none_match() {
-	let database = pontus_onyx::database::Database {
-		source: pontus_onyx::database::DataSource::Memory {
+	let database =
+		pontus_onyx::database::Database::new(pontus_onyx::database::DataSource::Memory {
 			root_item: pontus_onyx::Item::new_folder(vec![(
 				"user",
 				pontus_onyx::Item::new_folder(vec![(
@@ -166,8 +165,7 @@ async fn if_none_match() {
 					)]),
 				)]),
 			)]),
-		},
-	};
+		});
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut app = actix_web::test::init_service(

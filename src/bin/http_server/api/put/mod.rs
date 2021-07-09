@@ -58,7 +58,7 @@ pub async fn put_item(
 			.iter()
 			.collect::<Vec<&pontus_onyx::Etag>>(),
 	) {
-		pontus_onyx::database::ResultPut::Created(new_etag) => {
+		pontus_onyx::database::PutResult::Created(new_etag) => {
 			return pontus_onyx::database::build_http_json_response(
 				origin,
 				request.method(),
@@ -68,7 +68,7 @@ pub async fn put_item(
 				true,
 			);
 		}
-		pontus_onyx::database::ResultPut::Updated(new_etag) => {
+		pontus_onyx::database::PutResult::Updated(new_etag) => {
 			return pontus_onyx::database::build_http_json_response(
 				origin,
 				request.method(),
@@ -78,7 +78,7 @@ pub async fn put_item(
 				true,
 			);
 		}
-		pontus_onyx::database::ResultPut::Err(e) => {
+		pontus_onyx::database::PutResult::Err(e) => {
 			if e.is::<pontus_onyx::database::memory::PutError>() {
 				pontus_onyx::database::Error::to_response(
 					&*e.downcast::<pontus_onyx::database::memory::PutError>()

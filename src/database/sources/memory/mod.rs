@@ -1,7 +1,7 @@
 mod delete;
+mod get;
 mod put;
-mod read;
 
 pub use delete::*;
+pub use get::*;
 pub use put::*;
-pub use read::*;

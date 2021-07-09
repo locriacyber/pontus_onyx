@@ -4,12 +4,12 @@ pub fn put(
 	if_match: &crate::Etag,
 	if_none_match: &[&crate::Etag],
 	item: crate::Item,
-) -> crate::database::put::ResultPut {
+) -> crate::database::PutResult {
 	let mut cumultated_path = std::path::PathBuf::new();
 	for path_part in path {
 		cumultated_path = cumultated_path.join(path_part);
-		if let Err(error) = crate::database::utils::is_ok(path_part.to_str().unwrap()) {
-			return crate::database::put::ResultPut::Err(Box::new(PutError::IncorrectItemName {
+		if let Err(error) = crate::item_name_is_ok(path_part.to_str().unwrap()) {
+			return crate::database::PutResult::Err(Box::new(PutError::IncorrectItemName {
 				item_path: cumultated_path,
 				error,
 			}));
@@ -45,7 +45,7 @@ pub fn put(
 		}
 	}
 
-	match super::read_internal_mut(root_item, path, if_match, if_none_match) {
+	match super::get_internal_mut(root_item, path, if_match, if_none_match) {
 		Ok(found) => {
 			if let crate::Item::Document {
 				etag,
@@ -63,17 +63,15 @@ pub fn put(
 					let new_etag = crate::Etag::new();
 
 					if if_match.trim() != "" && (etag != if_match && if_match != "*") {
-						return crate::database::put::ResultPut::Err(Box::new(
-							PutError::NoIfMatch {
-								item_path: path.strip_prefix("/").unwrap_or(&path).into(),
-								found: etag.clone(),
-								search: if_match.clone(),
-							},
-						));
+						return crate::database::PutResult::Err(Box::new(PutError::NoIfMatch {
+							item_path: path.strip_prefix("/").unwrap_or(&path).into(),
+							found: etag.clone(),
+							search: if_match.clone(),
+						}));
 					}
 
 					if content_type == &new_content_type && content == &new_content {
-						return crate::database::put::ResultPut::Err(Box::new(
+						return crate::database::PutResult::Err(Box::new(
 							PutError::ContentNotChanged,
 						));
 					}
@@ -104,7 +102,7 @@ pub fn put(
 									*etag = crate::Etag::new();
 								}
 								None => {
-									return crate::database::put::ResultPut::Err(Box::new(
+									return crate::database::PutResult::Err(Box::new(
 										PutError::InternalError,
 									));
 								}
@@ -112,22 +110,20 @@ pub fn put(
 						}
 					}
 
-					return crate::database::put::ResultPut::Updated(new_etag);
+					return crate::database::PutResult::Updated(new_etag);
 				} else {
-					return crate::database::put::ResultPut::Err(Box::new(
+					return crate::database::PutResult::Err(Box::new(
 						PutError::DoesNotWorksForFolders,
 					));
 				}
 			} else {
-				return crate::database::put::ResultPut::Err(Box::new(
-					PutError::DoesNotWorksForFolders,
-				));
+				return crate::database::PutResult::Err(Box::new(PutError::DoesNotWorksForFolders));
 			}
 		}
-		Err(super::ReadError::NotFound { .. }) => {
-			match super::read_internal_mut(
+		Err(super::GetError::NotFound { .. }) => {
+			match super::get_internal_mut(
 				root_item,
-				&crate::database::utils::get_parent(path),
+				&std::path::PathBuf::from(format!("{}/", path.parent().unwrap().to_str().unwrap())),
 				&crate::Etag::from(""),
 				&[],
 			) {
@@ -176,7 +172,7 @@ pub fn put(
 											*etag = crate::Etag::new();
 										}
 										None => {
-											return crate::database::put::ResultPut::Err(Box::new(
+											return crate::database::PutResult::Err(Box::new(
 												PutError::InternalError,
 											));
 										}
@@ -184,24 +180,22 @@ pub fn put(
 								}
 							}
 
-							return crate::database::put::ResultPut::Created(new_etag);
+							return crate::database::PutResult::Created(new_etag);
 						}
 					}
 					crate::Item::Folder { content: None, .. } => {
-						return crate::database::put::ResultPut::Err(Box::new(
+						return crate::database::PutResult::Err(Box::new(
 							PutError::NoContentInside {
 								item_path: path.to_path_buf(),
 							},
 						));
 					}
 					_ => {
-						return crate::database::put::ResultPut::Err(Box::new(
-							PutError::InternalError,
-						));
+						return crate::database::PutResult::Err(Box::new(PutError::InternalError));
 					}
 				},
 				Err(error) => {
-					return crate::database::put::ResultPut::Err(Box::new(
+					return crate::database::PutResult::Err(Box::new(
 						PutError::CanNotFetchParent {
 							item_path: path.to_path_buf(),
 							error,
@@ -210,44 +204,40 @@ pub fn put(
 				}
 			}
 		}
-		Err(super::ReadError::CanNotBeListed) => {
-			return crate::database::put::ResultPut::Err(Box::new(
-				PutError::DoesNotWorksForFolders,
-			));
+		Err(super::GetError::CanNotBeListed) => {
+			return crate::database::PutResult::Err(Box::new(PutError::DoesNotWorksForFolders));
 		}
-		Err(super::ReadError::IncorrectItemName { item_path, error }) => {
-			return crate::database::put::ResultPut::Err(Box::new(PutError::IncorrectItemName {
+		Err(super::GetError::IncorrectItemName { item_path, error }) => {
+			return crate::database::PutResult::Err(Box::new(PutError::IncorrectItemName {
 				item_path,
 				error,
 			}));
 		}
-		Err(super::ReadError::Conflict { item_path }) => {
-			return crate::database::put::ResultPut::Err(Box::new(PutError::Conflict {
+		Err(super::GetError::Conflict { item_path }) => {
+			return crate::database::PutResult::Err(Box::new(PutError::Conflict { item_path }));
+		}
+		Err(super::GetError::NoContentInside { item_path }) => {
+			return crate::database::PutResult::Err(Box::new(PutError::NoContentInside {
 				item_path,
 			}));
 		}
-		Err(super::ReadError::NoContentInside { item_path }) => {
-			return crate::database::put::ResultPut::Err(Box::new(PutError::NoContentInside {
-				item_path,
-			}));
-		}
-		Err(super::ReadError::NoIfMatch {
+		Err(super::GetError::NoIfMatch {
 			found,
 			item_path,
 			search,
 		}) => {
-			return crate::database::put::ResultPut::Err(Box::new(PutError::NoIfMatch {
+			return crate::database::PutResult::Err(Box::new(PutError::NoIfMatch {
 				found,
 				item_path,
 				search,
 			}));
 		}
-		Err(super::ReadError::IfNoneMatch {
+		Err(super::GetError::IfNoneMatch {
 			item_path,
 			search,
 			found,
 		}) => {
-			return crate::database::put::ResultPut::Err(Box::new(PutError::IfNoneMatch {
+			return crate::database::PutResult::Err(Box::new(PutError::IfNoneMatch {
 				item_path,
 				search,
 				found,
@@ -285,7 +275,7 @@ pub enum PutError {
 	ContentNotChanged,
 	CanNotFetchParent {
 		item_path: std::path::PathBuf,
-		error: super::ReadError,
+		error: super::GetError,
 	},
 }
 impl std::fmt::Display for PutError {

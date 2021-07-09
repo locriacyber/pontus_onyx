@@ -1,22 +1,78 @@
-mod delete;
-mod get;
-mod put;
-mod save;
 mod sources;
-mod utils;
 
-pub use put::ResultPut;
-pub use save::{DataDocument, DataFolder};
 pub use sources::*;
 
 #[derive(Debug)]
 pub struct Database {
-	pub source: DataSource,
+	source: DataSource,
+}
+impl Database {
+	pub fn new(source: DataSource) -> Self {
+		Database { source }
+	}
+
+	pub fn get(
+		&self,
+		path: &std::path::Path,
+		if_match: &crate::Etag,
+		if_none_match: &[&crate::Etag],
+	) -> Result<crate::Item, Box<dyn std::any::Any>> {
+		self.source.get(path, if_match, if_none_match, true)
+	}
+
+	pub fn put(
+		&mut self,
+		path: &std::path::Path,
+		content: crate::Item,
+		if_match: &crate::Etag,
+		if_none_match: &[&crate::Etag],
+	) -> PutResult {
+		/*
+		TODO :
+			* its version being updated, as well as that of its parent folder
+				and further ancestor folders, using a strong validator [HTTP,
+				section 7.2].
+		*/
+
+		self.source.put(path, if_match, if_none_match, content)
+	}
+
+	pub fn delete(
+		&mut self,
+		path: &std::path::Path,
+		if_match: &crate::Etag,
+	) -> Result<crate::Etag, Box<dyn std::any::Any>> {
+		/*
+		TODO : option to keep old documents ?
+			A provider MAY offer version rollback functionality to its users,
+			but this specification does not define the interface for that.
+		*/
+
+		self.source.delete(path, if_match)
+	}
 }
 
 #[derive(Debug)]
-enum FetchError {
-	// FolderDocumentConflict,
+pub enum PutResult {
+	Created(crate::Etag),
+	Updated(crate::Etag),
+	Err(Box<dyn std::any::Any>),
+}
+impl PutResult {
+	pub fn unwrap(self) -> crate::Etag {
+		match self {
+			Self::Created(etag) => etag,
+			Self::Updated(etag) => etag,
+			Self::Err(_) => panic!(),
+		}
+	}
+	pub fn unwrap_err(self) -> Box<dyn std::any::Any> {
+		match self {
+			Self::Created(_) => panic!(),
+			Self::Updated(_) => panic!(),
+			Self::Err(e) => e,
+		}
+	}
 }
 
 #[cfg(feature = "server_bin")]

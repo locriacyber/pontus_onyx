@@ -309,3 +309,99 @@ fn j5bmhdxhlgkhdk82rjio3ej6() {
 	assert_eq!(root.get_child_mut(&std::path::PathBuf::from("B/BB")), None);
 	assert_eq!(root.get_child_mut(&std::path::PathBuf::from("B/BB/")), None);
 }
+
+pub fn item_name_is_ok(path: &str) -> Result<(), String> {
+	if path.trim().is_empty() {
+		return Err(String::from("should not be empty"));
+	}
+
+	if path.trim() == "." {
+		return Err(String::from("`.` is not allowed"));
+	}
+
+	if path.trim() == ".." {
+		return Err(String::from("`..` is not allowed"));
+	}
+
+	if path.contains('\0') {
+		return Err(format!("`{}` should not contains \\0 character", path));
+	}
+
+	return Ok(());
+}
+
+#[test]
+fn pfuh8x4mntyi3ej() {
+	let input = "gq7tib";
+	assert_eq!(item_name_is_ok(&input), Ok(()));
+}
+
+#[test]
+fn b2auwz1qizhfkrolm() {
+	let input = "";
+	assert_eq!(
+		item_name_is_ok(&input),
+		Err(String::from("should not be empty"))
+	);
+}
+
+#[test]
+fn hf1atgq7tibjv22p2whyhrl() {
+	let input = "gq7t\0ib";
+	assert_eq!(
+		item_name_is_ok(&input),
+		Err(format!("`{}` should not contains \\0 character", input))
+	);
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct DataDocument {
+	pub datastruct_version: String,
+	pub etag: crate::Etag,
+	pub content_type: crate::ContentType,
+	pub last_modified: chrono::DateTime<chrono::Utc>,
+}
+impl Default for DataDocument {
+	fn default() -> Self {
+		Self {
+			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+			etag: crate::Etag::new(),
+			content_type: crate::ContentType::from("application/octet-stream"),
+			last_modified: chrono::Utc::now(),
+		}
+	}
+}
+impl std::convert::TryFrom<crate::Item> for DataDocument {
+	type Error = String;
+
+	fn try_from(input: crate::Item) -> Result<Self, Self::Error> {
+		match input {
+			crate::Item::Document {
+				etag,
+				content_type,
+				last_modified,
+				..
+			} => Ok(Self {
+				datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+				etag,
+				content_type,
+				last_modified,
+			}),
+			_ => Err(String::from("input should be Item::Document and it is not")),
+		}
+	}
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct DataFolder {
+	pub datastruct_version: String,
+	pub etag: crate::Etag,
+}
+impl Default for DataFolder {
+	fn default() -> Self {
+		Self {
+			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
+			etag: crate::Etag::new(),
+		}
+	}
+}

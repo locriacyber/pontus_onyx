@@ -10,7 +10,7 @@ pub fn delete(
 	let mut cumulated_path = std::path::PathBuf::new();
 	for path_part in path {
 		cumulated_path = cumulated_path.join(path_part);
-		if let Err(error) = crate::database::utils::is_ok(path_part.to_str().unwrap()) {
+		if let Err(error) = crate::item_name_is_ok(path_part.to_str().unwrap()) {
 			return Err(Box::new(DeleteError::IncorrectItemName {
 				item_path: cumulated_path,
 				error,

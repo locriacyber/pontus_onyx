@@ -18,9 +18,9 @@ pub fn load_or_create_database(
 		Some("new empty database created"),
 	);
 
-	let database = Arc::new(Mutex::new(pontus_onyx::database::Database {
-		source: data_source,
-	}));
+	let database = Arc::new(Mutex::new(pontus_onyx::database::Database::new(
+		data_source,
+	)));
 
 	return database;
 }

@@ -1,4 +1,4 @@
-pub fn read(
+pub fn get(
 	root_item: &crate::Item,
 	path: &std::path::Path,
 	if_match: &crate::Etag,
@@ -26,15 +26,15 @@ pub fn read(
 	};
 
 	if requested_is_folder && path.starts_with("public/") {
-		return Err(Box::new(ReadError::CanNotBeListed));
+		return Err(Box::new(GetError::CanNotBeListed));
 	}
 
 	let mut pending = Some(root_item);
 	let mut cumulated_path = String::from("");
 
 	for (path_id, path_part) in paths.iter().enumerate() {
-		if let Err(error) = crate::database::utils::is_ok(&path_part) {
-			return Err(Box::new(ReadError::IncorrectItemName {
+		if let Err(error) = crate::item_name_is_ok(&path_part) {
+			return Err(Box::new(GetError::IncorrectItemName {
 				item_path: format!(
 					"{}{}{}",
 					cumulated_path,
@@ -68,17 +68,17 @@ pub fn read(
 				);
 			}
 			Some(crate::Item::Document { .. }) => {
-				return Err(Box::new(ReadError::Conflict {
+				return Err(Box::new(GetError::Conflict {
 					item_path: std::path::PathBuf::from(cumulated_path),
 				}));
 			}
 			Some(crate::Item::Folder { content: None, .. }) => {
-				return Err(Box::new(ReadError::NoContentInside {
+				return Err(Box::new(GetError::NoContentInside {
 					item_path: std::path::PathBuf::from(cumulated_path),
 				}));
 			}
 			None => {
-				return Err(Box::new(ReadError::NotFound {
+				return Err(Box::new(GetError::NotFound {
 					item_path: std::path::PathBuf::from(cumulated_path),
 				}));
 			}
@@ -93,7 +93,7 @@ pub fn read(
 				if !if_match.is_empty() {
 					let upper_if_match = if_match.trim().to_uppercase();
 					if found_etag.trim().to_uppercase() != upper_if_match && upper_if_match != "*" {
-						return Err(Box::new(ReadError::NoIfMatch {
+						return Err(Box::new(GetError::NoIfMatch {
 							item_path: std::path::PathBuf::from(cumulated_path),
 							search: if_match.clone(),
 							found: found_etag.clone(),
@@ -106,7 +106,7 @@ pub fn read(
 						if found_etag.trim().to_uppercase() == search_etag.trim().to_uppercase()
 							|| search_etag.trim() == "*"
 						{
-							return Err(Box::new(ReadError::IfNoneMatch {
+							return Err(Box::new(GetError::IfNoneMatch {
 								item_path: std::path::PathBuf::from(cumulated_path),
 								search: (*search_etag).clone(),
 								found: found_etag.clone(),
@@ -118,7 +118,7 @@ pub fn read(
 				if requested_is_folder {
 					Ok(item.clone()) // TODO : expensive clone here
 				} else {
-					Err(Box::new(ReadError::Conflict {
+					Err(Box::new(GetError::Conflict {
 						item_path: std::path::PathBuf::from(cumulated_path),
 					}))
 				}
@@ -129,7 +129,7 @@ pub fn read(
 				if !if_match.is_empty() {
 					let upper_if_match = if_match.trim().to_uppercase();
 					if found_etag.trim().to_uppercase() != upper_if_match && upper_if_match != "*" {
-						return Err(Box::new(ReadError::NoIfMatch {
+						return Err(Box::new(GetError::NoIfMatch {
 							item_path: std::path::PathBuf::from(cumulated_path),
 							search: if_match.clone(),
 							found: found_etag.clone(),
@@ -142,7 +142,7 @@ pub fn read(
 						if found_etag.trim().to_uppercase() == search_etag.trim().to_uppercase()
 							|| search_etag.trim() == "*"
 						{
-							return Err(Box::new(ReadError::IfNoneMatch {
+							return Err(Box::new(GetError::IfNoneMatch {
 								item_path: std::path::PathBuf::from(cumulated_path),
 								search: (*search_etag).clone(),
 								found: found_etag.clone(),
@@ -154,24 +154,24 @@ pub fn read(
 				if !requested_is_folder {
 					Ok(item.clone()) // TODO : expensive clone here
 				} else {
-					Err(Box::new(ReadError::Conflict {
+					Err(Box::new(GetError::Conflict {
 						item_path: std::path::PathBuf::from(cumulated_path),
 					}))
 				}
 			}
 		},
-		None => Err(Box::new(ReadError::NotFound {
+		None => Err(Box::new(GetError::NotFound {
 			item_path: std::path::PathBuf::from(cumulated_path),
 		})),
 	}
 }
 
-pub fn read_internal_mut<'a>(
+pub fn get_internal_mut<'a>(
 	root_item: &'a mut crate::Item,
 	path: &std::path::Path,
 	if_match: &crate::Etag,
 	if_none_match: &[&crate::Etag],
-) -> Result<&'a mut crate::Item, ReadError> {
+) -> Result<&'a mut crate::Item, GetError> {
 	let path = path.strip_prefix("/").unwrap_or(&path).to_str().unwrap();
 	let paths: Vec<String> = path.split('/').map(String::from).collect();
 
@@ -193,8 +193,8 @@ pub fn read_internal_mut<'a>(
 	let mut cumulated_path = String::from("");
 
 	for (path_id, path_part) in paths.iter().enumerate() {
-		if let Err(error) = crate::database::utils::is_ok(path_part) {
-			return Err(ReadError::IncorrectItemName {
+		if let Err(error) = crate::item_name_is_ok(path_part) {
+			return Err(GetError::IncorrectItemName {
 				item_path: format!(
 					"{}{}{}",
 					cumulated_path,
@@ -228,17 +228,17 @@ pub fn read_internal_mut<'a>(
 				);
 			}
 			Some(crate::Item::Document { .. }) => {
-				return Err(ReadError::Conflict {
+				return Err(GetError::Conflict {
 					item_path: std::path::PathBuf::from(cumulated_path),
 				});
 			}
 			Some(crate::Item::Folder { content: None, .. }) => {
-				return Err(ReadError::NoContentInside {
+				return Err(GetError::NoContentInside {
 					item_path: std::path::PathBuf::from(cumulated_path),
 				});
 			}
 			None => {
-				return Err(ReadError::NotFound {
+				return Err(GetError::NotFound {
 					item_path: std::path::PathBuf::from(cumulated_path),
 				});
 			}
@@ -253,7 +253,7 @@ pub fn read_internal_mut<'a>(
 				if !if_match.is_empty() {
 					let upper_if_match = if_match.trim().to_uppercase();
 					if found_etag.trim().to_uppercase() != upper_if_match && upper_if_match != "*" {
-						return Err(ReadError::NoIfMatch {
+						return Err(GetError::NoIfMatch {
 							item_path: std::path::PathBuf::from(cumulated_path),
 							search: if_match.clone(),
 							found: found_etag.clone(),
@@ -266,7 +266,7 @@ pub fn read_internal_mut<'a>(
 						if found_etag.trim().to_uppercase() == search_etag.trim().to_uppercase()
 							|| search_etag.trim() == "*"
 						{
-							return Err(ReadError::IfNoneMatch {
+							return Err(GetError::IfNoneMatch {
 								item_path: std::path::PathBuf::from(cumulated_path),
 								search: (*search_etag).clone(),
 								found: found_etag.clone(),
@@ -278,7 +278,7 @@ pub fn read_internal_mut<'a>(
 				if requested_is_folder {
 					Ok(item)
 				} else {
-					Err(ReadError::Conflict {
+					Err(GetError::Conflict {
 						item_path: std::path::PathBuf::from(cumulated_path),
 					})
 				}
@@ -289,7 +289,7 @@ pub fn read_internal_mut<'a>(
 				if !if_match.is_empty() {
 					let upper_if_match = if_match.trim().to_uppercase();
 					if found_etag.trim().to_uppercase() != upper_if_match && upper_if_match != "*" {
-						return Err(ReadError::NoIfMatch {
+						return Err(GetError::NoIfMatch {
 							item_path: std::path::PathBuf::from(cumulated_path),
 							search: if_match.clone(),
 							found: found_etag.clone(),
@@ -302,7 +302,7 @@ pub fn read_internal_mut<'a>(
 						if found_etag.trim().to_uppercase() == search_etag.trim().to_uppercase()
 							|| search_etag.trim() == "*"
 						{
-							return Err(ReadError::IfNoneMatch {
+							return Err(GetError::IfNoneMatch {
 								item_path: std::path::PathBuf::from(cumulated_path),
 								search: (*search_etag).clone(),
 								found: found_etag.clone(),
@@ -314,20 +314,20 @@ pub fn read_internal_mut<'a>(
 				if !requested_is_folder {
 					Ok(item)
 				} else {
-					Err(ReadError::Conflict {
+					Err(GetError::Conflict {
 						item_path: std::path::PathBuf::from(cumulated_path),
 					})
 				}
 			}
 		},
-		None => Err(ReadError::NotFound {
+		None => Err(GetError::NotFound {
 			item_path: std::path::PathBuf::from(cumulated_path),
 		}),
 	}
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ReadError {
+pub enum GetError {
 	Conflict {
 		item_path: std::path::PathBuf,
 	},
@@ -353,7 +353,7 @@ pub enum ReadError {
 		found: crate::Etag,
 	},
 }
-impl std::fmt::Display for ReadError {
+impl std::fmt::Display for GetError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		match self {
 			Self::Conflict{item_path} => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
@@ -366,8 +366,8 @@ impl std::fmt::Display for ReadError {
 		}
 	}
 }
-impl std::error::Error for ReadError {}
-impl crate::database::Error for ReadError {
+impl std::error::Error for GetError {}
+impl crate::database::Error for GetError {
 	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		match self {
 			Self::Conflict { item_path: _ } => crate::database::build_http_json_response(
@@ -445,7 +445,7 @@ impl crate::database::Error for ReadError {
 mod tests {
 	#![allow(non_snake_case)]
 
-	use super::{read, ReadError};
+	use super::{get, GetError};
 
 	#[test]
 	fn bq0ydkqyvmkzfd3d78() {
@@ -474,7 +474,7 @@ mod tests {
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from(""),
 				&crate::Etag::from(""),
@@ -484,7 +484,7 @@ mod tests {
 			root.clone()
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("A/"),
 				&crate::Etag::from(""),
@@ -494,7 +494,7 @@ mod tests {
 			A.clone()
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
@@ -504,7 +504,7 @@ mod tests {
 			AA.clone()
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("A/AB"),
 				&crate::Etag::from(""),
@@ -514,7 +514,7 @@ mod tests {
 			AB
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("A/AC"),
 				&crate::Etag::from(""),
@@ -524,7 +524,7 @@ mod tests {
 			AC
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("B/"),
 				&crate::Etag::from(""),
@@ -534,7 +534,7 @@ mod tests {
 			B
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("B/BA"),
 				&crate::Etag::from(""),
@@ -544,7 +544,7 @@ mod tests {
 			BA
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("B/BB"),
 				&crate::Etag::from(""),
@@ -554,7 +554,7 @@ mod tests {
 			BB
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("public/C/CC"),
 				&crate::Etag::from(""),
@@ -567,7 +567,7 @@ mod tests {
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from(""),
 				root.get_etag(),
@@ -577,7 +577,7 @@ mod tests {
 			root.clone()
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("A/"),
 				A.get_etag(),
@@ -587,7 +587,7 @@ mod tests {
 			A.clone()
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("A/AA"),
 				AA.get_etag(),
@@ -600,7 +600,7 @@ mod tests {
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from(""),
 				&crate::Etag::from(""),
@@ -610,7 +610,7 @@ mod tests {
 			root.clone()
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("A/"),
 				&crate::Etag::from(""),
@@ -620,7 +620,7 @@ mod tests {
 			A.clone()
 		);
 		assert_eq!(
-			read(
+			get(
 				&root,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
@@ -633,262 +633,262 @@ mod tests {
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::Conflict {
+			GetError::Conflict {
 				item_path: std::path::PathBuf::from("A")
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/AA/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::Conflict {
+			GetError::Conflict {
 				item_path: std::path::PathBuf::from("A/AA/")
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/AC/not_exists"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::Conflict {
+			GetError::Conflict {
 				item_path: std::path::PathBuf::from("A/AC/")
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/not_exists"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::NotFound {
+			GetError::NotFound {
 				item_path: std::path::PathBuf::from("A/not_exists")
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/not_exists/nested"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::NotFound {
+			GetError::NotFound {
 				item_path: std::path::PathBuf::from("A/not_exists/")
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("B/not_exists"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::NotFound {
+			GetError::NotFound {
 				item_path: std::path::PathBuf::from("B/not_exists")
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("not_exists/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::NotFound {
+			GetError::NotFound {
 				item_path: std::path::PathBuf::from("not_exists/")
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("not_exists"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::NotFound {
+			GetError::NotFound {
 				item_path: std::path::PathBuf::from("not_exists")
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("."),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IncorrectItemName {
+			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("."),
 				error: String::from("`.` is not allowed"),
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/.."),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IncorrectItemName {
+			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/.."),
 				error: String::from("`..` is not allowed"),
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/../"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IncorrectItemName {
+			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/../"),
 				error: String::from("`..` is not allowed"),
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/../AA"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IncorrectItemName {
+			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/../"),
 				error: String::from("`..` is not allowed"),
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/A\0A"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IncorrectItemName {
+			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/A\0A"),
 				error: format!("`{}` should not contains \\0 character", "A\0A"),
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("public/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::CanNotBeListed
+			GetError::CanNotBeListed
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("public/C/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::CanNotBeListed
+			GetError::CanNotBeListed
 		);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from(""),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::NoIfMatch {
+			GetError::NoIfMatch {
 				item_path: std::path::PathBuf::from(""),
 				search: crate::Etag::from("ANOTHER_ETAG"),
 				found: root.get_etag().clone()
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::NoIfMatch {
+			GetError::NoIfMatch {
 				item_path: std::path::PathBuf::from("A/"),
 				search: crate::Etag::from("ANOTHER_ETAG"),
 				found: A.get_etag().clone()
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&vec![]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::NoIfMatch {
+			GetError::NoIfMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				search: crate::Etag::from("ANOTHER_ETAG"),
 				found: AA.get_etag().clone()
@@ -898,48 +898,48 @@ mod tests {
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from(""),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IfNoneMatch {
+			GetError::IfNoneMatch {
 				item_path: std::path::PathBuf::from(""),
 				search: crate::Etag::from("*"),
 				found: root.get_etag().clone()
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IfNoneMatch {
+			GetError::IfNoneMatch {
 				item_path: std::path::PathBuf::from("A/"),
 				search: crate::Etag::from("*"),
 				found: A.get_etag().clone()
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IfNoneMatch {
+			GetError::IfNoneMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				search: crate::Etag::from("*"),
 				found: AA.get_etag().clone()
@@ -949,48 +949,48 @@ mod tests {
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from(""),
 				&crate::Etag::from(""),
 				&[root.get_etag()]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IfNoneMatch {
+			GetError::IfNoneMatch {
 				item_path: std::path::PathBuf::from(""),
 				search: root.get_etag().clone(),
 				found: root.get_etag().clone()
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/"),
 				&crate::Etag::from(""),
 				&[A.get_etag()]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IfNoneMatch {
+			GetError::IfNoneMatch {
 				item_path: std::path::PathBuf::from("A/"),
 				search: A.get_etag().clone(),
 				found: A.get_etag().clone()
 			}
 		);
 		assert_eq!(
-			*read(
+			*get(
 				&root,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
 				&[AA.get_etag()]
 			)
 			.unwrap_err()
-			.downcast::<ReadError>()
+			.downcast::<GetError>()
 			.unwrap(),
-			ReadError::IfNoneMatch {
+			GetError::IfNoneMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				search: AA.get_etag().clone(),
 				found: AA.get_etag().clone()

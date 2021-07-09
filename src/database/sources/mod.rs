@@ -14,7 +14,7 @@ pub enum DataSource {
 }
 
 impl DataSource {
-	pub fn read(
+	pub fn get(
 		&self,
 		path: &std::path::Path,
 		if_match: &crate::Etag,
@@ -23,7 +23,7 @@ impl DataSource {
 	) -> Result<crate::Item, Box<dyn std::any::Any>> {
 		match self {
 			Self::Memory { root_item } => {
-				match memory::read(&root_item, path, if_match, if_none_match) {
+				match memory::get(&root_item, path, if_match, if_none_match) {
 					Ok(item) => Ok(item), // TODO : item.empty_clone() if recursive = false
 					Err(e) => Err(e),
 				}
@@ -35,7 +35,7 @@ impl DataSource {
 
 				/*
 				TODO :
-				match folder::read(&root_folder_path, path, recursive) {
+				match folder::get(&root_folder_path, path, recursive) {
 					Ok(item) => Ok(item),
 					Err(e) => Err(Box::new(e)),
 				}
@@ -51,7 +51,7 @@ impl DataSource {
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
 		item: crate::Item,
-	) -> crate::database::put::ResultPut {
+	) -> crate::database::PutResult {
 		match self {
 			Self::Memory { root_item } => {
 				memory::put(root_item, path, if_match, if_none_match, item)
