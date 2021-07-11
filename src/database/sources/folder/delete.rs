@@ -2,7 +2,7 @@ pub fn delete(
 	_root_folder_path: &std::path::Path,
 	_path: &std::path::Path,
 	_if_match: &crate::Etag,
-) -> Result<crate::Etag, Box<dyn std::any::Any>> {
+) -> Result<crate::Etag, Box<dyn std::error::Error>> {
 	Err(Box::new(DeleteError::InternalError))
 }
 

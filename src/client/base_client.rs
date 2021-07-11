@@ -125,7 +125,8 @@ impl BaseClient {
 		&self,
 		_path: &std::path::Path,
 		_max_age: Option<std::time::Duration>,
-	) -> Box<dyn std::future::Future<Output = Result<serde_json::Value, Box<dyn std::any::Any>>>> {
+	) -> Box<dyn std::future::Future<Output = Result<serde_json::Value, Box<dyn std::error::Error>>>>
+	{
 		todo!()
 	}
 
@@ -148,7 +149,8 @@ impl BaseClient {
 		&self,
 		_path: &std::path::Path,
 		_max_age: Option<std::time::Duration>,
-	) -> Box<dyn std::future::Future<Output = Result<(String, Vec<u8>), Box<dyn std::any::Any>>>> {
+	) -> Box<dyn std::future::Future<Output = Result<(String, Vec<u8>), Box<dyn std::error::Error>>>>
+	{
 		todo!()
 	}
 
@@ -207,7 +209,7 @@ impl BaseClient {
 		_type_alias: &str,
 		_path: &std::path::Path,
 		_object: Object,
-	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>>
+	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::error::Error>>>>
 	where
 		Object: serde::ser::Serialize,
 	{
@@ -239,7 +241,7 @@ impl BaseClient {
 		_mime_type: &crate::ContentType,
 		_path: &std::path::Path,
 		_body: &[u8],
-	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>> {
+	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::error::Error>>>> {
 		todo!()
 	}
 
@@ -251,7 +253,7 @@ impl BaseClient {
 	pub fn remove(
 		&mut self,
 		_path: &std::path::Path,
-	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::any::Any>>>> {
+	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::error::Error>>>> {
 		todo!()
 	}
 

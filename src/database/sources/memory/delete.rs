@@ -2,7 +2,7 @@ pub fn delete(
 	root_item: &mut crate::Item,
 	path: &std::path::Path,
 	if_match: &crate::Etag,
-) -> Result<crate::Etag, Box<dyn std::any::Any>> {
+) -> Result<crate::Etag, Box<dyn std::error::Error>> {
 	if path.ends_with("/") {
 		return Err(Box::new(DeleteError::DoesNotWorksForFolders));
 	}

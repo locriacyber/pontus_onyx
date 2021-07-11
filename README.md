@@ -7,7 +7,7 @@ A [remoteStorage](https://remotestorage.io/) server and client implemented Rust.
 So 0.x.0 versions are breaking changes until then.
 ```
 
-Based on [IETF Draft of the 11 December 2020](https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-16).
+Based on [IETF Draft of the 14 June 2021](https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-17).
 
 This crate should contain client library, server library (for embeddable projects), and server binary.
 

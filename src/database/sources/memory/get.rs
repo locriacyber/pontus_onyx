@@ -3,7 +3,7 @@ pub fn get(
 	path: &std::path::Path,
 	if_match: &crate::Etag,
 	if_none_match: &[&crate::Etag],
-) -> Result<crate::Item, Box<dyn std::any::Any>> {
+) -> Result<crate::Item, Box<dyn std::error::Error>> {
 	let path = path
 		.to_str()
 		.unwrap()
@@ -24,10 +24,6 @@ pub fn get(
 	} else {
 		paths
 	};
-
-	if requested_is_folder && path.starts_with("public/") {
-		return Err(Box::new(GetError::CanNotBeListed));
-	}
 
 	let mut pending = Some(root_item);
 	let mut cumulated_path = String::from("");
@@ -116,7 +112,14 @@ pub fn get(
 				}
 
 				if requested_is_folder {
-					Ok(item.clone()) // TODO : expensive clone here
+					if path.starts_with("public/") {
+						return Err(Box::new(GetError::CanNotBeListed {
+							item_path: std::path::PathBuf::from(path),
+							etag: found_etag.clone(),
+						}));
+					} else {
+						Ok(item.clone()) // TODO : expensive clone here
+					}
 				} else {
 					Err(Box::new(GetError::Conflict {
 						item_path: std::path::PathBuf::from(cumulated_path),
@@ -341,7 +344,10 @@ pub enum GetError {
 		item_path: std::path::PathBuf,
 		error: String,
 	},
-	CanNotBeListed,
+	CanNotBeListed {
+		item_path: std::path::PathBuf,
+		etag: crate::Etag,
+	},
 	NoIfMatch {
 		item_path: std::path::PathBuf,
 		search: crate::Etag,
@@ -360,7 +366,7 @@ impl std::fmt::Display for GetError {
 			Self::NotFound{item_path} => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
 			Self::NoContentInside{item_path} => f.write_fmt(format_args!("no content found in `{}`", item_path.to_string_lossy())),
 			Self::IncorrectItemName{item_path, error} => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
-			Self::CanNotBeListed => f.write_fmt(format_args!("this folder can not be listed")),
+			Self::CanNotBeListed{item_path, etag: _} => f.write_fmt(format_args!("the folder `{:?}` can not be listed", item_path)),
 			Self::NoIfMatch{item_path, search, found} => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
 			Self::IfNoneMatch{item_path, search, found} => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
 		}
@@ -370,14 +376,30 @@ impl std::error::Error for GetError {}
 impl crate::database::Error for GetError {
 	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		match self {
-			Self::Conflict { item_path: _ } => crate::database::build_http_json_response(
-				origin,
-				&actix_web::http::Method::GET,
-				actix_web::http::StatusCode::CONFLICT,
-				None,
-				Some(format!("{}", self)),
-				should_have_body,
-			),
+			Self::Conflict { item_path } => {
+				if item_path.starts_with("public/") {
+					crate::database::build_http_json_response(
+						origin,
+						&actix_web::http::Method::GET,
+						actix_web::http::StatusCode::NOT_FOUND,
+						None,
+						Some(format!(
+							"path not found : `{}`",
+							item_path.to_string_lossy()
+						)),
+						should_have_body,
+					)
+				} else {
+					crate::database::build_http_json_response(
+						origin,
+						&actix_web::http::Method::GET,
+						actix_web::http::StatusCode::CONFLICT,
+						None,
+						Some(format!("{}", self)),
+						should_have_body,
+					)
+				}
+			}
 			Self::NotFound { item_path: _ } => crate::database::build_http_json_response(
 				origin,
 				&actix_web::http::Method::GET,
@@ -386,14 +408,30 @@ impl crate::database::Error for GetError {
 				Some(format!("{}", self)),
 				should_have_body,
 			),
-			Self::NoContentInside { item_path: _ } => crate::database::build_http_json_response(
-				origin,
-				&actix_web::http::Method::GET,
-				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-				None,
-				Some(format!("{}", self)),
-				should_have_body,
-			),
+			Self::NoContentInside { item_path } => {
+				if item_path.starts_with("public/") {
+					crate::database::build_http_json_response(
+						origin,
+						&actix_web::http::Method::GET,
+						actix_web::http::StatusCode::NOT_FOUND,
+						None,
+						Some(format!(
+							"path not found : `{}`",
+							item_path.to_string_lossy()
+						)),
+						should_have_body,
+					)
+				} else {
+					crate::database::build_http_json_response(
+						origin,
+						&actix_web::http::Method::GET,
+						actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+						None,
+						Some(format!("{}", self)),
+						should_have_body,
+					)
+				}
+			}
 			Self::IncorrectItemName {
 				item_path: _,
 				error: _,
@@ -405,14 +443,19 @@ impl crate::database::Error for GetError {
 				Some(format!("{}", self)),
 				should_have_body,
 			),
-			Self::CanNotBeListed => crate::database::build_http_json_response(
-				origin,
-				&actix_web::http::Method::GET,
-				actix_web::http::StatusCode::UNAUTHORIZED,
-				None,
-				Some(format!("{}", self)),
-				should_have_body,
-			),
+			Self::CanNotBeListed { item_path, etag: _ } => {
+				crate::database::build_http_json_response(
+					origin,
+					&actix_web::http::Method::GET,
+					actix_web::http::StatusCode::NOT_FOUND,
+					None,
+					Some(format!(
+						"path not found : `{}`",
+						item_path.to_string_lossy()
+					)),
+					should_have_body,
+				)
+			}
 			Self::NoIfMatch {
 				item_path: _,
 				search: _,
@@ -829,7 +872,10 @@ mod tests {
 			.unwrap_err()
 			.downcast::<GetError>()
 			.unwrap(),
-			GetError::CanNotBeListed
+			GetError::CanNotBeListed {
+				item_path: std::path::PathBuf::from("public/"),
+				etag: public.get_etag().clone()
+			},
 		);
 		assert_eq!(
 			*get(
@@ -841,7 +887,10 @@ mod tests {
 			.unwrap_err()
 			.downcast::<GetError>()
 			.unwrap(),
-			GetError::CanNotBeListed
+			GetError::CanNotBeListed {
+				item_path: std::path::PathBuf::from("public/C/"),
+				etag: C.get_etag().clone()
+			}
 		);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////

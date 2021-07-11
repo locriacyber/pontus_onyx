@@ -204,7 +204,7 @@ pub fn put(
 				}
 			}
 		}
-		Err(super::GetError::CanNotBeListed) => {
+		Err(super::GetError::CanNotBeListed { .. }) => {
 			return crate::database::PutResult::Err(Box::new(PutError::DoesNotWorksForFolders));
 		}
 		Err(super::GetError::IncorrectItemName { item_path, error }) => {

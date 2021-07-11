@@ -83,25 +83,25 @@ async fn basics() {
 			090,
 			Method::GET,
 			"/storage/public/user",
-			StatusCode::CONFLICT,
+			StatusCode::NOT_FOUND,
 		),
 		(
 			100,
 			Method::GET,
 			"/storage/public/user/",
-			StatusCode::UNAUTHORIZED,
+			StatusCode::NOT_FOUND,
 		),
 		(
 			110,
 			Method::GET,
 			"/storage/public/user/0",
-			StatusCode::CONFLICT,
+			StatusCode::NOT_FOUND,
 		),
 		(
 			120,
 			Method::GET,
 			"/storage/public/user/0/1",
-			StatusCode::CONFLICT,
+			StatusCode::NOT_FOUND,
 		),
 		(
 			130,
@@ -113,19 +113,19 @@ async fn basics() {
 			140,
 			Method::GET,
 			"/storage/public/user/0/",
-			StatusCode::UNAUTHORIZED,
+			StatusCode::NOT_FOUND,
 		),
 		(
 			150,
 			Method::GET,
 			"/storage/public/user/0/1/",
-			StatusCode::UNAUTHORIZED,
+			StatusCode::NOT_FOUND,
 		),
 		(
 			160,
 			Method::GET,
 			"/storage/public/user/0/1/2/",
-			StatusCode::UNAUTHORIZED,
+			StatusCode::NOT_FOUND,
 		),
 	];
 

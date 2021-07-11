@@ -16,7 +16,7 @@ impl Database {
 		path: &std::path::Path,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
-	) -> Result<crate::Item, Box<dyn std::any::Any>> {
+	) -> Result<crate::Item, Box<dyn std::error::Error>> {
 		self.source.get(path, if_match, if_none_match, true)
 	}
 
@@ -41,7 +41,7 @@ impl Database {
 		&mut self,
 		path: &std::path::Path,
 		if_match: &crate::Etag,
-	) -> Result<crate::Etag, Box<dyn std::any::Any>> {
+	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
 		/*
 		TODO : option to keep old documents ?
 			A provider MAY offer version rollback functionality to its users,
@@ -56,7 +56,7 @@ impl Database {
 pub enum PutResult {
 	Created(crate::Etag),
 	Updated(crate::Etag),
-	Err(Box<dyn std::any::Any>),
+	Err(Box<dyn std::error::Error>),
 }
 impl PutResult {
 	pub fn unwrap(self) -> crate::Etag {
@@ -66,7 +66,7 @@ impl PutResult {
 			Self::Err(_) => panic!(),
 		}
 	}
-	pub fn unwrap_err(self) -> Box<dyn std::any::Any> {
+	pub fn unwrap_err(self) -> Box<dyn std::error::Error> {
 		match self {
 			Self::Created(_) => panic!(),
 			Self::Updated(_) => panic!(),
