@@ -478,7 +478,7 @@ mod tests {
 	use std::convert::TryFrom;
 
 	#[test]
-	fn f18szwvdhh23() {
+	fn all_tests_bulk() {
 		let AA = crate::Item::new_doc(b"AA", "text/plain");
 		let AB = crate::Item::new_doc(b"AB", "text/plain");
 		let AC = crate::Item::new_doc(b"AC", "text/plain");
@@ -521,8 +521,6 @@ mod tests {
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		let tmp_folder = tempfile::tempdir().unwrap();
-		println!("folder dedicated to this test : {:?}", tmp_folder.path());
-
 		let tmp_folder_path = tmp_folder.path().to_path_buf();
 
 		let root_path = tmp_folder_path.clone();
@@ -798,74 +796,79 @@ mod tests {
 				true
 			)
 			.unwrap(),
-			CC.clone()
+			CC
 		);
+
+		////////////////////////////////////////////////////////////////////////////////////////////////
+
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from(""),
+				root.get_etag(),
+				&[],
+				true
+			)
+			.unwrap(),
+			root_without_public.clone()
+		);
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from("A/"),
+				A.get_etag(),
+				&[],
+				true
+			)
+			.unwrap(),
+			A.clone()
+		);
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from("A/AA"),
+				AA.get_etag(),
+				&[],
+				true
+			)
+			.unwrap(),
+			AA.clone()
+		);
+
+		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
 			get(
 				&root_path,
 				&std::path::PathBuf::from(""),
 				&crate::Etag::from(""),
-				&[],
-				false
+				&[&crate::Etag::from("ANOTHER_ETAG")],
+				true
 			)
 			.unwrap(),
-			root.empty_clone()
+			root_without_public.clone()
 		);
 		assert_eq!(
 			get(
 				&root_path,
 				&std::path::PathBuf::from("A/"),
 				&crate::Etag::from(""),
-				&[],
-				false
+				&[&crate::Etag::from("ANOTHER_ETAG")],
+				true
 			)
 			.unwrap(),
-			A.empty_clone()
+			A.clone()
 		);
 		assert_eq!(
 			get(
 				&root_path,
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
-				&[],
-				false
+				&[&crate::Etag::from("ANOTHER_ETAG")],
+				true
 			)
 			.unwrap(),
-			AA.empty_clone()
-		);
-		assert_eq!(
-			get(
-				&root_path,
-				&std::path::PathBuf::from("public/"),
-				&crate::Etag::from(""),
-				&[],
-				false
-			)
-			.unwrap(),
-			public.empty_clone()
-		);
-		assert_eq!(
-			get(
-				&root_path,
-				&std::path::PathBuf::from("public/C/"),
-				&crate::Etag::from(""),
-				&[],
-				false
-			)
-			.unwrap(),
-			C.empty_clone()
-		);
-		assert_eq!(
-			get(
-				&root_path,
-				&std::path::PathBuf::from("public/C/CC"),
-				&crate::Etag::from(""),
-				&[],
-				false
-			)
-			.unwrap(),
-			CC.empty_clone()
+			AA.clone()
 		);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1084,7 +1087,7 @@ mod tests {
 			GetError::CanNotBeListed {
 				item_path: std::path::PathBuf::from("public/"),
 				etag: public.get_etag().clone()
-			}
+			},
 		);
 		assert_eq!(
 			*get(
@@ -1103,10 +1106,238 @@ mod tests {
 			}
 		);
 
-		// TODO : test if_math
-		// TODO : test if_none_match
-		// TODO : merge tests from ../../memory/get
-		// TODO : check if there is tests for folder-specific errors
+		////////////////////////////////////////////////////////////////////////////////////////////////
+
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from(""),
+				&crate::Etag::from("ANOTHER_ETAG"),
+				&[],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::NoIfMatch {
+				item_path: std::path::PathBuf::from(""),
+				search: crate::Etag::from("ANOTHER_ETAG"),
+				found: root.get_etag().clone()
+			}
+		);
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from("A/"),
+				&crate::Etag::from("ANOTHER_ETAG"),
+				&[],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::NoIfMatch {
+				item_path: std::path::PathBuf::from("A/"),
+				search: crate::Etag::from("ANOTHER_ETAG"),
+				found: A.get_etag().clone()
+			}
+		);
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from("A/AA"),
+				&crate::Etag::from("ANOTHER_ETAG"),
+				&[],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::NoIfMatch {
+				item_path: std::path::PathBuf::from("A/AA"),
+				search: crate::Etag::from("ANOTHER_ETAG"),
+				found: AA.get_etag().clone()
+			}
+		);
+
+		////////////////////////////////////////////////////////////////////////////////////////////////
+
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from(""),
+				&crate::Etag::from(""),
+				&[&crate::Etag::from("*")],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::IfNoneMatch {
+				item_path: std::path::PathBuf::from(""),
+				search: crate::Etag::from("*"),
+				found: root.get_etag().clone()
+			}
+		);
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from("A/"),
+				&crate::Etag::from(""),
+				&[&crate::Etag::from("*")],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::IfNoneMatch {
+				item_path: std::path::PathBuf::from("A/"),
+				search: crate::Etag::from("*"),
+				found: A.get_etag().clone()
+			}
+		);
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from("A/AA"),
+				&crate::Etag::from(""),
+				&[&crate::Etag::from("*")],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::IfNoneMatch {
+				item_path: std::path::PathBuf::from("A/AA"),
+				search: crate::Etag::from("*"),
+				found: AA.get_etag().clone()
+			}
+		);
+
+		////////////////////////////////////////////////////////////////////////////////////////////////
+
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from(""),
+				&crate::Etag::from(""),
+				&[root.get_etag()],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::IfNoneMatch {
+				item_path: std::path::PathBuf::from(""),
+				search: root.get_etag().clone(),
+				found: root.get_etag().clone()
+			}
+		);
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from("A/"),
+				&crate::Etag::from(""),
+				&[A.get_etag()],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::IfNoneMatch {
+				item_path: std::path::PathBuf::from("A/"),
+				search: A.get_etag().clone(),
+				found: A.get_etag().clone()
+			}
+		);
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from("A/AA"),
+				&crate::Etag::from(""),
+				&[AA.get_etag()],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::IfNoneMatch {
+				item_path: std::path::PathBuf::from("A/AA"),
+				search: AA.get_etag().clone(),
+				found: AA.get_etag().clone()
+			}
+		);
+
+		////////////////////////////////////////////////////////////////////////////////////////////////
+
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from(""),
+				&crate::Etag::from(""),
+				&[],
+				false
+			)
+			.unwrap(),
+			root.empty_clone()
+		);
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from("A/"),
+				&crate::Etag::from(""),
+				&[],
+				false
+			)
+			.unwrap(),
+			A.empty_clone()
+		);
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from("A/AA"),
+				&crate::Etag::from(""),
+				&[],
+				false
+			)
+			.unwrap(),
+			AA.empty_clone()
+		);
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from("public/"),
+				&crate::Etag::from(""),
+				&[],
+				false
+			)
+			.unwrap(),
+			public.empty_clone()
+		);
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from("public/C/"),
+				&crate::Etag::from(""),
+				&[],
+				false
+			)
+			.unwrap(),
+			C.empty_clone()
+		);
+		assert_eq!(
+			get(
+				&root_path,
+				&std::path::PathBuf::from("public/C/CC"),
+				&crate::Etag::from(""),
+				&[],
+				false
+			)
+			.unwrap(),
+			CC.empty_clone()
+		);
+
+		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		tmp_folder.close().unwrap();
 	}

@@ -491,7 +491,7 @@ mod tests {
 	use super::{get, GetError};
 
 	#[test]
-	fn bq0ydkqyvmkzfd3d78() {
+	fn all_tests_bulk() {
 		let AA = crate::Item::new_doc(b"AA", "text/plain");
 		let AB = crate::Item::new_doc(b"AB", "text/plain");
 		let AC = crate::Item::new_doc(b"AC", "text/plain");

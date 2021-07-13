@@ -529,7 +529,7 @@ mod tests {
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"AA", "text/plain")
+				crate::Item::new_doc(b"AA2", "text/plain2")
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
@@ -664,7 +664,7 @@ mod tests {
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
-				crate::Item::new_doc(b"AA", "text/plain"),
+				crate::Item::new_doc(b"AA2", "text/plain2"),
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
