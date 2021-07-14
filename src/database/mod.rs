@@ -63,13 +63,13 @@ impl PutResult {
 		match self {
 			Self::Created(etag) => etag,
 			Self::Updated(etag) => etag,
-			Self::Err(_) => panic!(),
+			Self::Err(e) => panic!("{}", e),
 		}
 	}
 	pub fn unwrap_err(self) -> Box<dyn std::error::Error> {
 		match self {
-			Self::Created(_) => panic!(),
-			Self::Updated(_) => panic!(),
+			Self::Created(etag) => panic!("found Created({})", etag),
+			Self::Updated(etag) => panic!("found Updated({})", etag),
 			Self::Err(e) => e,
 		}
 	}

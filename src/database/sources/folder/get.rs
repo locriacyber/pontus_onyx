@@ -5,7 +5,7 @@ pub fn get(
 	if_none_match: &[&crate::Etag],
 	get_content: bool,
 ) -> Result<crate::Item, Box<dyn std::error::Error>> {
-	if path != &std::path::PathBuf::from("") {
+	if path != std::path::PathBuf::from("") {
 		let mut cumulated_path = std::path::PathBuf::new();
 		let temp_path = path.as_os_str().to_str().unwrap();
 		for item_name in temp_path.strip_suffix('/').unwrap_or(temp_path).split('/') {
@@ -23,7 +23,7 @@ pub fn get(
 
 	let target = root_folder_path.join(path);
 	// need to cast `path` into `&str` because `PathBuf::from("A/").ends_with("/") == false` !
-	if !(target.to_str().unwrap().ends_with("/") || target.to_str().unwrap().ends_with("\\"))
+	if !(target.to_str().unwrap().ends_with('/') || target.to_str().unwrap().ends_with('\\'))
 		&& target.is_file()
 	{
 		if target.exists() {
@@ -36,14 +36,13 @@ pub fn get(
 				Ok(itemdata_file_content) => {
 					match toml::from_slice::<crate::DataDocument>(&itemdata_file_content) {
 						Ok(itemdata) => {
-							if !if_match.is_empty() {
-								if &itemdata.etag != if_match && if_match != "*" {
-									return Err(Box::new(GetError::NoIfMatch {
-										item_path: path.to_path_buf(),
-										search: if_match.clone(),
-										found: itemdata.etag,
-									}));
-								}
+							if !if_match.is_empty() && &itemdata.etag != if_match && if_match != "*"
+							{
+								return Err(Box::new(GetError::NoIfMatch {
+									item_path: path.to_path_buf(),
+									search: if_match.clone(),
+									found: itemdata.etag,
+								}));
 							}
 
 							if !if_none_match.is_empty() {
@@ -105,8 +104,8 @@ pub fn get(
 			}));
 		}
 	// need to cast `path` into `&str` because `PathBuf::from("A/").ends_with("/") == false` !
-	} else if (target.to_str().unwrap().ends_with("/")
-		|| target.to_str().unwrap().ends_with("\\")
+	} else if (target.to_str().unwrap().ends_with('/')
+		|| target.to_str().unwrap().ends_with('\\')
 		|| target == std::path::PathBuf::from(""))
 		&& target.is_dir()
 	{
@@ -117,14 +116,13 @@ pub fn get(
 				Ok(itemdata_file_content) => {
 					match toml::from_slice::<crate::DataFolder>(&itemdata_file_content) {
 						Ok(itemdata) => {
-							if !if_match.is_empty() {
-								if &itemdata.etag != if_match && if_match != "*" {
-									return Err(Box::new(GetError::NoIfMatch {
-										item_path: path.to_path_buf(),
-										search: if_match.clone(),
-										found: itemdata.etag,
-									}));
-								}
+							if !if_match.is_empty() && &itemdata.etag != if_match && if_match != "*"
+							{
+								return Err(Box::new(GetError::NoIfMatch {
+									item_path: path.to_path_buf(),
+									search: if_match.clone(),
+									found: itemdata.etag,
+								}));
 							}
 
 							if !if_none_match.is_empty() {
@@ -179,20 +177,21 @@ pub fn get(
 																	);
 																}
 																Err(error) => {
-																	if let Some(boxed_error) = error
+																	if let Some(
+																		GetError::CanNotBeListed {
+																			item_path,
+																			etag,
+																		},
+																	) = error
 																		.downcast_ref::<GetError>()
 																	{
-																		if let GetError::CanNotBeListed{ item_path, etag } = boxed_error {
-																				dir_items.insert(
-																					String::from(item_path.file_name().unwrap().to_str().unwrap()),
-																					Box::new(crate::Item::Folder{
-																						etag: etag.clone(),
-																						content: None,
-																					}),
-																				);
-																			} else {
-																				return Err(error);
-																			}
+																		dir_items.insert(
+																			String::from(item_path.file_name().unwrap().to_str().unwrap()),
+																			Box::new(crate::Item::Folder{
+																				etag: etag.clone(),
+																				content: None,
+																			}),
+																		);
 																	} else {
 																		return Err(error);
 																	}
@@ -260,34 +259,28 @@ pub fn get(
 				.to_str()
 				.unwrap()
 				.strip_suffix("/")
-				.unwrap_or(target.to_str().unwrap()),
+				.unwrap_or_else(|| target.to_str().unwrap()),
 		)
 		.is_file()
 	{
 		return Err(Box::new(GetError::Conflict {
 			item_path: path.to_path_buf(),
 		}));
-	} else {
-		if let Some(parent) = path.parent() {
-			let parent = std::path::PathBuf::from(String::from(parent.to_str().unwrap()) + "/");
-			let get_parent = get(
-				&root_folder_path,
-				&parent,
-				&crate::Etag::from(""),
-				&[],
-				false,
-			);
-			if get_parent.is_err() {
-				let get_parent: GetError = *get_parent.unwrap_err().downcast().unwrap();
-				if let GetError::Conflict { item_path: _ } = &get_parent {
-					return Err(Box::new(get_parent));
-				} else if let GetError::NotFound { item_path: _ } = &get_parent {
-					return Err(Box::new(get_parent));
-				} else {
-					return Err(Box::new(GetError::NotFound {
-						item_path: path.to_path_buf(),
-					}));
-				}
+	} else if let Some(parent) = path.parent() {
+		let parent = std::path::PathBuf::from(String::from(parent.to_str().unwrap()) + "/");
+		let get_parent = get(
+			&root_folder_path,
+			&parent,
+			&crate::Etag::from(""),
+			&[],
+			false,
+		);
+		if let Err(get_parent) = get_parent {
+			let get_parent: GetError = *get_parent.downcast().unwrap();
+			if let GetError::Conflict { item_path: _ } = &get_parent {
+				return Err(Box::new(get_parent));
+			} else if let GetError::NotFound { item_path: _ } = &get_parent {
+				return Err(Box::new(get_parent));
 			} else {
 				return Err(Box::new(GetError::NotFound {
 					item_path: path.to_path_buf(),
@@ -298,6 +291,10 @@ pub fn get(
 				item_path: path.to_path_buf(),
 			}));
 		}
+	} else {
+		return Err(Box::new(GetError::NotFound {
+			item_path: path.to_path_buf(),
+		}));
 	}
 }
 

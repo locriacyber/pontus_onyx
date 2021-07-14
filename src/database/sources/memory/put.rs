@@ -529,7 +529,7 @@ mod tests {
 				&std::path::PathBuf::from("A/AA"),
 				&crate::Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"AA2", "text/plain2")
+				crate::Item::new_doc(b"AA", "text/plain")
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
@@ -863,6 +863,63 @@ mod tests {
 					assert_eq!(etag, &AA_etag);
 					assert_eq!(content, &b"AA2".to_vec());
 					assert_eq!(content_type, &crate::ContentType::from("text/plain2"));
+				} else {
+					panic!();
+				}
+			} else {
+				panic!();
+			}
+		} else {
+			panic!();
+		};
+	}
+
+	#[test]
+	fn put_with_existing_document_conflict() {
+		let (mut root, root_etag, A_etag, AA_etag) = build_test_db();
+
+		assert_eq!(
+			*put(
+				&mut root,
+				&std::path::PathBuf::from("A/AA/AAA"),
+				&crate::Etag::from(""),
+				&[],
+				crate::Item::new_doc(b"AAA", "text/plain")
+			)
+			.unwrap_err()
+			.downcast::<PutError>()
+			.unwrap(),
+			PutError::Conflict {
+				item_path: std::path::PathBuf::from("A/AA")
+			}
+		);
+
+		if let crate::Item::Folder {
+			etag,
+			content: Some(content),
+		} = root
+		{
+			assert_eq!(etag, root_etag);
+			assert!(!content.is_empty());
+
+			if let crate::Item::Folder {
+				etag,
+				content: Some(content),
+			} = &**content.get("A").unwrap()
+			{
+				assert_eq!(etag, &A_etag);
+				assert!(!content.is_empty());
+
+				if let crate::Item::Document {
+					etag,
+					content: Some(content),
+					content_type,
+					..
+				} = &**content.get("AA").unwrap()
+				{
+					assert_eq!(etag, &AA_etag);
+					assert_eq!(content, &b"AA".to_vec());
+					assert_eq!(content_type, &crate::ContentType::from("text/plain"));
 				} else {
 					panic!();
 				}
