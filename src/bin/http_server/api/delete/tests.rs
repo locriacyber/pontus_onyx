@@ -44,7 +44,7 @@ async fn basics() {
 			020,
 			Method::DELETE,
 			"/storage/user/should/not/exists/folder/",
-			StatusCode::NOT_FOUND,
+			StatusCode::BAD_REQUEST,
 		),
 		(030, Method::GET, "/storage/user/a/b/c", StatusCode::OK),
 		(040, Method::DELETE, "/storage/user/a", StatusCode::CONFLICT),
