@@ -66,6 +66,9 @@ pub fn put(
 								}
 							}
 						};
+
+						parent_datafile.datastruct_version =
+							String::from(env!("CARGO_PKG_VERSION"));
 						parent_datafile.etag = crate::Etag::new();
 
 						match toml::to_vec(&parent_datafile) {

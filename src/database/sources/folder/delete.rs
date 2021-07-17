@@ -479,13 +479,6 @@ mod tests {
 			build_test_db();
 		let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-		debug_copy(
-			&tmp_folder_path,
-			&std::path::PathBuf::from(
-				"C:\\Users\\Jimskapt\\genie\\logiciel\\rust\\pontus_onyx\\database\\data\\ds111sv",
-			),
-		);
-
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
 			&std::path::PathBuf::from("A/AA/AAA"),

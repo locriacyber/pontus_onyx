@@ -323,6 +323,10 @@ pub fn item_name_is_ok(path: &str) -> Result<(), String> {
 		return Err(String::from("`..` is not allowed"));
 	}
 
+	if path.trim() == "folder" {
+		return Err(String::from("`folder` is not allowed"));
+	}
+
 	if path.contains('\0') {
 		return Err(format!("`{}` should not contains \\0 character", path));
 	}

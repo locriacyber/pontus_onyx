@@ -21,6 +21,16 @@ pub fn get(
 		}
 	}
 
+	if path
+		.file_name()
+		.unwrap_or_default()
+		.to_str()
+		.unwrap_or_default()
+		.ends_with(".itemdata.toml")
+	{
+		return Err(Box::new(GetError::IsSystemFile));
+	}
+
 	let target = root_folder_path.join(path);
 	// need to cast `path` into `&str` because `PathBuf::from("A/").ends_with("/") == false` !
 	if !(target.to_str().unwrap().ends_with('/') || target.to_str().unwrap().ends_with('\\'))
@@ -335,6 +345,7 @@ pub enum GetError {
 	IOError {
 		error: String,
 	},
+	IsSystemFile,
 }
 impl std::fmt::Display for GetError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -348,6 +359,7 @@ impl std::fmt::Display for GetError {
 			Self::CanNotReadFile{path, error} => f.write_fmt(format_args!("can not read file `{}`, because {}", path.to_string_lossy(), error)),
 			Self::CanNotDeserializeFile{path, error} => f.write_fmt(format_args!("can not deserialize file `{}`, because {}", path.to_string_lossy(), error)),
 			Self::IOError{error} => f.write_fmt(format_args!("file system error : {}", error)),
+			Self::IsSystemFile => f.write_str("this is a system file, that should not be server"),
 		}
 	}
 }
@@ -459,6 +471,14 @@ impl crate::database::Error for GetError {
 				origin,
 				&actix_web::http::Method::GET,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::IsSystemFile => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::BAD_REQUEST,
 				None,
 				None,
 				should_have_body,
@@ -1332,6 +1352,22 @@ mod tests {
 			)
 			.unwrap(),
 			CC.empty_clone()
+		);
+
+		////////////////////////////////////////////////////////////////////////////////////////////////
+
+		assert_eq!(
+			*get(
+				&root_path,
+				&std::path::PathBuf::from("A/.AA.itemdata.toml"),
+				&crate::Etag::from(""),
+				&[&crate::Etag::from("*")],
+				true
+			)
+			.unwrap_err()
+			.downcast::<GetError>()
+			.unwrap(),
+			GetError::IsSystemFile
 		);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
