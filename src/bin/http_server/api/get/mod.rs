@@ -16,7 +16,7 @@ pub async fn get_item(
 		.unwrap();
 
 	match database.lock().unwrap().get(
-		&std::path::PathBuf::from(path.to_string()),
+		&std::path::Path::new(&path.to_string()),
 		super::convert_actix_if_match(&request)
 			.first()
 			.unwrap_or(&&pontus_onyx::Etag::from("")),

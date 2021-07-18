@@ -162,6 +162,7 @@ impl std::fmt::Display for DeleteError {
 	}
 }
 impl std::error::Error for DeleteError {}
+#[cfg(feature = "server_bin")]
 impl crate::database::Error for DeleteError {
 	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		match self {
@@ -338,7 +339,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::PathBuf::from("A/AA/AAA/AAAA"),
+				&std::path::Path::new("A/AA/AAA/AAAA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -367,7 +368,7 @@ mod tests {
 
 		let old_AAAA_etag = delete(
 			&mut root,
-			&std::path::PathBuf::from("A/AA/AAA/AAAA"),
+			&std::path::Path::new("A/AA/AAA/AAAA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -412,7 +413,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::PathBuf::from("A/AA/"),
+				&std::path::Path::new("A/AA/"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -472,7 +473,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::PathBuf::from("A/AA/AAA/AAAA"),
+				&std::path::Path::new("A/AA/AAA/AAAA"),
 				&crate::Etag::from("OTHER_ETAG"),
 			)
 			.unwrap_err()
@@ -535,7 +536,7 @@ mod tests {
 
 		let old_AAAA_etag = delete(
 			&mut root,
-			&std::path::PathBuf::from("A/AA/AAA/AAAA"),
+			&std::path::Path::new("A/AA/AAA/AAAA"),
 			&AAAA_etag,
 		)
 		.unwrap();
@@ -574,7 +575,7 @@ mod tests {
 
 		let old_AAAA_etag = delete(
 			&mut root,
-			&std::path::PathBuf::from("A/AA/AAA/AAAA"),
+			&std::path::Path::new("A/AA/AAA/AAAA"),
 			&crate::Etag::from("*"),
 		)
 		.unwrap();
@@ -614,7 +615,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -674,7 +675,7 @@ mod tests {
 
 		delete(
 			&mut root,
-			&std::path::PathBuf::from("public/C/CC/CCC"),
+			&std::path::Path::new("public/C/CC/CCC"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -702,7 +703,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::PathBuf::from("A/../AA"),
+				&std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()

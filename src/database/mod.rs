@@ -1,6 +1,18 @@
 mod sources;
 
-pub use sources::*;
+pub use sources::DataSource;
+
+pub mod memory {
+	pub use super::sources::memory::DeleteError;
+	pub use super::sources::memory::GetError;
+	pub use super::sources::memory::PutError;
+}
+
+pub mod folder {
+	pub use super::sources::folder::DeleteError;
+	pub use super::sources::folder::GetError;
+	pub use super::sources::folder::PutError;
+}
 
 #[derive(Debug)]
 pub struct Database {
@@ -53,6 +65,7 @@ impl Database {
 }
 
 #[derive(Debug)]
+#[must_use = "this `PutResult` may be an `Err` variant, which should be handled"]
 pub enum PutResult {
 	Created(crate::Etag),
 	Updated(crate::Etag),
@@ -136,6 +149,7 @@ pub fn build_http_json_response(
 	};
 }
 
+#[cfg(feature = "server_bin")]
 pub trait Error: std::fmt::Debug + std::error::Error {
 	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse;
 }

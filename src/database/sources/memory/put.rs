@@ -45,7 +45,7 @@ pub fn put(
 		}
 	}
 
-	match super::get_internal_mut(root_item, path, if_match, if_none_match) {
+	match super::get::get_internal_mut(root_item, path, if_match, if_none_match) {
 		Ok(found) => {
 			if let crate::Item::Document {
 				etag,
@@ -121,9 +121,9 @@ pub fn put(
 			}
 		}
 		Err(super::GetError::NotFound { .. }) => {
-			match super::get_internal_mut(
+			match super::get::get_internal_mut(
 				root_item,
-				&std::path::PathBuf::from(format!("{}/", path.parent().unwrap().to_str().unwrap())),
+				&std::path::Path::new(&format!("{}/", path.parent().unwrap().to_str().unwrap())),
 				&crate::Etag::from(""),
 				&[],
 			) {
@@ -294,6 +294,7 @@ impl std::fmt::Display for PutError {
 	}
 }
 impl std::error::Error for PutError {}
+#[cfg(feature = "server_bin")]
 impl crate::database::Error for PutError {
 	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		match self {
@@ -436,7 +437,7 @@ mod tests {
 
 		let AA_etag = put(
 			&mut root,
-			&std::path::PathBuf::from("AA"),
+			&std::path::Path::new("AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -473,7 +474,7 @@ mod tests {
 
 		let AA_etag = put(
 			&mut root,
-			&std::path::PathBuf::from("A/AA"),
+			&std::path::Path::new("A/AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -526,7 +527,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&mut root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AA", "text/plain")
@@ -582,7 +583,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&mut root,
-				&std::path::PathBuf::from(""),
+				&std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_folder(vec![])
@@ -611,7 +612,7 @@ mod tests {
 
 		let AA_etag = put(
 			&mut root,
-			&std::path::PathBuf::from("A/AA"),
+			&std::path::Path::new("A/AA"),
 			&crate::Etag::from(""),
 			&[&crate::Etag::from("*")],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -661,7 +662,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&mut root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -720,7 +721,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&mut root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&[],
 				crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -778,7 +779,7 @@ mod tests {
 
 		AA_etag = put(
 			&mut root,
-			&std::path::PathBuf::from("A/AA"),
+			&std::path::Path::new("A/AA"),
 			&AA_etag,
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -828,7 +829,7 @@ mod tests {
 
 		let AA_etag = put(
 			&mut root,
-			&std::path::PathBuf::from("A/AA"),
+			&std::path::Path::new("A/AA"),
 			&crate::Etag::from("*"),
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -881,7 +882,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&mut root,
-				&std::path::PathBuf::from("A/AA/AAA"),
+				&std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AAA", "text/plain")
@@ -938,7 +939,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&mut root,
-				&std::path::PathBuf::from("A"),
+				&std::path::Path::new("A"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"A", "text/plain")
@@ -995,7 +996,7 @@ mod tests {
 
 		let AA_etag = put(
 			&mut root,
-			&std::path::PathBuf::from("public/A/AA"),
+			&std::path::Path::new("public/A/AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -1053,7 +1054,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&mut root,
-				&std::path::PathBuf::from("A/../AA"),
+				&std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AA", "text/plain"),

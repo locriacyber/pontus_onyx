@@ -257,22 +257,19 @@ fn jlupvpfbk7wbig1at4h() {
 	let root = crate::Item::new_folder(vec![("A", A.clone())]);
 
 	assert_eq!(
-		root.get_child(&std::path::PathBuf::from("A/AA/AAA.txt")),
+		root.get_child(&std::path::Path::new("A/AA/AAA.txt")),
 		Some(&AAA)
 	);
-	assert_eq!(
-		root.get_child(&std::path::PathBuf::from("A/AA/")),
-		Some(&AA)
-	);
-	assert_eq!(root.get_child(&std::path::PathBuf::from("A/AA")), Some(&AA));
-	assert_eq!(root.get_child(&std::path::PathBuf::from("A/")), Some(&A));
-	assert_eq!(root.get_child(&std::path::PathBuf::from("A")), Some(&A));
-	assert_eq!(root.get_child(&std::path::PathBuf::from("")), Some(&root));
+	assert_eq!(root.get_child(&std::path::Path::new("A/AA/")), Some(&AA));
+	assert_eq!(root.get_child(&std::path::Path::new("A/AA")), Some(&AA));
+	assert_eq!(root.get_child(&std::path::Path::new("A/")), Some(&A));
+	assert_eq!(root.get_child(&std::path::Path::new("A")), Some(&A));
+	assert_eq!(root.get_child(&std::path::Path::new("")), Some(&root));
 
-	assert_eq!(root.get_child(&std::path::PathBuf::from("B")), None);
-	assert_eq!(root.get_child(&std::path::PathBuf::from("B/")), None);
-	assert_eq!(root.get_child(&std::path::PathBuf::from("B/BB")), None);
-	assert_eq!(root.get_child(&std::path::PathBuf::from("B/BB/")), None);
+	assert_eq!(root.get_child(&std::path::Path::new("B")), None);
+	assert_eq!(root.get_child(&std::path::Path::new("B/")), None);
+	assert_eq!(root.get_child(&std::path::Path::new("B/BB")), None);
+	assert_eq!(root.get_child(&std::path::Path::new("B/BB/")), None);
 }
 
 #[test]
@@ -283,31 +280,28 @@ fn j5bmhdxhlgkhdk82rjio3ej6() {
 	let mut root = crate::Item::new_folder(vec![("A", A.clone())]);
 
 	assert_eq!(
-		root.get_child_mut(&std::path::PathBuf::from("A/AA/AAA.txt")),
+		root.get_child_mut(&std::path::Path::new("A/AA/AAA.txt")),
 		Some(&mut AAA)
 	);
 	assert_eq!(
-		root.get_child_mut(&std::path::PathBuf::from("A/AA/")),
+		root.get_child_mut(&std::path::Path::new("A/AA/")),
 		Some(&mut AA)
 	);
 	assert_eq!(
-		root.get_child_mut(&std::path::PathBuf::from("A/AA")),
+		root.get_child_mut(&std::path::Path::new("A/AA")),
 		Some(&mut AA)
 	);
 	assert_eq!(
-		root.get_child_mut(&std::path::PathBuf::from("A/")),
+		root.get_child_mut(&std::path::Path::new("A/")),
 		Some(&mut A)
 	);
-	assert_eq!(
-		root.get_child_mut(&std::path::PathBuf::from("A")),
-		Some(&mut A)
-	);
-	assert!(root.get_child_mut(&std::path::PathBuf::from("")).is_some());
+	assert_eq!(root.get_child_mut(&std::path::Path::new("A")), Some(&mut A));
+	assert!(root.get_child_mut(&std::path::Path::new("")).is_some());
 
-	assert_eq!(root.get_child_mut(&std::path::PathBuf::from("B")), None);
-	assert_eq!(root.get_child_mut(&std::path::PathBuf::from("B/")), None);
-	assert_eq!(root.get_child_mut(&std::path::PathBuf::from("B/BB")), None);
-	assert_eq!(root.get_child_mut(&std::path::PathBuf::from("B/BB/")), None);
+	assert_eq!(root.get_child_mut(&std::path::Path::new("B")), None);
+	assert_eq!(root.get_child_mut(&std::path::Path::new("B/")), None);
+	assert_eq!(root.get_child_mut(&std::path::Path::new("B/BB")), None);
+	assert_eq!(root.get_child_mut(&std::path::Path::new("B/BB/")), None);
 }
 
 pub fn item_name_is_ok(path: &str) -> Result<(), String> {
@@ -408,4 +402,40 @@ impl Default for DataFolder {
 			etag: crate::Etag::new(),
 		}
 	}
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ScopeRightType {
+	Read,
+	ReadWrite,
+}
+impl std::convert::TryFrom<&str> for ScopeRightType {
+	type Error = ScopeParsingError;
+
+	fn try_from(input: &str) -> Result<Self, Self::Error> {
+		let input = input.trim();
+
+		if input == "rw" {
+			Ok(Self::ReadWrite)
+		} else if input == "r" {
+			Ok(Self::Read)
+		} else {
+			Err(ScopeParsingError::IncorrectRight(String::from(input)))
+		}
+	}
+}
+impl std::fmt::Display for ScopeRightType {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+		f.write_str(match &self {
+			Self::Read => "read only",
+			Self::ReadWrite => "read and write",
+		})
+	}
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ScopeParsingError {
+	IncorrectFormat(String),
+	IncorrectModule(String),
+	IncorrectRight(String),
 }

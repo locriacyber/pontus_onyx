@@ -16,7 +16,7 @@ pub async fn delete_item(
 		.unwrap();
 
 	match database.lock().unwrap().delete(
-		&std::path::PathBuf::from(path.to_string()),
+		&std::path::Path::new(&path.to_string()),
 		super::convert_actix_if_match(&request)
 			.first()
 			.unwrap_or(&&pontus_onyx::Etag::from("")),
@@ -33,28 +33,28 @@ pub async fn delete_item(
 		}
 		Err(e) => {
 			if e.is::<pontus_onyx::database::memory::DeleteError>() {
-				pontus_onyx::database::Error::to_response(
+				return pontus_onyx::database::Error::to_response(
 					&*e.downcast::<pontus_onyx::database::memory::DeleteError>()
 						.unwrap(),
 					origin,
 					true,
-				)
+				);
 			} else if e.is::<pontus_onyx::database::folder::DeleteError>() {
-				pontus_onyx::database::Error::to_response(
+				return pontus_onyx::database::Error::to_response(
 					&*e.downcast::<pontus_onyx::database::folder::DeleteError>()
 						.unwrap(),
 					origin,
 					true,
-				)
+				);
 			} else {
-				pontus_onyx::database::build_http_json_response(
+				return pontus_onyx::database::build_http_json_response(
 					origin,
 					request.method(),
 					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 					None,
 					None,
 					true,
-				)
+				);
 			}
 		}
 	}

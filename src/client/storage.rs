@@ -149,8 +149,8 @@ impl RemoteStorage {
 	///
 	/// ```
 	/// let remote = pontus_onyx::client::RemoteStorage::new();
-	/// remote.scope("/pictures/").get_listing(&std::path::PathBuf::from(""), None);
-	/// remote.scope("/public/pictures/").get_listing(&std::path::PathBuf::from(""), None);
+	/// remote.scope("/pictures/").get_listing(&std::path::Path::new(""), None);
+	/// remote.scope("/public/pictures/").get_listing(&std::path::Path::new(""), None);
 	/// ```
 	pub fn scope(&self, _path: &str) -> super::BaseClient {
 		todo!()
@@ -166,6 +166,28 @@ impl RemoteStorage {
 	/// - scope : access scope
 	/// - client_id : client identifier (defaults to the origin of the redirectUri)
 	pub fn authorize(&self, _auth_url: &str, _scope: &str, _client_id: &str) {
+		todo!()
+	}
+
+	/// Claim access on a given scope with given mode.
+	///
+	/// # Arguments
+	/// - scope – An access scope, such as “contacts” or “calendar”
+	/// - mode – Access mode.
+	///
+	/// # Examples :
+	///
+	/// ```rust
+	/// pontus_onyx::client::RemoteStorage::claim(std::path::Path::new("contacts"), pontus_onyx::ScopeRightType::Read);
+	/// pontus_onyx::client::RemoteStorage::claim(std::path::Path::new("pictures"), pontus_onyx::ScopeRightType::ReadWrite);
+	/// ```
+	///
+	/// Claiming root access, meaning complete access to all files and folders of a storage, can be done using an asterisk for the scope:
+	///
+	/// ```rust
+	/// pontus_onyx::client::RemoteStorage::claim(std::path::Path::new("*"), pontus_onyx::ScopeRightType::ReadWrite);
+	/// ```
+	pub fn claim(_scope: &std::path::Path, _mode: crate::ScopeRightType) {
 		todo!()
 	}
 }

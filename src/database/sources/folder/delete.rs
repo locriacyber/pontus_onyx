@@ -196,6 +196,7 @@ impl std::fmt::Display for DeleteError {
 	}
 }
 impl std::error::Error for DeleteError {}
+#[cfg(feature = "server_bin")]
 impl crate::database::Error for DeleteError {
 	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		match self {
@@ -459,7 +460,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::PathBuf::from("A/AA/AAA"),
+				&std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -481,7 +482,7 @@ mod tests {
 
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
-			&std::path::PathBuf::from("A/AA/AAA"),
+			&std::path::Path::new("A/AA/AAA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -595,7 +596,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::PathBuf::from("A/AA/"),
+				&std::path::Path::new("A/AA/"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -733,7 +734,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::PathBuf::from("A/AA/AAA"),
+				&std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from("OTHER_ETAG"),
 			)
 			.unwrap_err()
@@ -865,7 +866,7 @@ mod tests {
 
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
-			&std::path::PathBuf::from("A/AA/AAA"),
+			&std::path::Path::new("A/AA/AAA"),
 			&AAA_etag,
 		)
 		.unwrap();
@@ -969,7 +970,7 @@ mod tests {
 
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
-			&std::path::PathBuf::from("A/AA/AAA"),
+			&std::path::Path::new("A/AA/AAA"),
 			&crate::Etag::from("*"),
 		)
 		.unwrap();
@@ -1083,7 +1084,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -1212,7 +1213,7 @@ mod tests {
 
 		delete(
 			&tmp_folder_path,
-			&std::path::PathBuf::from("public/B/BA"),
+			&std::path::Path::new("public/B/BA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -1309,7 +1310,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::PathBuf::from("A/../AA"),
+				&std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()

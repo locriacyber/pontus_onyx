@@ -23,7 +23,6 @@ client request = <storage_root> with
 /*
 TODO : disabled functionalities ?
 	- (rs.js) modules
-	- access
 */
 
 mod base_client;

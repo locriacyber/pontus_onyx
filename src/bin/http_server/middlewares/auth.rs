@@ -427,11 +427,11 @@ mod tests {
 			vec![
 				crate::http_server::Scope {
 					module: String::from("folder_write"),
-					right_type: crate::http_server::ScopeRightType::ReadWrite,
+					right_type: pontus_onyx::ScopeRightType::ReadWrite,
 				},
 				crate::http_server::Scope {
 					module: String::from("folder_read"),
-					right_type: crate::http_server::ScopeRightType::Read,
+					right_type: pontus_onyx::ScopeRightType::Read,
 				},
 			],
 			"test",

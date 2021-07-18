@@ -77,7 +77,7 @@ impl BaseClient {
 	/// ```
 	/// async {
 	///     let client = pontus_onyx::client::BaseClient::new();
-	///     let listing = client.get_listing(&std::path::PathBuf::from(""), None).await;
+	///     let listing = client.get_listing(&std::path::Path::new(""), None).await;
 	/// };
 	/// ```
 	pub async fn get_listing(
@@ -118,7 +118,7 @@ impl BaseClient {
 	/// ```
 	/// async {
 	///     let client = pontus_onyx::client::BaseClient::new();
-	///     let listing = client.get_object(&std::path::PathBuf::from("/path/to/object"), None).await;
+	///     let listing = client.get_object(&std::path::Path::new("/path/to/object"), None).await;
 	/// };
 	/// ```
 	pub async fn get_object(
@@ -142,7 +142,7 @@ impl BaseClient {
 	/// ```
 	/// async {
 	///     let client = pontus_onyx::client::BaseClient::new();
-	///     let file = client.get_file(&std::path::PathBuf::from("path/to/some/image"), None).await;
+	///     let file = client.get_file(&std::path::Path::new("path/to/some/image"), None).await;
 	/// };
 	/// ```
 	pub async fn get_file(
@@ -233,7 +233,7 @@ impl BaseClient {
 	/// ```
 	/// async {
 	///     let mut client = pontus_onyx::client::BaseClient::new();
-	///     client.store_file(&pontus_onyx::ContentType::from("text/html"), &std::path::PathBuf::from("index.html"), b"<h1>Hello World!</h1>").await;
+	///     client.store_file(&pontus_onyx::ContentType::from("text/html"), &std::path::Path::new("index.html"), b"<h1>Hello World!</h1>").await;
 	/// };
 	/// ````
 	pub async fn store_file(

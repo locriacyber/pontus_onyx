@@ -373,6 +373,7 @@ impl std::fmt::Display for GetError {
 	}
 }
 impl std::error::Error for GetError {}
+#[cfg(feature = "server_bin")]
 impl crate::database::Error for GetError {
 	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		match self {
@@ -519,7 +520,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from(""),
+				&std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -529,7 +530,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("A/"),
+				&std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -539,7 +540,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -549,7 +550,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("A/AB"),
+				&std::path::Path::new("A/AB"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -559,7 +560,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("A/AC"),
+				&std::path::Path::new("A/AC"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -569,7 +570,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("B/"),
+				&std::path::Path::new("B/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -579,7 +580,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("B/BA"),
+				&std::path::Path::new("B/BA"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -589,7 +590,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("B/BB"),
+				&std::path::Path::new("B/BB"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -599,7 +600,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("public/C/CC"),
+				&std::path::Path::new("public/C/CC"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -610,33 +611,15 @@ mod tests {
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
-			get(
-				&root,
-				&std::path::PathBuf::from(""),
-				root.get_etag(),
-				&vec![]
-			)
-			.unwrap(),
+			get(&root, &std::path::Path::new(""), root.get_etag(), &vec![]).unwrap(),
 			root.clone()
 		);
 		assert_eq!(
-			get(
-				&root,
-				&std::path::PathBuf::from("A/"),
-				A.get_etag(),
-				&vec![]
-			)
-			.unwrap(),
+			get(&root, &std::path::Path::new("A/"), A.get_etag(), &vec![]).unwrap(),
 			A.clone()
 		);
 		assert_eq!(
-			get(
-				&root,
-				&std::path::PathBuf::from("A/AA"),
-				AA.get_etag(),
-				&vec![]
-			)
-			.unwrap(),
+			get(&root, &std::path::Path::new("A/AA"), AA.get_etag(), &vec![]).unwrap(),
 			AA.clone()
 		);
 
@@ -645,7 +628,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from(""),
+				&std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("ANOTHER_ETAG")]
 			)
@@ -655,7 +638,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("A/"),
+				&std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("ANOTHER_ETAG")]
 			)
@@ -665,7 +648,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("ANOTHER_ETAG")]
 			)
@@ -678,7 +661,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A"),
+				&std::path::Path::new("A"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -692,7 +675,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/AA/"),
+				&std::path::Path::new("A/AA/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -706,7 +689,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/AC/not_exists"),
+				&std::path::Path::new("A/AC/not_exists"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -720,7 +703,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/not_exists"),
+				&std::path::Path::new("A/not_exists"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -734,7 +717,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/not_exists/nested"),
+				&std::path::Path::new("A/not_exists/nested"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -748,7 +731,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("B/not_exists"),
+				&std::path::Path::new("B/not_exists"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -762,7 +745,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("not_exists/"),
+				&std::path::Path::new("not_exists/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -776,7 +759,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("not_exists"),
+				&std::path::Path::new("not_exists"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -790,7 +773,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("."),
+				&std::path::Path::new("."),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -805,7 +788,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/.."),
+				&std::path::Path::new("A/.."),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -820,7 +803,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/../"),
+				&std::path::Path::new("A/../"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -835,7 +818,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/../AA"),
+				&std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -850,7 +833,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/A\0A"),
+				&std::path::Path::new("A/A\0A"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -865,7 +848,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("public/"),
+				&std::path::Path::new("public/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -880,7 +863,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("public/C/"),
+				&std::path::Path::new("public/C/"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
@@ -898,7 +881,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from(""),
+				&std::path::Path::new(""),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&vec![]
 			)
@@ -914,7 +897,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/"),
+				&std::path::Path::new("A/"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&vec![]
 			)
@@ -930,7 +913,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&vec![]
 			)
@@ -949,7 +932,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from(""),
+				&std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")]
 			)
@@ -965,7 +948,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/"),
+				&std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")]
 			)
@@ -981,7 +964,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")]
 			)
@@ -1000,7 +983,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from(""),
+				&std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[root.get_etag()]
 			)
@@ -1016,7 +999,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/"),
+				&std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&[A.get_etag()]
 			)
@@ -1032,7 +1015,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root,
-				&std::path::PathBuf::from("A/AA"),
+				&std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[AA.get_etag()]
 			)
