@@ -309,7 +309,7 @@ impl std::error::Error for PutError {}
 impl crate::database::Error for PutError {
 	fn to_response(&self, origin: &str, should_have_body: bool) -> actix_web::HttpResponse {
 		match self {
-			// TODO : we have to find a way to change GET method as PUT method
+			// TODO : we have to find a way to change method
 			Self::GetError(get_error) => {
 				crate::database::Error::to_response(get_error, origin, should_have_body)
 			}

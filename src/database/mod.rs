@@ -8,10 +8,19 @@ pub mod memory {
 	pub use super::sources::memory::PutError;
 }
 
+#[cfg(feature = "server_file_storage")]
 pub mod folder {
 	pub use super::sources::folder::DeleteError;
 	pub use super::sources::folder::GetError;
 	pub use super::sources::folder::PutError;
+}
+
+#[cfg(feature = "server_local_storage")]
+pub mod local_storage {
+	pub use super::sources::local_storage::DeleteError;
+	pub use super::sources::local_storage::GetError;
+	pub use super::sources::local_storage::PutError;
+	pub use super::sources::local_storage::{LocalStorageError, Storage};
 }
 
 #[derive(Debug)]

@@ -115,7 +115,6 @@ pub fn get(
 					if path.starts_with("public/") {
 						return Err(Box::new(GetError::CanNotBeListed {
 							item_path: std::path::PathBuf::from(path),
-							etag: found_etag.clone(),
 						}));
 					} else {
 						Ok(item.clone()) // TODO : expensive clone here
@@ -346,7 +345,6 @@ pub enum GetError {
 	},
 	CanNotBeListed {
 		item_path: std::path::PathBuf,
-		etag: crate::Etag,
 	},
 	NoIfMatch {
 		item_path: std::path::PathBuf,
@@ -366,7 +364,7 @@ impl std::fmt::Display for GetError {
 			Self::NotFound{item_path} => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
 			Self::NoContentInside{item_path} => f.write_fmt(format_args!("no content found in `{}`", item_path.to_string_lossy())),
 			Self::IncorrectItemName{item_path, error} => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
-			Self::CanNotBeListed{item_path, etag: _} => f.write_fmt(format_args!("the folder `{:?}` can not be listed", item_path)),
+			Self::CanNotBeListed{item_path} => f.write_fmt(format_args!("the folder `{:?}` can not be listed", item_path)),
 			Self::NoIfMatch{item_path, search, found} => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
 			Self::IfNoneMatch{item_path, search, found} => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
 		}
@@ -444,7 +442,7 @@ impl crate::database::Error for GetError {
 				Some(format!("{}", self)),
 				should_have_body,
 			),
-			Self::CanNotBeListed { item_path, etag: _ } => {
+			Self::CanNotBeListed { item_path } => {
 				crate::database::build_http_json_response(
 					origin,
 					&actix_web::http::Method::GET,
@@ -498,7 +496,7 @@ mod tests {
 		let AC = crate::Item::new_doc(b"AC", "text/plain");
 		let BA = crate::Item::new_doc(b"BA", "text/plain");
 		let BB = crate::Item::new_doc(b"BB", "text/plain");
-		let CC = crate::Item::new_doc(b"CC", "text/plain");
+		let CA = crate::Item::new_doc(b"CA", "text/plain");
 
 		let A = crate::Item::new_folder(vec![
 			("AA", AA.clone()),
@@ -506,7 +504,7 @@ mod tests {
 			("AC", AC.clone()),
 		]);
 		let B = crate::Item::new_folder(vec![("BA", BA.clone()), ("BB", BB.clone())]);
-		let C = crate::Item::new_folder(vec![("CC", CC.clone())]);
+		let C = crate::Item::new_folder(vec![("CA", CA.clone())]);
 		let public = crate::Item::new_folder(vec![("C", C.clone())]);
 
 		let root = crate::Item::new_folder(vec![
@@ -514,6 +512,17 @@ mod tests {
 			("B", B.clone()),
 			("public", public.clone()),
 		]);
+
+		let mut root_without_public = root.clone();
+		if let crate::Item::Folder {
+			content: Some(content),
+			..
+		} = &mut root_without_public
+		{
+			content.remove("public").unwrap();
+		} else {
+			panic!()
+		}
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -525,7 +534,7 @@ mod tests {
 				&vec![]
 			)
 			.unwrap(),
-			root.clone()
+			root.clone() // TODO : should return root_without_public, but recursion in get make it buggy.
 		);
 		assert_eq!(
 			get(
@@ -600,19 +609,19 @@ mod tests {
 		assert_eq!(
 			get(
 				&root,
-				&std::path::Path::new("public/C/CC"),
+				&std::path::Path::new("public/C/CA"),
 				&crate::Etag::from(""),
 				&vec![]
 			)
 			.unwrap(),
-			CC
+			CA
 		);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		assert_eq!(
 			get(&root, &std::path::Path::new(""), root.get_etag(), &vec![]).unwrap(),
-			root.clone()
+			root.clone() // TODO : should return root_without_public, but recursion in get make it buggy.
 		);
 		assert_eq!(
 			get(&root, &std::path::Path::new("A/"), A.get_etag(), &vec![]).unwrap(),
@@ -633,7 +642,7 @@ mod tests {
 				&[&crate::Etag::from("ANOTHER_ETAG")]
 			)
 			.unwrap(),
-			root.clone()
+			root.clone() // TODO : should return root_without_public, but recursion in get make it buggy.
 		);
 		assert_eq!(
 			get(
@@ -857,7 +866,6 @@ mod tests {
 			.unwrap(),
 			GetError::CanNotBeListed {
 				item_path: std::path::PathBuf::from("public/"),
-				etag: public.get_etag().clone()
 			},
 		);
 		assert_eq!(
@@ -872,7 +880,6 @@ mod tests {
 			.unwrap(),
 			GetError::CanNotBeListed {
 				item_path: std::path::PathBuf::from("public/C/"),
-				etag: C.get_etag().clone()
 			}
 		);
 

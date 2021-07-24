@@ -181,6 +181,10 @@ pub fn put(
 							}
 
 							return crate::database::PutResult::Created(new_etag);
+						} else {
+							return crate::database::PutResult::Err(Box::new(
+								PutError::DoesNotWorksForFolders,
+							));
 						}
 					}
 					crate::Item::Folder { content: None, .. } => {
@@ -244,8 +248,6 @@ pub fn put(
 			}));
 		}
 	}
-
-	unreachable!()
 }
 
 #[derive(Debug, PartialEq, Eq)]
