@@ -352,7 +352,7 @@ fn hf1atgq7tibjv22p2whyhrl() {
 	);
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct DataDocument {
 	pub datastruct_version: String,
 	pub etag: crate::Etag,
@@ -390,7 +390,7 @@ impl std::convert::TryFrom<crate::Item> for DataDocument {
 	}
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct DataFolder {
 	pub datastruct_version: String,
 	pub etag: crate::Etag,

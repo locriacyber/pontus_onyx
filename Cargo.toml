@@ -18,7 +18,8 @@ server_lib = [
 server_local_storage = [
     "web-sys",
     "wasm-bindgen",
-    "base64"
+    "base64",
+    "serde_json"
 ]
 server_file_storage = []
 server_bin = [
