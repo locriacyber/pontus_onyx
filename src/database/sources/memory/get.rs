@@ -442,19 +442,17 @@ impl crate::database::Error for GetError {
 				Some(format!("{}", self)),
 				should_have_body,
 			),
-			Self::CanNotBeListed { item_path } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::GET,
-					actix_web::http::StatusCode::NOT_FOUND,
-					None,
-					Some(format!(
-						"path not found : `{}`",
-						item_path.to_string_lossy()
-					)),
-					should_have_body,
-				)
-			}
+			Self::CanNotBeListed { item_path } => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::GET,
+				actix_web::http::StatusCode::NOT_FOUND,
+				None,
+				Some(format!(
+					"path not found : `{}`",
+					item_path.to_string_lossy()
+				)),
+				should_have_body,
+			),
 			Self::NoIfMatch {
 				item_path: _,
 				search: _,

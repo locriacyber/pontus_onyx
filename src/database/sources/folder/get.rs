@@ -21,9 +21,7 @@ pub fn get(
 		}
 	}
 
-	if path.to_str().unwrap().starts_with("public/")
-		&& path.to_str().unwrap().ends_with('/')
-	{
+	if path.to_str().unwrap().starts_with("public/") && path.to_str().unwrap().ends_with('/') {
 		return Err(Box::new(GetError::CanNotBeListed {
 			item_path: path.to_path_buf(),
 		}));

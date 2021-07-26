@@ -7,6 +7,10 @@ pub mod client;
 #[cfg(feature = "server_lib")]
 pub mod database;
 
+/// Content-Type is a String value, used to indicate what kind of data
+/// is (binary) content of an [`Document`][`crate::Item::Document`].
+///
+/// [More on MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
 #[serde(from = "String", into = "String")]
 pub struct ContentType(String);
@@ -41,6 +45,7 @@ impl std::fmt::Display for ContentType {
 	}
 }
 
+/// ETag is String value, used for versioning purposes.
 #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(from = "String", into = "String")]
 pub struct Etag(String);
@@ -95,23 +100,39 @@ impl Etag {
 	}
 }
 
+/// It represent all data of an endpoint of a path in database.
+///
+/// It contains the requested content, but also its metadata, like [`Etag`], for example.
+///
+/// Typically, Item should be returned by database when GET a path.
 #[derive(derivative::Derivative, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[derivative(Debug)]
 pub enum Item {
 	Folder {
 		etag: crate::Etag,
 		#[derivative(Debug = "ignore")]
+		/// They are other items inside this folder, [`Folder`][`crate::Item::Folder`] or [`Document`][`crate::Item::Document`].
+		///
+		/// Its (String) keys are their names.
+		/// Like `my_folder` for a [`Folder`][`crate::Item::Folder`],
+		/// or `example.json` for a [`Document`][`crate::Item::Document`].
+		///
+		/// It can be [`None`][`Option::None`] if we don't need to fetch children, for performances purposes.
 		content: Option<std::collections::HashMap<String, Box<crate::Item>>>,
 	},
 	Document {
 		etag: crate::Etag,
 		#[derivative(Debug = "ignore")]
+		/// The binary content of this document.
+		///
+		/// It can be [`None`][`Option::None`] if we don't need to fetch its content, for performances purposes.
 		content: Option<Vec<u8>>,
 		content_type: crate::ContentType,
 		last_modified: chrono::DateTime<chrono::offset::Utc>,
 	},
 }
 impl Item {
+	/// Creates a new [`Folder`][`crate::Item::Folder`], easier.
 	pub fn new_folder(easy_content: Vec<(&str, Self)>) -> Self {
 		let mut content = std::collections::HashMap::new();
 		for (name, item) in easy_content {
@@ -124,6 +145,7 @@ impl Item {
 		};
 	}
 
+	/// Creates a new [`Document`][`crate::Item::Document`], easier.
 	pub fn new_doc(content: &[u8], content_type: &str) -> Self {
 		return Self::Document {
 			etag: crate::Etag::new(),
@@ -133,6 +155,7 @@ impl Item {
 		};
 	}
 
+	/// Create a clone of this [`Item`][`crate::Item`], but with its `content` as `None`.
 	pub fn empty_clone(&self) -> Self {
 		return match self {
 			Self::Folder { etag, .. } => Self::Folder {
@@ -153,6 +176,7 @@ impl Item {
 		};
 	}
 
+	/// Check if this is the [`Folder`][`crate::Item::Folder`] variant.
 	pub fn is_folder(&self) -> bool {
 		match self {
 			Self::Folder { .. } => true,
@@ -160,6 +184,7 @@ impl Item {
 		}
 	}
 
+	/// Check if this is the [`Document`][`crate::Item::Document`] variant.
 	pub fn is_document(&self) -> bool {
 		match self {
 			Self::Document { .. } => true,
@@ -167,6 +192,7 @@ impl Item {
 		}
 	}
 
+	/// Get the [`Etag`] of this [`Item`][`crate::Item`].
 	pub fn get_etag(&self) -> &crate::Etag {
 		return match self {
 			Self::Folder { etag, .. } => etag,
@@ -174,6 +200,17 @@ impl Item {
 		};
 	}
 
+	/// If this is an [`Document`][`crate::Item::Document`] and with
+	/// an [`Some`][`Option::Some`] as `content`, should returns the
+	/// binary content. Otherwise, returns [`None`][`Option::None`].
+	pub fn get_document_content(self) -> Option<Vec<u8>> {
+		match self {
+			Self::Document { content, .. } => content,
+			Self::Folder { .. } => None,
+		}
+	}
+
+	/// If this is an [`Folder`][`crate::Item::Folder`], it should returns the child `path` from its `content`.
 	pub fn get_child_mut(&mut self, path: &std::path::Path) -> Option<&mut Self> {
 		let parents = {
 			let ancestors = path.ancestors();
@@ -211,6 +248,7 @@ impl Item {
 		return pending_parent.map(|e| &mut **e);
 	}
 
+	/// If this is an [`Folder`][`crate::Item::Folder`], it should returns the child `path` from its `content`.
 	pub fn get_child(&self, path: &std::path::Path) -> Option<&Self> {
 		let parents = {
 			let ancestors = path.ancestors();
@@ -352,6 +390,7 @@ fn hf1atgq7tibjv22p2whyhrl() {
 	);
 }
 
+/// Used to (de)serialize metadata of [`Document`][`crate::Item::Document`] in/from a file.
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct DataDocument {
 	pub datastruct_version: String,
@@ -390,6 +429,7 @@ impl std::convert::TryFrom<crate::Item> for DataDocument {
 	}
 }
 
+/// Used to (de)serialize metadata of [`Folder`][`crate::Item::Folder`] in/from a file.
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct DataFolder {
 	pub datastruct_version: String,

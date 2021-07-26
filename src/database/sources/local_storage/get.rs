@@ -22,9 +22,7 @@ pub fn get(
 		}
 	}
 
-	if path.to_str().unwrap().starts_with("public/")
-		&& path.to_str().unwrap().ends_with('/')
-	{
+	if path.to_str().unwrap().starts_with("public/") && path.to_str().unwrap().ends_with('/') {
 		return Err(Box::new(GetError::CanNotBeListed {
 			item_path: path.to_path_buf(),
 		}));
@@ -84,8 +82,7 @@ pub fn get(
 									),
 								);
 							} else {
-								let mut ancestors =
-									std::path::Path::new(&remain).ancestors().into_iter();
+								let mut ancestors = std::path::Path::new(&remain).ancestors();
 								if ancestors.count() > 2 {
 									if let Some(name) = ancestors.nth(ancestors.count() - 1 - 1) {
 										let name = name.to_str().unwrap();
@@ -141,7 +138,7 @@ pub fn get(
 							return Err(Box::new(GetError::NoIfMatch {
 								item_path: path.to_path_buf(),
 								search: if_match.clone(),
-								found: folderdata.etag.clone(),
+								found: folderdata.etag,
 							}));
 						}
 					}
@@ -155,7 +152,7 @@ pub fn get(
 								return Err(Box::new(GetError::IfNoneMatch {
 									item_path: path.to_path_buf(),
 									search: (*search_etag).clone(),
-									found: folderdata.etag.clone(),
+									found: folderdata.etag,
 								}));
 							}
 						}
@@ -167,7 +164,7 @@ pub fn get(
 					});
 				}
 				Err(error) => {
-					return Err(Box::new(GetError::CanNotParseFile {
+					return Err(Box::new(GetError::CanNotSerializeFile {
 						item_path: std::path::PathBuf::from(folderdata_path),
 						error: format!("{}", error),
 					}))
@@ -186,7 +183,7 @@ pub fn get(
 				},
 				format!(
 					".{}.itemdata.toml",
-					path.file_name().unwrap().to_str().unwrap()
+					path.file_name().unwrap_or_default().to_str().unwrap()
 				)
 			);
 
@@ -226,7 +223,7 @@ pub fn get(
 									return Err(Box::new(GetError::NoIfMatch {
 										item_path: path.to_path_buf(),
 										search: if_match.clone(),
-										found: filedata.etag.clone(),
+										found: filedata.etag,
 									}));
 								}
 							}
@@ -240,7 +237,7 @@ pub fn get(
 										return Err(Box::new(GetError::IfNoneMatch {
 											item_path: path.to_path_buf(),
 											search: (*search_etag).clone(),
-											found: filedata.etag.clone(),
+											found: filedata.etag,
 										}));
 									}
 								}
@@ -254,7 +251,7 @@ pub fn get(
 							});
 						}
 						Err(error) => {
-							return Err(Box::new(GetError::CanNotParseFile {
+							return Err(Box::new(GetError::CanNotSerializeFile {
 								item_path: std::path::PathBuf::from(filedata_path),
 								error: format!("{}", error),
 							}))
@@ -270,7 +267,7 @@ pub fn get(
 						} else {
 							String::new()
 						},
-						path.file_name().unwrap().to_str().unwrap(),
+						path.file_name().unwrap_or_default().to_str().unwrap(),
 					);
 					match storage.get_item(&filedata_path) {
 						Ok(Some(_)) => {
@@ -358,7 +355,7 @@ pub enum GetError {
 		found: crate::Etag,
 	},
 	CanNotGetStorage,
-	CanNotParseFile {
+	CanNotSerializeFile {
 		item_path: std::path::PathBuf,
 		error: String,
 	},
@@ -374,7 +371,7 @@ impl std::fmt::Display for GetError {
 			Self::NoIfMatch{item_path, search, found} => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
 			Self::IfNoneMatch{item_path, search, found} => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
 			Self::CanNotGetStorage => f.write_str("can not get storage"),
-			Self::CanNotParseFile {
+			Self::CanNotSerializeFile {
 				item_path,
 				error,
 			} => f.write_fmt(format_args!("can not parse file `{}` because {}", item_path.to_string_lossy(), error)),
@@ -462,7 +459,7 @@ impl crate::database::Error for GetError {
 				Some(format!("{}", self)),
 				should_have_body,
 			),
-			Self::CanNotParseFile { .. } => crate::database::build_http_json_response(
+			Self::CanNotSerializeFile { .. } => crate::database::build_http_json_response(
 				origin,
 				&actix_web::http::Method::GET,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,

@@ -38,17 +38,18 @@ pub fn put(
 							);
 							match serialized_data {
 								Ok(serialized_data) => {
-									if let Err(_) =
-										storage.set_item(&filedata_path, &serialized_data)
-									{
+									if storage.set_item(&filedata_path, &serialized_data).is_err() {
 										return crate::database::PutResult::Err(Box::new(
 											PutError::GetError(super::GetError::CanNotGetStorage),
 										));
 									}
-									if let Err(_) = storage.set_item(
-										&format!("{}/{}", prefix, path.to_str().unwrap()),
-										&base64::encode(new_content),
-									) {
+									if storage
+										.set_item(
+											&format!("{}/{}", prefix, path.to_str().unwrap()),
+											&base64::encode(new_content),
+										)
+										.is_err()
+									{
 										return crate::database::PutResult::Err(Box::new(
 											PutError::GetError(super::GetError::CanNotGetStorage),
 										));
@@ -58,7 +59,7 @@ pub fn put(
 										let mut ancestor_path = String::new();
 										if ancestor.to_str().unwrap() != "" {
 											ancestor_path += ancestor.to_str().unwrap();
-											if ancestor_path != "" {
+											if !ancestor_path.is_empty() {
 												ancestor_path += "/";
 											}
 										}
@@ -79,7 +80,7 @@ pub fn put(
 
 														match serde_json::to_string(&new_folderdata) {
 															Ok(new_folderdata_content) => {
-																if let Err(_) = storage.set_item(&folderdata_path, &new_folderdata_content) {
+																if storage.set_item(&folderdata_path, &new_folderdata_content).is_err() {
 																	return crate::database::PutResult::Err(Box::new(
 																		PutError::GetError(super::GetError::CanNotGetStorage),
 																	));
@@ -185,29 +186,35 @@ pub fn put(
 						if let Some(parent) = path.parent() {
 							let parent = parent.to_str().unwrap();
 							parent_path += parent;
-							if parent != "" {
+							if !parent.is_empty() {
 								parent_path += "/";
 							}
 						}
 
-						if let Err(_) = storage.set_item(
-							&format!(
-								"{}/{}.{}.itemdata.toml",
-								prefix,
-								parent_path,
-								path.file_name().unwrap().to_str().unwrap()
-							),
-							&serde_json::to_string(&datadocument).unwrap(),
-						) {
+						if storage
+							.set_item(
+								&format!(
+									"{}/{}.{}.itemdata.toml",
+									prefix,
+									parent_path,
+									path.file_name().unwrap().to_str().unwrap()
+								),
+								&serde_json::to_string(&datadocument).unwrap(),
+							)
+							.is_err()
+						{
 							return crate::database::PutResult::Err(Box::new(PutError::GetError(
 								super::GetError::CanNotGetStorage,
 							)));
 						}
 
-						if let Err(_) = storage.set_item(
-							&format!("{}/{}", prefix, path.to_str().unwrap()),
-							&base64::encode(&new_content),
-						) {
+						if storage
+							.set_item(
+								&format!("{}/{}", prefix, path.to_str().unwrap()),
+								&base64::encode(&new_content),
+							)
+							.is_err()
+						{
 							return crate::database::PutResult::Err(Box::new(PutError::GetError(
 								super::GetError::CanNotGetStorage,
 							)));
@@ -246,17 +253,20 @@ pub fn put(
 
 									let mut ancestor_path =
 										String::from(ancestor.to_str().unwrap());
-									if ancestor_path != "" {
+									if !ancestor_path.is_empty() {
 										ancestor_path += "/";
 									}
 
-									if let Err(_) = storage.set_item(
-										&format!(
-											"{}/{}.folder.itemdata.toml",
-											prefix, ancestor_path,
-										),
-										&serde_json::to_string(&datafolder).unwrap(),
-									) {
+									if storage
+										.set_item(
+											&format!(
+												"{}/{}.folder.itemdata.toml",
+												prefix, ancestor_path,
+											),
+											&serde_json::to_string(&datafolder).unwrap(),
+										)
+										.is_err()
+									{
 										return crate::database::PutResult::Err(Box::new(
 											PutError::GetError(super::GetError::CanNotGetStorage),
 										));
