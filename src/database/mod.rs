@@ -1,34 +1,19 @@
-mod sources;
+pub mod sources;
 
-pub use sources::DataSource;
-
-pub mod memory {
-	pub use super::sources::memory::DeleteError;
-	pub use super::sources::memory::GetError;
-	pub use super::sources::memory::PutError;
-}
+use sources::DataSource;
 
 #[cfg(feature = "server_file_storage")]
-pub mod folder {
-	pub use super::sources::folder::DeleteError;
-	pub use super::sources::folder::GetError;
-	pub use super::sources::folder::PutError;
-}
-
+pub use sources::FolderStorage;
 #[cfg(feature = "server_local_storage")]
-pub mod local_storage {
-	pub use super::sources::local_storage::DeleteError;
-	pub use super::sources::local_storage::GetError;
-	pub use super::sources::local_storage::PutError;
-	pub use super::sources::local_storage::{LocalStorageError, Storage};
-}
+pub use sources::LocalStorage;
+pub use sources::MemoryStorage;
 
 #[derive(Debug)]
-pub struct Database {
-	source: DataSource,
+pub struct Database<T: DataSource> {
+	source: T,
 }
-impl Database {
-	pub fn new(source: DataSource) -> Self {
+impl<T: DataSource> Database<T> {
+	pub fn new(source: T) -> Self {
 		Database { source }
 	}
 

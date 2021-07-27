@@ -440,7 +440,7 @@ mod tests {
 		access_tokens.lock().unwrap().push(token.clone());
 
 		let database =
-			pontus_onyx::database::Database::new(pontus_onyx::database::DataSource::Memory {
+			pontus_onyx::database::Database::new(pontus_onyx::database::sources::MemoryStorage {
 				root_item: pontus_onyx::Item::new_folder(vec![(
 					"user",
 					pontus_onyx::Item::new_folder(vec![

@@ -6,6 +6,93 @@ pub use delete::*;
 pub use get::{get, GetError};
 pub use put::*;
 
+/// Store data in web browser's localStorage.
+///
+/// It is a local key-value database available in modern web browsers.
+///
+/// [More on MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage)
+#[derive(Debug)]
+pub struct LocalStorage {
+	/// The prefix of the keys inside the localStorage.
+	pub prefix: String,
+}
+impl crate::database::DataSource for LocalStorage {
+	fn get(
+		&self,
+		path: &std::path::Path,
+		if_match: &crate::Etag,
+		if_none_match: &[&crate::Etag],
+		get_content: bool,
+	) -> Result<crate::Item, Box<dyn std::error::Error>> {
+		match web_sys::window() {
+			Some(window) => match window.local_storage() {
+				Ok(Some(local_storage)) => get(
+					&local_storage,
+					&self.prefix,
+					path,
+					if_match,
+					if_none_match,
+					get_content,
+				),
+				Ok(None) => Err(Box::new(LocalStorageError::ThereIsNoLocalStorage)),
+				Err(_) => Err(Box::new(LocalStorageError::CanNotGetLocalStorage)),
+			},
+			None => Err(Box::new(LocalStorageError::CanNotGetWindow)),
+		}
+	}
+
+	fn put(
+		&mut self,
+		path: &std::path::Path,
+		if_match: &crate::Etag,
+		if_none_match: &[&crate::Etag],
+		new_item: crate::Item,
+	) -> crate::database::PutResult {
+		match web_sys::window() {
+			Some(window) => match window.local_storage() {
+				Ok(Some(local_storage)) => put(
+					&local_storage,
+					&self.prefix,
+					path,
+					if_match,
+					if_none_match,
+					new_item,
+				),
+				Ok(None) => crate::database::PutResult::Err(Box::new(
+					super::local_storage::LocalStorageError::ThereIsNoLocalStorage,
+				)),
+				Err(_) => crate::database::PutResult::Err(Box::new(
+					super::local_storage::LocalStorageError::CanNotGetLocalStorage,
+				)),
+			},
+			None => crate::database::PutResult::Err(Box::new(
+				super::local_storage::LocalStorageError::CanNotGetWindow,
+			)),
+		}
+	}
+
+	fn delete(
+		&mut self,
+		path: &std::path::Path,
+		if_match: &crate::Etag,
+	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
+		match web_sys::window() {
+			Some(window) => match window.local_storage() {
+				Ok(Some(local_storage)) => delete(&local_storage, &self.prefix, path, if_match),
+				Ok(None) => Err(Box::new(
+					super::local_storage::LocalStorageError::ThereIsNoLocalStorage,
+				)),
+				Err(_) => Err(Box::new(
+					super::local_storage::LocalStorageError::CanNotGetLocalStorage,
+				)),
+			},
+			None => Err(Box::new(
+				super::local_storage::LocalStorageError::CanNotGetWindow,
+			)),
+		}
+	}
+}
+
 pub trait Storage {
 	fn length(&self) -> Result<u32, wasm_bindgen::JsValue>;
 	fn clear(&self) -> Result<(), wasm_bindgen::JsValue>;

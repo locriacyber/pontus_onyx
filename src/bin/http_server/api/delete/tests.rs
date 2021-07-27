@@ -3,7 +3,7 @@ use actix_web::http::{header::EntityTag, Method, StatusCode};
 #[actix_rt::test]
 async fn basics() {
 	let database =
-		pontus_onyx::database::Database::new(pontus_onyx::database::DataSource::Memory {
+		pontus_onyx::database::Database::new(pontus_onyx::database::sources::MemoryStorage {
 			root_item: pontus_onyx::Item::new_folder(vec![(
 				"user",
 				pontus_onyx::Item::new_folder(vec![(
@@ -106,7 +106,7 @@ async fn basics() {
 #[actix_rt::test]
 async fn if_match() {
 	let database =
-		pontus_onyx::database::Database::new(pontus_onyx::database::DataSource::Memory {
+		pontus_onyx::database::Database::new(pontus_onyx::database::sources::MemoryStorage {
 			root_item: pontus_onyx::Item::new_folder(vec![(
 				"user",
 				pontus_onyx::Item::new_folder(vec![(

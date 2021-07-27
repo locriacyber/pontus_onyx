@@ -10,7 +10,7 @@ pub fn delete(
 		return Err(Box::new(DeleteError::DoesNotWorksForFolders));
 	}
 
-	match super::get(root_folder_path, path, if_match, &[], false) {
+	match super::get::get(root_folder_path, path, if_match, &[], false) {
 		Ok(target_item) => {
 			let old_target_item = target_item.get_etag().clone();
 

@@ -11,7 +11,11 @@ pub async fn put_item(
 	request: actix_web::web::HttpRequest,
 	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+		std::sync::Arc<
+			std::sync::Mutex<
+				pontus_onyx::database::Database<pontus_onyx::database::sources::FolderStorage>,
+			>,
+		>,
 	>,
 ) -> impl actix_web::Responder {
 	let mut content = actix_web::web::BytesMut::new();
@@ -79,16 +83,16 @@ pub async fn put_item(
 			);
 		}
 		pontus_onyx::database::PutResult::Err(e) => {
-			if e.is::<pontus_onyx::database::memory::PutError>() {
+			if e.is::<pontus_onyx::database::sources::memory::PutError>() {
 				pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::memory::PutError>()
+					&*e.downcast::<pontus_onyx::database::sources::memory::PutError>()
 						.unwrap(),
 					origin,
 					true,
 				)
-			} else if e.is::<pontus_onyx::database::folder::PutError>() {
+			} else if e.is::<pontus_onyx::database::sources::folder::PutError>() {
 				pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::folder::PutError>()
+					&*e.downcast::<pontus_onyx::database::sources::folder::PutError>()
 						.unwrap(),
 					origin,
 					true,

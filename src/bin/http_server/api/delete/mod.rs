@@ -3,7 +3,11 @@ pub async fn delete_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::web::HttpRequest,
 	database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+		std::sync::Arc<
+			std::sync::Mutex<
+				pontus_onyx::database::Database<pontus_onyx::database::sources::FolderStorage>,
+			>,
+		>,
 	>,
 ) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
@@ -32,16 +36,16 @@ pub async fn delete_item(
 			);
 		}
 		Err(e) => {
-			if e.is::<pontus_onyx::database::memory::DeleteError>() {
+			if e.is::<pontus_onyx::database::sources::memory::DeleteError>() {
 				return pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::memory::DeleteError>()
+					&*e.downcast::<pontus_onyx::database::sources::memory::DeleteError>()
 						.unwrap(),
 					origin,
 					true,
 				);
-			} else if e.is::<pontus_onyx::database::folder::DeleteError>() {
+			} else if e.is::<pontus_onyx::database::sources::folder::DeleteError>() {
 				return pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::folder::DeleteError>()
+					&*e.downcast::<pontus_onyx::database::sources::folder::DeleteError>()
 						.unwrap(),
 					origin,
 					true,

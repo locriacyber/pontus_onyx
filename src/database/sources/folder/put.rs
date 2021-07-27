@@ -13,7 +13,7 @@ pub fn put(
 		return crate::database::PutResult::Err(Box::new(PutError::DoesNotWorksForFolders));
 	}
 
-	let item_fetch = super::get(root_folder_path, path, if_match, if_none_match, true);
+	let item_fetch = super::get::get(root_folder_path, path, if_match, if_none_match, true);
 
 	let target_content_path = root_folder_path.join(path);
 	let target_data_path = root_folder_path
