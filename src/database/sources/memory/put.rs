@@ -120,94 +120,88 @@ pub fn put(
 				return crate::database::PutResult::Err(Box::new(PutError::DoesNotWorksForFolders));
 			}
 		}
-		Err(super::GetError::NotFound { .. }) => {
-			match super::get::get_internal_mut(
-				root_item,
-				&std::path::Path::new(&format!("{}/", path.parent().unwrap().to_str().unwrap())),
-				&crate::Etag::from(""),
-				&[],
-			) {
-				Ok(parent_folder) => match parent_folder {
-					crate::Item::Folder {
-						content: Some(content),
+		Err(super::GetError::NotFound { .. }) => match super::get::get_internal_mut(
+			root_item,
+			&std::path::Path::new(&format!("{}/", path.parent().unwrap().to_str().unwrap())),
+			&crate::Etag::from(""),
+			&[],
+		) {
+			Ok(parent_folder) => match parent_folder {
+				crate::Item::Folder {
+					content: Some(content),
+					..
+				} => {
+					if let crate::Item::Document {
+						content: new_content,
+						content_type: new_content_type,
 						..
-					} => {
-						if let crate::Item::Document {
+					} = item
+					{
+						let new_etag = crate::Etag::new();
+						let new_item = crate::Item::Document {
+							etag: new_etag.clone(),
 							content: new_content,
 							content_type: new_content_type,
-							..
-						} = item
+							last_modified: chrono::Utc::now(),
+						};
+						content.insert(
+							String::from(path.file_name().unwrap().to_str().unwrap()),
+							Box::new(new_item),
+						);
+
 						{
-							let new_etag = crate::Etag::new();
-							let new_item = crate::Item::Document {
-								etag: new_etag.clone(),
-								content: new_content,
-								content_type: new_content_type,
-								last_modified: chrono::Utc::now(),
+							let parents = {
+								let ancestors = path.ancestors();
+								let mut paths: Vec<&std::path::Path> =
+									ancestors.into_iter().collect();
+								paths = paths
+									.into_iter()
+									.rev()
+									.take(ancestors.count().saturating_sub(1))
+									.collect();
+								paths
 							};
-							content.insert(
-								String::from(path.file_name().unwrap().to_str().unwrap()),
-								Box::new(new_item),
-							);
 
-							{
-								let parents = {
-									let ancestors = path.ancestors();
-									let mut paths: Vec<&std::path::Path> =
-										ancestors.into_iter().collect();
-									paths = paths
-										.into_iter()
-										.rev()
-										.take(ancestors.count().saturating_sub(1))
-										.collect();
-									paths
-								};
-
-								for path_part in parents {
-									match root_item.get_child_mut(path_part) {
-										Some(crate::Item::Folder { etag, .. }) => {
-											*etag = crate::Etag::new();
-										}
-										Some(crate::Item::Document { etag, .. }) => {
-											*etag = crate::Etag::new();
-										}
-										None => {
-											return crate::database::PutResult::Err(Box::new(
-												PutError::InternalError,
-											));
-										}
+							for path_part in parents {
+								match root_item.get_child_mut(path_part) {
+									Some(crate::Item::Folder { etag, .. }) => {
+										*etag = crate::Etag::new();
+									}
+									Some(crate::Item::Document { etag, .. }) => {
+										*etag = crate::Etag::new();
+									}
+									None => {
+										return crate::database::PutResult::Err(Box::new(
+											PutError::InternalError,
+										));
 									}
 								}
 							}
-
-							return crate::database::PutResult::Created(new_etag);
-						} else {
-							return crate::database::PutResult::Err(Box::new(
-								PutError::DoesNotWorksForFolders,
-							));
 						}
-					}
-					crate::Item::Folder { content: None, .. } => {
+
+						return crate::database::PutResult::Created(new_etag);
+					} else {
 						return crate::database::PutResult::Err(Box::new(
-							PutError::NoContentInside {
-								item_path: path.to_path_buf(),
-							},
+							PutError::DoesNotWorksForFolders,
 						));
 					}
-					_ => {
-						return crate::database::PutResult::Err(Box::new(PutError::InternalError));
-					}
-				},
-				Err(error) => {
-					return crate::database::PutResult::Err(Box::new(
-						PutError::CanNotFetchParent {
-							item_path: path.to_path_buf(),
-							error,
-						},
-					));
 				}
+				crate::Item::Folder { content: None, .. } => {
+					return crate::database::PutResult::Err(Box::new(PutError::NoContentInside {
+						item_path: path.to_path_buf(),
+					}));
+				}
+				_ => {
+					return crate::database::PutResult::Err(Box::new(PutError::InternalError));
+				}
+			},
+			Err(error) => {
+				return crate::database::PutResult::Err(Box::new(PutError::CanNotFetchParent {
+					item_path: path.to_path_buf(),
+					error,
+				}));
 			}
-		}
+		},
 		Err(super::GetError::CanNotBeListed { .. }) => {
 			return crate::database::PutResult::Err(Box::new(PutError::DoesNotWorksForFolders));
 		}
@@ -283,11 +277,11 @@ pub enum PutError {
 impl std::fmt::Display for PutError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		match self {
-			Self::Conflict{item_path} => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
-			Self::NoContentInside{item_path} => f.write_fmt(format_args!("no content found in `{}`", item_path.to_string_lossy())),
-			Self::IncorrectItemName{item_path, error} => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
-			Self::NoIfMatch{item_path, search, found} => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
-			Self::IfNoneMatch{item_path, search, found} => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
+			Self::Conflict { item_path } => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
+			Self::NoContentInside { item_path } => f.write_fmt(format_args!("no content found in `{}`", item_path.to_string_lossy())),
+			Self::IncorrectItemName { item_path, error } => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
+			Self::NoIfMatch { item_path, search, found } => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
+			Self::IfNoneMatch { item_path, search, found } => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
 			Self::DoesNotWorksForFolders => f.write_str("this method does not works on folders"),
 			Self::InternalError => f.write_str("internal server error"),
 			Self::ContentNotChanged => f.write_str("content not changed"),
@@ -675,7 +669,7 @@ mod tests {
 			PutError::IfNoneMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("*"),
+				search: crate::Etag::from("*")
 			}
 		);
 
@@ -734,7 +728,7 @@ mod tests {
 			PutError::NoIfMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("ANOTHER_ETAG"),
+				search: crate::Etag::from("ANOTHER_ETAG")
 			}
 		);
 

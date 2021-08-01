@@ -666,7 +666,7 @@ mod tests {
 			PutError::GetError(GetError::IfNoneMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("*"),
+				search: crate::Etag::from("*")
 			})
 		);
 
@@ -720,7 +720,7 @@ mod tests {
 			PutError::GetError(GetError::NoIfMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("ANOTHER_ETAG"),
+				search: crate::Etag::from("ANOTHER_ETAG")
 			})
 		);
 

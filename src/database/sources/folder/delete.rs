@@ -1208,15 +1208,18 @@ mod tests {
 
 	#[test]
 	fn delete_in_public() {
-		let (tmp_folder, root_etag, A_etag, AA_etag, AB_etag, AAA_etag, _, _, _) = build_test_db();
+		let (tmp_folder, root_etag, A_etag, AA_etag, AB_etag, AAA_etag, _, _, BA_etag) =
+			build_test_db();
 		let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-		delete(
+		let old_BA_etag = delete(
 			&tmp_folder_path,
 			&std::path::Path::new("public/B/BA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
+
+		assert_eq!(old_BA_etag, BA_etag);
 
 		assert!(tmp_folder_path.exists());
 		assert!(tmp_folder_path.join(".folder.itemdata.toml").exists());

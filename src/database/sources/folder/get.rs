@@ -347,15 +347,15 @@ pub enum GetError {
 impl std::fmt::Display for GetError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		match self {
-			Self::Conflict{item_path} => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
-			Self::NotFound{item_path} => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
-			Self::IncorrectItemName{item_path, error} => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
-			Self::CanNotBeListed{item_path} => f.write_fmt(format_args!("the folder `{}` can not be listed", item_path.to_string_lossy())),
-			Self::NoIfMatch{item_path, search, found} => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
-			Self::IfNoneMatch{item_path, search, found} => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
-			Self::CanNotReadFile{path, error} => f.write_fmt(format_args!("can not read file `{}`, because {}", path.to_string_lossy(), error)),
-			Self::CanNotDeserializeFile{path, error} => f.write_fmt(format_args!("can not deserialize file `{}`, because {}", path.to_string_lossy(), error)),
-			Self::IOError{error} => f.write_fmt(format_args!("file system error : {}", error)),
+			Self::Conflict { item_path } => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
+			Self::NotFound { item_path } => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
+			Self::IncorrectItemName { item_path, error } => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
+			Self::CanNotBeListed { item_path } => f.write_fmt(format_args!("the folder `{}` can not be listed", item_path.to_string_lossy())),
+			Self::NoIfMatch { item_path, search, found } => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
+			Self::IfNoneMatch { item_path, search, found } => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
+			Self::CanNotReadFile { path, error } => f.write_fmt(format_args!("can not read file `{}`, because {}", path.to_string_lossy(), error)),
+			Self::CanNotDeserializeFile { path, error } => f.write_fmt(format_args!("can not deserialize file `{}`, because {}", path.to_string_lossy(), error)),
+			Self::IOError { error } => f.write_fmt(format_args!("file system error : {}", error)),
 			Self::IsSystemFile => f.write_str("this is a system file, that should not be server"),
 		}
 	}
@@ -1013,7 +1013,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("."),
-				error: String::from("`.` is not allowed"),
+				error: String::from("`.` is not allowed")
 			}
 		);
 		assert_eq!(
@@ -1029,7 +1029,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/.."),
-				error: String::from("`..` is not allowed"),
+				error: String::from("`..` is not allowed")
 			}
 		);
 		assert_eq!(
@@ -1045,7 +1045,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed"),
+				error: String::from("`..` is not allowed")
 			}
 		);
 		assert_eq!(
@@ -1061,7 +1061,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed"),
+				error: String::from("`..` is not allowed")
 			}
 		);
 		assert_eq!(
@@ -1077,7 +1077,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/A\0A"),
-				error: format!("`{}` should not contains \\0 character", "A\0A"),
+				error: format!("`{}` should not contains `\\0` character", "A\0A")
 			}
 		);
 		assert_eq!(
@@ -1092,7 +1092,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/"),
+				item_path: std::path::PathBuf::from("public/")
 			},
 		);
 		assert_eq!(
@@ -1107,7 +1107,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/C/"),
+				item_path: std::path::PathBuf::from("public/C/")
 			}
 		);
 
@@ -1320,7 +1320,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/"),
+				item_path: std::path::PathBuf::from("public/")
 			}
 		);
 		assert_eq!(
@@ -1335,7 +1335,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/C/"),
+				item_path: std::path::PathBuf::from("public/C/")
 			}
 		);
 		assert_eq!(
@@ -1361,7 +1361,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NotFound {
-				item_path: std::path::PathBuf::from("public/not_exists"),
+				item_path: std::path::PathBuf::from("public/not_exists")
 			}
 		);
 		assert_eq!(
@@ -1376,7 +1376,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/not_exists/"),
+				item_path: std::path::PathBuf::from("public/not_exists/")
 			}
 		);
 

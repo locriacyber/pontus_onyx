@@ -45,7 +45,7 @@ impl std::fmt::Display for ContentType {
 	}
 }
 
-/// ETag is String value, used for versioning purposes.
+/// ETag is a String value, used for versioning purposes.
 #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(from = "String", into = "String")]
 pub struct Etag(String);
@@ -342,6 +342,9 @@ fn j5bmhdxhlgkhdk82rjio3ej6() {
 	assert_eq!(root.get_child_mut(&std::path::Path::new("B/BB/")), None);
 }
 
+/// Check if a name of the part of a path does not contains unauthorized content.
+///
+/// Part of a path = the folder name, between an `/` and another `/`, or the filename.
 pub fn item_name_is_ok(path: &str) -> Result<(), String> {
 	if path.trim().is_empty() {
 		return Err(String::from("should not be empty"));
@@ -359,8 +362,16 @@ pub fn item_name_is_ok(path: &str) -> Result<(), String> {
 		return Err(String::from("`folder` is not allowed"));
 	}
 
+	if path.contains('/') {
+		return Err(format!("`{}` should not contains `/` character", path));
+	}
+
+	if path.contains('\\') {
+		return Err(format!("`{}` should not contains `\\` character", path));
+	}
+
 	if path.contains('\0') {
-		return Err(format!("`{}` should not contains \\0 character", path));
+		return Err(format!("`{}` should not contains `\\0` character", path));
 	}
 
 	return Ok(());
@@ -397,7 +408,7 @@ fn hf1atgq7tibjv22p2whyhrl() {
 	let input = "gq7t\0ib";
 	assert_eq!(
 		item_name_is_ok(&input),
-		Err(format!("`{}` should not contains \\0 character", input))
+		Err(format!("`{}` should not contains `\\0` character", input))
 	);
 }
 
@@ -455,6 +466,8 @@ impl Default for DataFolder {
 	}
 }
 
+/// Simply store if user has `Read` or `ReadWrite` right to an endpoint
+/// of [`Database`][`crate::database::Database`].
 #[derive(Debug, PartialEq, Clone)]
 pub enum ScopeRightType {
 	Read,
@@ -484,6 +497,7 @@ impl std::fmt::Display for ScopeRightType {
 	}
 }
 
+/// Errors can occurs when using [`TryFrom<&str>`][`std::convert::TryFrom`] on [`ScopeRightType`].
 #[derive(Debug, PartialEq)]
 pub enum ScopeParsingError {
 	IncorrectFormat(String),
