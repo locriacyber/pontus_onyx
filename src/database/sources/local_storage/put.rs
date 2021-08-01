@@ -31,7 +31,7 @@ pub fn put(
 							});
 
 							let filedata_path = format!(
-								"{}/{}/.{}.itemdata.toml",
+								"{}/{}/.{}.itemdata.json",
 								prefix,
 								path.parent().unwrap().to_str().unwrap(),
 								path.file_name().unwrap().to_str().unwrap()
@@ -65,7 +65,7 @@ pub fn put(
 										}
 
 										let folderdata_path = format!(
-											"{}/{}.folder.itemdata.toml",
+											"{}/{}.folder.itemdata.json",
 											prefix, ancestor_path,
 										);
 
@@ -79,20 +79,13 @@ pub fn put(
 														new_folderdata.etag = crate::Etag::new();
 
 														match serde_json::to_string(&new_folderdata) {
-															Ok(new_folderdata_content) => {
-																if storage.set_item(&folderdata_path, &new_folderdata_content).is_err() {
-																	return crate::database::PutResult::Err(Box::new(
-																		PutError::GetError(super::GetError::CanNotGetStorage),
-																	));
-																}
-															},
-															Err(error) => return crate::database::PutResult::Err(Box::new(
-																PutError::CanNotSerializeFile{
-																	path: std::path::PathBuf::from(folderdata_path),
-																	error: format!("{}", error),
-																},
-															)),
+														Ok(new_folderdata_content) => {
+															if storage.set_item(&folderdata_path, &new_folderdata_content).is_err() {
+																return crate::database::PutResult::Err(Box::new(PutError::GetError(super::GetError::CanNotGetStorage)));
+															}
 														}
+														Err(error) => return crate::database::PutResult::Err(Box::new(PutError::CanNotSerializeFile { path: std::path::PathBuf::from(folderdata_path), error: format!("{}", error) })),
+													}
 													}
 													Err(error) => {
 														return crate::database::PutResult::Err(
@@ -194,7 +187,7 @@ pub fn put(
 						if storage
 							.set_item(
 								&format!(
-									"{}/{}.{}.itemdata.toml",
+									"{}/{}.{}.itemdata.json",
 									prefix,
 									parent_path,
 									path.file_name().unwrap().to_str().unwrap()
@@ -222,7 +215,7 @@ pub fn put(
 
 						for ancestor in path.ancestors().skip(1) {
 							match storage.get_item(&format!(
-								"{}/{}/.{}.itemdata.toml",
+								"{}/{}/.{}.itemdata.json",
 								prefix,
 								ancestor
 									.parent()
@@ -260,7 +253,7 @@ pub fn put(
 									if storage
 										.set_item(
 											&format!(
-												"{}/{}.folder.itemdata.toml",
+												"{}/{}.folder.itemdata.json",
 												prefix, ancestor_path,
 											),
 											&serde_json::to_string(&datafolder).unwrap(),
@@ -432,7 +425,7 @@ mod tests {
 
 		storage
 			.set_item(
-				&format!("{}/.folder.itemdata.toml", prefix),
+				&format!("{}/.folder.itemdata.json", prefix),
 				&serde_json::to_string(&crate::DataFolder {
 					datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 					etag: root.get_etag().clone(),
@@ -445,7 +438,7 @@ mod tests {
 
 		storage
 			.set_item(
-				&format!("{}/A/.folder.itemdata.toml", prefix),
+				&format!("{}/A/.folder.itemdata.json", prefix),
 				&serde_json::to_string(&crate::DataFolder {
 					datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 					etag: A.get_etag().clone(),
@@ -463,7 +456,7 @@ mod tests {
 		{
 			storage
 				.set_item(
-					&format!("{}/A/.AA.itemdata.toml", prefix),
+					&format!("{}/A/.AA.itemdata.json", prefix),
 					&serde_json::to_string(&crate::DataDocument {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: AA_etag,
@@ -477,6 +470,8 @@ mod tests {
 			storage
 				.set_item(&format!("{}/A/AA", prefix), &base64::encode(&content))
 				.unwrap();
+		} else {
+			panic!()
 		}
 
 		return (
@@ -504,12 +499,12 @@ mod tests {
 		.unwrap();
 
 		assert!(storage
-			.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_some());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -547,7 +542,7 @@ mod tests {
 		assert_ne!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -557,13 +552,13 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert_ne!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -573,12 +568,12 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -619,7 +614,7 @@ mod tests {
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -629,13 +624,13 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -645,12 +640,12 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -709,31 +704,31 @@ mod tests {
 
 		assert!(serde_json::from_str::<crate::DataFolder>(
 			&storage
-				.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+				.get_item(&format!("{}/.folder.itemdata.json", prefix))
 				.unwrap()
 				.unwrap()
 		)
 		.is_ok());
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert!(serde_json::from_str::<crate::DataFolder>(
 			&storage
-				.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 				.unwrap()
 				.unwrap()
 		)
 		.is_ok());
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -771,14 +766,14 @@ mod tests {
 			PutError::GetError(super::super::GetError::IfNoneMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("*"),
+				search: crate::Etag::from("*")
 			})
 		);
 
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -788,13 +783,13 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -804,12 +799,12 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -847,14 +842,14 @@ mod tests {
 			PutError::GetError(super::super::GetError::NoIfMatch {
 				item_path: std::path::PathBuf::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("ANOTHER_ETAG"),
+				search: crate::Etag::from("ANOTHER_ETAG")
 			})
 		);
 
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -864,13 +859,13 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -880,12 +875,12 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -921,7 +916,7 @@ mod tests {
 		assert_ne!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -931,13 +926,13 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert_ne!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -947,12 +942,12 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -990,7 +985,7 @@ mod tests {
 		assert_ne!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -1000,13 +995,13 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert_ne!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -1016,12 +1011,12 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -1064,7 +1059,7 @@ mod tests {
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -1074,13 +1069,13 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -1090,12 +1085,12 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -1138,7 +1133,7 @@ mod tests {
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -1148,13 +1143,13 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert_eq!(
 			serde_json::from_str::<crate::DataFolder>(
 				&storage
-					.get_item(&format!("{}/A/.folder.itemdata.toml", prefix))
+					.get_item(&format!("{}/A/.folder.itemdata.json", prefix))
 					.unwrap()
 					.unwrap()
 			)
@@ -1164,12 +1159,12 @@ mod tests {
 		);
 
 		assert!(storage
-			.get_item(&format!("{}/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)
@@ -1205,43 +1200,43 @@ mod tests {
 
 		assert!(serde_json::from_str::<crate::DataFolder>(
 			&storage
-				.get_item(&format!("{}/.folder.itemdata.toml", prefix))
+				.get_item(&format!("{}/.folder.itemdata.json", prefix))
 				.unwrap()
 				.unwrap()
 		)
 		.is_ok());
 
 		assert!(storage
-			.get_item(&format!("{}/.public.itemdata.toml", prefix))
+			.get_item(&format!("{}/.public.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert!(serde_json::from_str::<crate::DataFolder>(
 			&storage
-				.get_item(&format!("{}/public/.folder.itemdata.toml", prefix))
+				.get_item(&format!("{}/public/.folder.itemdata.json", prefix))
 				.unwrap()
 				.unwrap()
 		)
 		.is_ok());
 
 		assert!(storage
-			.get_item(&format!("{}/public/.A.itemdata.toml", prefix))
+			.get_item(&format!("{}/public/.A.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		assert!(serde_json::from_str::<crate::DataFolder>(
 			&storage
-				.get_item(&format!("{}/public/A/.folder.itemdata.toml", prefix))
+				.get_item(&format!("{}/public/A/.folder.itemdata.json", prefix))
 				.unwrap()
 				.unwrap()
 		)
 		.is_ok());
 
 		assert!(storage
-			.get_item(&format!("{}/public/A/AA/.folder.itemdata.toml", prefix))
+			.get_item(&format!("{}/public/A/AA/.folder.itemdata.json", prefix))
 			.unwrap()
 			.is_none());
 		let AA_datadoc: crate::DataDocument = serde_json::from_str(
 			&storage
-				.get_item(&format!("{}/public/A/.AA.itemdata.toml", prefix))
+				.get_item(&format!("{}/public/A/.AA.itemdata.json", prefix))
 				.unwrap()
 				.unwrap(),
 		)

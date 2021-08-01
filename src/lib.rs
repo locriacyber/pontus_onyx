@@ -366,6 +366,17 @@ pub fn item_name_is_ok(path: &str) -> Result<(), String> {
 	return Ok(());
 }
 
+pub fn item_name_is_ok_without_itemdata(path: &str) -> Result<(), String> {
+	if path.contains(".itemdata.") {
+		return Err(format!(
+			"`{}` should not contains `.itemdata.` string",
+			path
+		));
+	}
+
+	return item_name_is_ok(path);
+}
+
 #[test]
 fn pfuh8x4mntyi3ej() {
 	let input = "gq7tib";

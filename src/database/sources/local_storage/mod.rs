@@ -176,13 +176,13 @@ impl crate::database::Error for LocalStorageError {
 
 #[derive(Debug)]
 struct LocalStorageMock {
-	content: std::cell::RefCell<std::collections::HashMap<String, String>>,
+	content: std::cell::RefCell<std::collections::BTreeMap<String, String>>,
 }
 impl LocalStorageMock {
 	#[allow(dead_code)]
 	pub fn new() -> Self {
 		LocalStorageMock {
-			content: std::cell::RefCell::new(std::collections::HashMap::new()),
+			content: std::cell::RefCell::new(std::collections::BTreeMap::new()),
 		}
 	}
 }

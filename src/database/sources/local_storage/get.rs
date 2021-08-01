@@ -6,12 +6,28 @@ pub fn get(
 	if_none_match: &[&crate::Etag],
 	get_content: bool,
 ) -> Result<crate::Item, Box<dyn std::error::Error>> {
+	if path
+		.file_name()
+		.unwrap_or_default()
+		.to_str()
+		.unwrap_or_default()
+		.ends_with(".itemdata.json")
+	{
+		return Err(Box::new(GetError::IsSystemFile));
+	}
+
+	if path.to_str().unwrap().starts_with("public/") && path.to_str().unwrap().ends_with('/') {
+		return Err(Box::new(GetError::CanNotBeListed {
+			item_path: path.to_path_buf(),
+		}));
+	}
+
 	if path != std::path::PathBuf::from("") {
 		let mut cumulated_path = std::path::PathBuf::new();
 		let temp_path = path.as_os_str().to_str().unwrap();
 		for item_name in temp_path.strip_suffix('/').unwrap_or(temp_path).split('/') {
 			cumulated_path.push(item_name);
-			if let Err(error) = crate::item_name_is_ok(item_name) {
+			if let Err(error) = crate::item_name_is_ok_without_itemdata(item_name) {
 				if path != std::path::PathBuf::from("") {
 					return Err(Box::new(GetError::IncorrectItemName {
 						item_path: cumulated_path,
@@ -22,27 +38,22 @@ pub fn get(
 		}
 	}
 
-	if path.to_str().unwrap().starts_with("public/") && path.to_str().unwrap().ends_with('/') {
-		return Err(Box::new(GetError::CanNotBeListed {
-			item_path: path.to_path_buf(),
-		}));
-	}
-
-	if path
-		.file_name()
-		.unwrap_or_default()
-		.to_str()
-		.unwrap_or_default()
-		.ends_with(".itemdata.toml")
-	{
-		return Err(Box::new(GetError::IsSystemFile));
-	}
-
 	let folderdata_path = format!(
-		"{}/{}",
+		"{}/{}.folder.itemdata.json",
 		prefix,
-		path.join(".folder.itemdata.toml").to_str().unwrap()
+		if !path.to_str().unwrap().is_empty() {
+			format!(
+				"{}/",
+				path.to_str()
+					.unwrap()
+					.strip_suffix('/')
+					.unwrap_or_else(|| path.to_str().unwrap())
+			)
+		} else {
+			String::new()
+		}
 	);
+
 	match storage.get_item(&folderdata_path) {
 		Ok(Some(folderdata_content)) => {
 			if !path.to_str().unwrap().ends_with('/')
@@ -63,7 +74,7 @@ pub fn get(
 					if let Some(remain) =
 						key.strip_prefix(&format!("{}/{}", prefix, path.to_str().unwrap()))
 					{
-						if !remain.ends_with(".itemdata.toml") {
+						if !remain.ends_with(".itemdata.json") {
 							if !remain.contains('/') && !remain.contains('\\') {
 								content.insert(
 									String::from(remain),
@@ -182,7 +193,7 @@ pub fn get(
 					String::new()
 				},
 				format!(
-					".{}.itemdata.toml",
+					".{}.itemdata.json",
 					path.file_name().unwrap_or_default().to_str().unwrap()
 				)
 			);
@@ -260,14 +271,19 @@ pub fn get(
 				}
 				Ok(None) => {
 					let filedata_path = format!(
-						"{}/{}{}/.folder.itemdata.toml",
+						"{}/{}.folder.itemdata.json",
 						prefix,
-						if target_parent != std::path::Path::new("") {
-							format!("{}/", target_parent.to_str().unwrap())
+						if !path.to_str().unwrap().is_empty() {
+							format!(
+								"{}/",
+								path.to_str()
+									.unwrap()
+									.strip_suffix('/')
+									.unwrap_or_else(|| path.to_str().unwrap())
+							)
 						} else {
 							String::new()
-						},
-						path.file_name().unwrap_or_default().to_str().unwrap(),
+						}
 					);
 					match storage.get_item(&filedata_path) {
 						Ok(Some(_)) => {
@@ -281,32 +297,25 @@ pub fn get(
 							}));
 						}
 						Ok(None) => {
-							let ancestors = if path.to_str().unwrap().ends_with('/') {
-								path.ancestors()
-									.skip(1)
-									.filter(|e| e.to_str().unwrap().trim() != "")
-									.collect::<Vec<&std::path::Path>>()
-							} else {
-								path.ancestors().skip(1).collect::<Vec<&std::path::Path>>()
-							};
+							if path != std::path::Path::new("") {
+								let parent = path.parent().unwrap_or(&std::path::Path::new(""));
 
-							for ancestor in ancestors {
-								let ancestor_get = get(
+								let parent_get = get(
 									storage,
 									prefix,
-									ancestor,
+									parent,
 									&crate::Etag::from(""),
 									&[],
 									false,
 								);
 
-								if let Ok(crate::Item::Document { .. }) = ancestor_get {
+								if let Ok(crate::Item::Document { .. }) = parent_get {
 									return Err(Box::new(GetError::Conflict {
-										item_path: ancestor.to_path_buf(),
+										item_path: parent.to_path_buf(),
 									}));
 								}
 
-								if let Err(error) = ancestor_get {
+								if let Err(error) = parent_get {
 									if let GetError::NotFound { item_path } =
 										*error.downcast::<GetError>().unwrap()
 									{
@@ -364,17 +373,14 @@ pub enum GetError {
 impl std::fmt::Display for GetError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		match self {
-			Self::Conflict{item_path} => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
-			Self::NotFound{item_path} => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
-			Self::IncorrectItemName{item_path, error} => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
-			Self::CanNotBeListed{item_path} => f.write_fmt(format_args!("the folder `{}` can not be listed", item_path.to_string_lossy())),
-			Self::NoIfMatch{item_path, search, found} => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
-			Self::IfNoneMatch{item_path, search, found} => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
+			Self::Conflict { item_path } => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
+			Self::NotFound { item_path } => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
+			Self::IncorrectItemName { item_path, error } => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
+			Self::CanNotBeListed { item_path } => f.write_fmt(format_args!("the folder `{}` can not be listed", item_path.to_string_lossy())),
+			Self::NoIfMatch { item_path, search, found } => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
+			Self::IfNoneMatch { item_path, search, found } => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
 			Self::CanNotGetStorage => f.write_str("can not get storage"),
-			Self::CanNotSerializeFile {
-				item_path,
-				error,
-			} => f.write_fmt(format_args!("can not parse file `{}` because {}", item_path.to_string_lossy(), error)),
+			Self::CanNotSerializeFile { item_path, error } => f.write_fmt(format_args!("can not parse file `{}` because {}", item_path.to_string_lossy(), error)),
 			Self::IsSystemFile => f.write_str("this is a system file, that should not be server"),
 		}
 	}
@@ -531,7 +537,7 @@ mod tests {
 
 		storage
 			.set_item(
-				&format!("{}/.folder.itemdata.toml", prefix),
+				&format!("{}/.folder.itemdata.json", prefix),
 				&serde_json::to_string(&crate::DataFolder {
 					datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 					etag: root.get_etag().clone(),
@@ -542,7 +548,7 @@ mod tests {
 
 		storage
 			.set_item(
-				&format!("{}/A/.folder.itemdata.toml", prefix),
+				&format!("{}/A/.folder.itemdata.json", prefix),
 				&serde_json::to_string(&crate::DataFolder {
 					datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 					etag: A.get_etag().clone(),
@@ -560,7 +566,7 @@ mod tests {
 		{
 			storage
 				.set_item(
-					&format!("{}/A/.AA.itemdata.toml", prefix),
+					&format!("{}/A/.AA.itemdata.json", prefix),
 					&serde_json::to_string(&crate::DataDocument {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: AA_etag,
@@ -585,7 +591,7 @@ mod tests {
 		{
 			storage
 				.set_item(
-					&format!("{}/A/.AB.itemdata.toml", prefix),
+					&format!("{}/A/.AB.itemdata.json", prefix),
 					&serde_json::to_string(&crate::DataDocument {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: AB_etag,
@@ -610,7 +616,7 @@ mod tests {
 		{
 			storage
 				.set_item(
-					&format!("{}/A/.AC.itemdata.toml", prefix),
+					&format!("{}/A/.AC.itemdata.json", prefix),
 					&serde_json::to_string(&crate::DataDocument {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: AC_etag,
@@ -628,7 +634,7 @@ mod tests {
 
 		storage
 			.set_item(
-				&format!("{}/B/.folder.itemdata.toml", prefix),
+				&format!("{}/B/.folder.itemdata.json", prefix),
 				&serde_json::to_string(&crate::DataFolder {
 					datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 					etag: B.get_etag().clone(),
@@ -646,7 +652,7 @@ mod tests {
 		{
 			storage
 				.set_item(
-					&format!("{}/B/.BA.itemdata.toml", prefix),
+					&format!("{}/B/.BA.itemdata.json", prefix),
 					&serde_json::to_string(&crate::DataDocument {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: BA_etag,
@@ -671,7 +677,7 @@ mod tests {
 		{
 			storage
 				.set_item(
-					&format!("{}/B/.BB.itemdata.toml", prefix),
+					&format!("{}/B/.BB.itemdata.json", prefix),
 					&serde_json::to_string(&crate::DataDocument {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: BB_etag,
@@ -689,7 +695,7 @@ mod tests {
 
 		storage
 			.set_item(
-				&format!("{}/public/.folder.itemdata.toml", prefix),
+				&format!("{}/public/.folder.itemdata.json", prefix),
 				&serde_json::to_string(&crate::DataFolder {
 					datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 					etag: public.get_etag().clone(),
@@ -700,7 +706,7 @@ mod tests {
 
 		storage
 			.set_item(
-				&format!("{}/public/C/.folder.itemdata.toml", prefix),
+				&format!("{}/public/C/.folder.itemdata.json", prefix),
 				&serde_json::to_string(&crate::DataFolder {
 					datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 					etag: C.get_etag().clone(),
@@ -718,7 +724,7 @@ mod tests {
 		{
 			storage
 				.set_item(
-					&format!("{}/public/C/.CA.itemdata.toml", prefix),
+					&format!("{}/public/C/.CA.itemdata.json", prefix),
 					&serde_json::to_string(&crate::DataDocument {
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: CA_etag,
@@ -1102,7 +1108,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("."),
-				error: String::from("`.` is not allowed"),
+				error: String::from("`.` is not allowed")
 			}
 		);
 		println!("//////// 250 ////////");
@@ -1120,7 +1126,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/.."),
-				error: String::from("`..` is not allowed"),
+				error: String::from("`..` is not allowed")
 			}
 		);
 		println!("//////// 260 ////////");
@@ -1138,7 +1144,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed"),
+				error: String::from("`..` is not allowed")
 			}
 		);
 		println!("//////// 270 ////////");
@@ -1156,7 +1162,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed"),
+				error: String::from("`..` is not allowed")
 			}
 		);
 		println!("//////// 280 ////////");
@@ -1174,7 +1180,7 @@ mod tests {
 			.unwrap(),
 			GetError::IncorrectItemName {
 				item_path: std::path::PathBuf::from("A/A\0A"),
-				error: format!("`{}` should not contains \\0 character", "A\0A"),
+				error: format!("`{}` should not contains `\\0` character", "A\0A")
 			}
 		);
 		println!("//////// 290 ////////");
@@ -1191,7 +1197,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/"),
+				item_path: std::path::PathBuf::from("public/")
 			},
 		);
 		println!("//////// 300 ////////");
@@ -1208,7 +1214,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/C/"),
+				item_path: std::path::PathBuf::from("public/C/")
 			}
 		);
 
@@ -1447,7 +1453,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/"),
+				item_path: std::path::PathBuf::from("public/")
 			}
 		);
 		println!("//////// 440 ////////");
@@ -1464,7 +1470,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/C/"),
+				item_path: std::path::PathBuf::from("public/C/")
 			}
 		);
 		println!("//////// 450 ////////");
@@ -1494,7 +1500,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NotFound {
-				item_path: std::path::PathBuf::from("public/not_exists"),
+				item_path: std::path::PathBuf::from("public/not_exists")
 			}
 		);
 		println!("//////// 470 ////////");
@@ -1511,7 +1517,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/not_exists/"),
+				item_path: std::path::PathBuf::from("public/not_exists/")
 			}
 		);
 
@@ -1522,7 +1528,7 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				&std::path::Path::new("A/.AA.itemdata.toml"),
+				&std::path::Path::new("A/.AA.itemdata.json"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				true

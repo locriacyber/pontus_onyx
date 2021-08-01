@@ -5,28 +5,6 @@ pub fn get(
 	if_none_match: &[&crate::Etag],
 	get_content: bool,
 ) -> Result<crate::Item, Box<dyn std::error::Error>> {
-	if path != std::path::PathBuf::from("") {
-		let mut cumulated_path = std::path::PathBuf::new();
-		let temp_path = path.as_os_str().to_str().unwrap();
-		for item_name in temp_path.strip_suffix('/').unwrap_or(temp_path).split('/') {
-			cumulated_path.push(item_name);
-			if let Err(error) = crate::item_name_is_ok(item_name) {
-				if path != std::path::PathBuf::from("") {
-					return Err(Box::new(GetError::IncorrectItemName {
-						item_path: cumulated_path,
-						error,
-					}));
-				}
-			}
-		}
-	}
-
-	if path.to_str().unwrap().starts_with("public/") && path.to_str().unwrap().ends_with('/') {
-		return Err(Box::new(GetError::CanNotBeListed {
-			item_path: path.to_path_buf(),
-		}));
-	}
-
 	if path
 		.file_name()
 		.unwrap_or_default()
@@ -35,6 +13,28 @@ pub fn get(
 		.ends_with(".itemdata.toml")
 	{
 		return Err(Box::new(GetError::IsSystemFile));
+	}
+
+	if path.to_str().unwrap().starts_with("public/") && path.to_str().unwrap().ends_with('/') {
+		return Err(Box::new(GetError::CanNotBeListed {
+			item_path: path.to_path_buf(),
+		}));
+	}
+
+	if path != std::path::PathBuf::from("") {
+		let mut cumulated_path = std::path::PathBuf::new();
+		let temp_path = path.as_os_str().to_str().unwrap();
+		for item_name in temp_path.strip_suffix('/').unwrap_or(temp_path).split('/') {
+			cumulated_path.push(item_name);
+			if let Err(error) = crate::item_name_is_ok_without_itemdata(item_name) {
+				if path != std::path::PathBuf::from("") {
+					return Err(Box::new(GetError::IncorrectItemName {
+						item_path: cumulated_path,
+						error,
+					}));
+				}
+			}
+		}
 	}
 
 	let target = root_folder_path.join(path);
