@@ -9,11 +9,11 @@ pub use sources::LocalStorage;
 pub use sources::MemoryStorage;
 
 #[derive(Debug)]
-pub struct Database<T: DataSource> {
-	source: T,
+pub struct Database {
+	source: Box<dyn DataSource>,
 }
-impl<T: DataSource> Database<T> {
-	pub fn new(source: T) -> Self {
+impl Database {
+	pub fn new(source: Box<dyn DataSource>) -> Self {
 		Database { source }
 	}
 

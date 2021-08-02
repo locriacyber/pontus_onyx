@@ -25,9 +25,7 @@ const ACCESS_TOKEN_ALPHABET: &str =
 
 pub fn configure_server(
 	settings: Arc<Mutex<crate::http_server::Settings>>,
-	database: Arc<
-		Mutex<pontus_onyx::database::Database<pontus_onyx::database::sources::FolderStorage>>,
-	>,
+	database: Arc<Mutex<pontus_onyx::database::Database>>,
 	access_tokens: Arc<Mutex<Vec<crate::http_server::AccessBearer>>>,
 	oauth_form_tokens: Arc<Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	users: Arc<Mutex<crate::http_server::Users>>,

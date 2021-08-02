@@ -11,11 +11,7 @@ pub async fn put_item(
 	request: actix_web::web::HttpRequest,
 	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<
-		std::sync::Arc<
-			std::sync::Mutex<
-				pontus_onyx::database::Database<pontus_onyx::database::sources::FolderStorage>,
-			>,
-		>,
+		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
 	>,
 ) -> impl actix_web::Responder {
 	let mut content = actix_web::web::BytesMut::new();

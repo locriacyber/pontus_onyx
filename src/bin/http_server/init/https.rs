@@ -2,9 +2,7 @@ use std::sync::{Arc, Mutex};
 
 pub fn setup_and_run_https_server(
 	settings: Arc<Mutex<super::Settings>>,
-	database: Arc<
-		Mutex<pontus_onyx::database::Database<pontus_onyx::database::sources::FolderStorage>>,
-	>,
+	database: Arc<Mutex<pontus_onyx::database::Database>>,
 	access_tokens: Arc<Mutex<Vec<crate::http_server::AccessBearer>>>,
 	oauth_form_tokens: Arc<Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	users: Arc<Mutex<crate::http_server::Users>>,
