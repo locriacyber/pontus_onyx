@@ -10,7 +10,7 @@ pub fn delete(
 
 	match super::get(storage, prefix, path, if_match, &[], false) {
 		Ok(crate::Item::Document { etag: old_etag, .. }) => {
-			let parent = path.parent().unwrap_or(&std::path::Path::new(""));
+			let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
 
 			let file_path = format!(
 				"{}/.{}.itemdata.json",
@@ -521,7 +521,7 @@ mod tests {
 			*delete(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/AA/AAA"),
+				std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -546,7 +546,7 @@ mod tests {
 		let old_AAA_etag = delete(
 			&storage,
 			&prefix,
-			&std::path::Path::new("A/AA/AAA"),
+			std::path::Path::new("A/AA/AAA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -625,7 +625,7 @@ mod tests {
 			*delete(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/AA/"),
+				std::path::Path::new("A/AA/"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -726,7 +726,7 @@ mod tests {
 			*delete(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/AA/AAA"),
+				std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from("OTHER_ETAG"),
 			)
 			.unwrap_err()
@@ -830,7 +830,7 @@ mod tests {
 		let old_AAA_etag = delete(
 			&storage,
 			&prefix,
-			&std::path::Path::new("A/AA/AAA"),
+			std::path::Path::new("A/AA/AAA"),
 			&AAA_etag,
 		)
 		.unwrap();
@@ -908,7 +908,7 @@ mod tests {
 		let old_AAA_etag = delete(
 			&storage,
 			&prefix,
-			&std::path::Path::new("A/AA/AAA"),
+			std::path::Path::new("A/AA/AAA"),
 			&crate::Etag::from("*"),
 		)
 		.unwrap();
@@ -987,7 +987,7 @@ mod tests {
 			*delete(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -1089,7 +1089,7 @@ mod tests {
 		let old_BA_etag = delete(
 			&storage,
 			&prefix,
-			&std::path::Path::new("public/B/BA"),
+			std::path::Path::new("public/B/BA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -1155,7 +1155,7 @@ mod tests {
 			*delete(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/../AA"),
+				std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()

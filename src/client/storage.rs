@@ -149,8 +149,8 @@ impl RemoteStorage {
 	///
 	/// ```
 	/// let remote = pontus_onyx::client::RemoteStorage::new();
-	/// remote.scope("/pictures/").get_listing(&std::path::Path::new(""), None);
-	/// remote.scope("/public/pictures/").get_listing(&std::path::Path::new(""), None);
+	/// remote.scope("/pictures/").get_listing(std::path::Path::new(""), None);
+	/// remote.scope("/public/pictures/").get_listing(std::path::Path::new(""), None);
 	/// ```
 	pub fn scope(&self, _path: &str) -> super::BaseClient {
 		todo!()

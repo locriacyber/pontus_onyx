@@ -295,19 +295,19 @@ fn jlupvpfbk7wbig1at4h() {
 	let root = crate::Item::new_folder(vec![("A", A.clone())]);
 
 	assert_eq!(
-		root.get_child(&std::path::Path::new("A/AA/AAA.txt")),
+		root.get_child(std::path::Path::new("A/AA/AAA.txt")),
 		Some(&AAA)
 	);
-	assert_eq!(root.get_child(&std::path::Path::new("A/AA/")), Some(&AA));
-	assert_eq!(root.get_child(&std::path::Path::new("A/AA")), Some(&AA));
-	assert_eq!(root.get_child(&std::path::Path::new("A/")), Some(&A));
-	assert_eq!(root.get_child(&std::path::Path::new("A")), Some(&A));
-	assert_eq!(root.get_child(&std::path::Path::new("")), Some(&root));
+	assert_eq!(root.get_child(std::path::Path::new("A/AA/")), Some(&AA));
+	assert_eq!(root.get_child(std::path::Path::new("A/AA")), Some(&AA));
+	assert_eq!(root.get_child(std::path::Path::new("A/")), Some(&A));
+	assert_eq!(root.get_child(std::path::Path::new("A")), Some(&A));
+	assert_eq!(root.get_child(std::path::Path::new("")), Some(&root));
 
-	assert_eq!(root.get_child(&std::path::Path::new("B")), None);
-	assert_eq!(root.get_child(&std::path::Path::new("B/")), None);
-	assert_eq!(root.get_child(&std::path::Path::new("B/BB")), None);
-	assert_eq!(root.get_child(&std::path::Path::new("B/BB/")), None);
+	assert_eq!(root.get_child(std::path::Path::new("B")), None);
+	assert_eq!(root.get_child(std::path::Path::new("B/")), None);
+	assert_eq!(root.get_child(std::path::Path::new("B/BB")), None);
+	assert_eq!(root.get_child(std::path::Path::new("B/BB/")), None);
 }
 
 #[test]
@@ -318,28 +318,25 @@ fn j5bmhdxhlgkhdk82rjio3ej6() {
 	let mut root = crate::Item::new_folder(vec![("A", A.clone())]);
 
 	assert_eq!(
-		root.get_child_mut(&std::path::Path::new("A/AA/AAA.txt")),
+		root.get_child_mut(std::path::Path::new("A/AA/AAA.txt")),
 		Some(&mut AAA)
 	);
 	assert_eq!(
-		root.get_child_mut(&std::path::Path::new("A/AA/")),
+		root.get_child_mut(std::path::Path::new("A/AA/")),
 		Some(&mut AA)
 	);
 	assert_eq!(
-		root.get_child_mut(&std::path::Path::new("A/AA")),
+		root.get_child_mut(std::path::Path::new("A/AA")),
 		Some(&mut AA)
 	);
-	assert_eq!(
-		root.get_child_mut(&std::path::Path::new("A/")),
-		Some(&mut A)
-	);
-	assert_eq!(root.get_child_mut(&std::path::Path::new("A")), Some(&mut A));
-	assert!(root.get_child_mut(&std::path::Path::new("")).is_some());
+	assert_eq!(root.get_child_mut(std::path::Path::new("A/")), Some(&mut A));
+	assert_eq!(root.get_child_mut(std::path::Path::new("A")), Some(&mut A));
+	assert!(root.get_child_mut(std::path::Path::new("")).is_some());
 
-	assert_eq!(root.get_child_mut(&std::path::Path::new("B")), None);
-	assert_eq!(root.get_child_mut(&std::path::Path::new("B/")), None);
-	assert_eq!(root.get_child_mut(&std::path::Path::new("B/BB")), None);
-	assert_eq!(root.get_child_mut(&std::path::Path::new("B/BB/")), None);
+	assert_eq!(root.get_child_mut(std::path::Path::new("B")), None);
+	assert_eq!(root.get_child_mut(std::path::Path::new("B/")), None);
+	assert_eq!(root.get_child_mut(std::path::Path::new("B/BB")), None);
+	assert_eq!(root.get_child_mut(std::path::Path::new("B/BB/")), None);
 }
 
 /// Check if a name of the part of a path does not contains unauthorized content.

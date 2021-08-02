@@ -17,7 +17,7 @@ pub fn put(
 
 	let target_content_path = root_folder_path.join(path);
 	let target_data_path = root_folder_path
-		.join(path.parent().unwrap_or(&std::path::Path::new("")))
+		.join(path.parent().unwrap_or_else(|| std::path::Path::new("")))
 		.join(format!(
 			".{}.itemdata.toml",
 			path.file_name().unwrap().to_str().unwrap()
@@ -144,7 +144,7 @@ pub fn put(
 			let tmp_path = path.to_str().unwrap();
 			return crate::database::PutResult::Err(Box::new(super::GetError::Conflict {
 				item_path: std::path::PathBuf::from(
-					tmp_path.strip_suffix("/").unwrap_or(tmp_path).to_string() + "/",
+					tmp_path.strip_suffix('/').unwrap_or(tmp_path).to_string() + "/",
 				),
 			}));
 		}
@@ -473,7 +473,7 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			&std::path::Path::new("AA"),
+			std::path::Path::new("AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -503,7 +503,7 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			&std::path::Path::new("A/AA"),
+			std::path::Path::new("A/AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -551,7 +551,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AA", "text/plain")
@@ -600,7 +600,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_folder(vec![])
@@ -623,7 +623,7 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			&std::path::Path::new("A/AA"),
+			std::path::Path::new("A/AA"),
 			&crate::Etag::from(""),
 			&[&crate::Etag::from("*")],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -655,7 +655,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -709,7 +709,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&[],
 				crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -762,7 +762,7 @@ mod tests {
 
 		AA_etag = put(
 			&tmp_folder_path,
-			&std::path::Path::new("A/AA"),
+			std::path::Path::new("A/AA"),
 			&AA_etag,
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -807,7 +807,7 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			&std::path::Path::new("A/AA"),
+			std::path::Path::new("A/AA"),
 			&crate::Etag::from("*"),
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -855,7 +855,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				&std::path::Path::new("A/AA/AAA"),
+				std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AAA", "text/plain")
@@ -913,7 +913,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				&std::path::Path::new("A"),
+				std::path::Path::new("A"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"A", "text/plain")
@@ -963,7 +963,7 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			&std::path::Path::new("public/A/AA"),
+			std::path::Path::new("public/A/AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -1017,7 +1017,7 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				&std::path::Path::new("A/../AA"),
+				std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AA", "text/plain"),

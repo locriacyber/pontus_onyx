@@ -491,7 +491,7 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			&std::path::Path::new("AA"),
+			std::path::Path::new("AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -530,7 +530,7 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			&std::path::Path::new("A/AA"),
+			std::path::Path::new("A/AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -600,7 +600,7 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AA", "text/plain")
@@ -673,7 +673,7 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_folder(vec![])
@@ -695,7 +695,7 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			&std::path::Path::new("A/AA"),
+			std::path::Path::new("A/AA"),
 			&crate::Etag::from(""),
 			&[&crate::Etag::from("*")],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -755,7 +755,7 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -831,7 +831,7 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&[],
 				crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -906,7 +906,7 @@ mod tests {
 		AA_etag = put(
 			&storage,
 			&prefix,
-			&std::path::Path::new("A/AA"),
+			std::path::Path::new("A/AA"),
 			&AA_etag,
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -973,7 +973,7 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			&std::path::Path::new("A/AA"),
+			std::path::Path::new("A/AA"),
 			&crate::Etag::from("*"),
 			&[],
 			crate::Item::new_doc(b"AA2", "text/plain2"),
@@ -1043,7 +1043,7 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/AA/AAA"),
+				std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AAA", "text/plain")
@@ -1117,7 +1117,7 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A"),
+				std::path::Path::new("A"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"A", "text/plain")
@@ -1191,7 +1191,7 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			&std::path::Path::new("public/A/AA"),
+			std::path::Path::new("public/A/AA"),
 			&crate::Etag::from(""),
 			&[],
 			crate::Item::new_doc(b"AA", "text/plain"),
@@ -1264,7 +1264,7 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				&std::path::Path::new("A/../AA"),
+				std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 				&[],
 				crate::Item::new_doc(b"AA", "text/plain"),

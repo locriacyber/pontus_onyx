@@ -339,7 +339,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::Path::new("A/AA/AAA/AAAA"),
+				std::path::Path::new("A/AA/AAA/AAAA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -368,7 +368,7 @@ mod tests {
 
 		let old_AAAA_etag = delete(
 			&mut root,
-			&std::path::Path::new("A/AA/AAA/AAAA"),
+			std::path::Path::new("A/AA/AAA/AAAA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -413,7 +413,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::Path::new("A/AA/"),
+				std::path::Path::new("A/AA/"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -473,7 +473,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::Path::new("A/AA/AAA/AAAA"),
+				std::path::Path::new("A/AA/AAA/AAAA"),
 				&crate::Etag::from("OTHER_ETAG"),
 			)
 			.unwrap_err()
@@ -534,12 +534,8 @@ mod tests {
 	fn delete_with_if_match_found() {
 		let (mut root, root_etag, A_etag, _, _, AAAA_etag, _) = build_test_db();
 
-		let old_AAAA_etag = delete(
-			&mut root,
-			&std::path::Path::new("A/AA/AAA/AAAA"),
-			&AAAA_etag,
-		)
-		.unwrap();
+		let old_AAAA_etag =
+			delete(&mut root, std::path::Path::new("A/AA/AAA/AAAA"), &AAAA_etag).unwrap();
 
 		assert_eq!(old_AAAA_etag, AAAA_etag);
 
@@ -575,7 +571,7 @@ mod tests {
 
 		let old_AAAA_etag = delete(
 			&mut root,
-			&std::path::Path::new("A/AA/AAA/AAAA"),
+			std::path::Path::new("A/AA/AAA/AAAA"),
 			&crate::Etag::from("*"),
 		)
 		.unwrap();
@@ -615,7 +611,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -675,7 +671,7 @@ mod tests {
 
 		delete(
 			&mut root,
-			&std::path::Path::new("public/C/CC/CCC"),
+			std::path::Path::new("public/C/CC/CCC"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -703,7 +699,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				&std::path::Path::new("A/../AA"),
+				std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()

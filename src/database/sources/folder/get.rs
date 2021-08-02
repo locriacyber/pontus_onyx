@@ -266,7 +266,7 @@ pub fn get(
 			target
 				.to_str()
 				.unwrap()
-				.strip_suffix("/")
+				.strip_suffix('/')
 				.unwrap_or_else(|| target.to_str().unwrap()),
 		)
 		.is_file()
@@ -277,7 +277,7 @@ pub fn get(
 	} else if let Some(parent) = path.parent() {
 		let parent = std::path::PathBuf::from(String::from(parent.to_str().unwrap()) + "/");
 		let get_parent = get(
-			&root_folder_path,
+			root_folder_path,
 			&parent,
 			&crate::Etag::from(""),
 			&[],
@@ -709,7 +709,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -720,7 +720,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/"),
+				std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -731,7 +731,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -742,7 +742,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/AB"),
+				std::path::Path::new("A/AB"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -753,7 +753,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/AC"),
+				std::path::Path::new("A/AC"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -764,7 +764,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("B/"),
+				std::path::Path::new("B/"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -775,7 +775,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("B/BA"),
+				std::path::Path::new("B/BA"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -786,7 +786,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("B/BB"),
+				std::path::Path::new("B/BB"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -797,7 +797,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("public/C/CA"),
+				std::path::Path::new("public/C/CA"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -811,7 +811,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				root.get_etag(),
 				&[],
 				true
@@ -822,7 +822,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/"),
+				std::path::Path::new("A/"),
 				A.get_etag(),
 				&[],
 				true
@@ -833,7 +833,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				AA.get_etag(),
 				&[],
 				true
@@ -847,7 +847,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("ANOTHER_ETAG")],
 				true
@@ -858,7 +858,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/"),
+				std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("ANOTHER_ETAG")],
 				true
@@ -869,7 +869,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("ANOTHER_ETAG")],
 				true
@@ -883,7 +883,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A"),
+				std::path::Path::new("A"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -898,7 +898,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/AA/"),
+				std::path::Path::new("A/AA/"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -913,7 +913,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/AC/not_exists"),
+				std::path::Path::new("A/AC/not_exists"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -928,7 +928,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/not_exists"),
+				std::path::Path::new("A/not_exists"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -943,7 +943,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/not_exists/nested"),
+				std::path::Path::new("A/not_exists/nested"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -958,7 +958,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("B/not_exists"),
+				std::path::Path::new("B/not_exists"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -973,7 +973,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("not_exists/"),
+				std::path::Path::new("not_exists/"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -988,7 +988,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("not_exists"),
+				std::path::Path::new("not_exists"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -1003,7 +1003,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("."),
+				std::path::Path::new("."),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -1019,7 +1019,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/.."),
+				std::path::Path::new("A/.."),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -1035,7 +1035,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/../"),
+				std::path::Path::new("A/../"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -1051,7 +1051,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/../AA"),
+				std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -1067,7 +1067,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/A\0A"),
+				std::path::Path::new("A/A\0A"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -1083,7 +1083,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("public/"),
+				std::path::Path::new("public/"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -1098,7 +1098,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("public/C/"),
+				std::path::Path::new("public/C/"),
 				&crate::Etag::from(""),
 				&[],
 				true
@@ -1116,7 +1116,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&[],
 				true
@@ -1133,7 +1133,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/"),
+				std::path::Path::new("A/"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&[],
 				true
@@ -1150,7 +1150,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from("ANOTHER_ETAG"),
 				&[],
 				true
@@ -1170,7 +1170,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				true
@@ -1187,7 +1187,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/"),
+				std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				true
@@ -1204,7 +1204,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				true
@@ -1224,7 +1224,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[root.get_etag()],
 				true
@@ -1241,7 +1241,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/"),
+				std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&[A.get_etag()],
 				true
@@ -1258,7 +1258,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[AA.get_etag()],
 				true
@@ -1278,7 +1278,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new(""),
+				std::path::Path::new(""),
 				&crate::Etag::from(""),
 				&[],
 				false
@@ -1289,7 +1289,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/"),
+				std::path::Path::new("A/"),
 				&crate::Etag::from(""),
 				&[],
 				false
@@ -1300,7 +1300,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 				&[],
 				false
@@ -1311,7 +1311,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("public/"),
+				std::path::Path::new("public/"),
 				&crate::Etag::from(""),
 				&[],
 				false
@@ -1326,7 +1326,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("public/C/"),
+				std::path::Path::new("public/C/"),
 				&crate::Etag::from(""),
 				&[],
 				false
@@ -1341,7 +1341,7 @@ mod tests {
 		assert_eq!(
 			get(
 				&root_path,
-				&std::path::Path::new("public/C/CA"),
+				std::path::Path::new("public/C/CA"),
 				&crate::Etag::from(""),
 				&[],
 				false
@@ -1352,7 +1352,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("public/not_exists"),
+				std::path::Path::new("public/not_exists"),
 				&crate::Etag::from(""),
 				&[],
 				false
@@ -1367,7 +1367,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("public/not_exists/"),
+				std::path::Path::new("public/not_exists/"),
 				&crate::Etag::from(""),
 				&[],
 				false
@@ -1385,7 +1385,7 @@ mod tests {
 		assert_eq!(
 			*get(
 				&root_path,
-				&std::path::Path::new("A/.AA.itemdata.toml"),
+				std::path::Path::new("A/.AA.itemdata.toml"),
 				&crate::Etag::from(""),
 				&[&crate::Etag::from("*")],
 				true

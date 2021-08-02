@@ -44,16 +44,16 @@ pub async fn put_item(
 	}
 
 	match database.lock().unwrap().put(
-		&std::path::Path::new(&path.to_string()),
+		std::path::Path::new(&path.to_string()),
 		pontus_onyx::Item::Document {
 			etag: pontus_onyx::Etag::from(""),
 			content: Some(content.to_vec()),
 			content_type: pontus_onyx::ContentType::from(content_type.unwrap().to_str().unwrap()),
 			last_modified: chrono::Utc::now(),
 		},
-		&super::convert_actix_if_match(&request)
+		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&&pontus_onyx::Etag::from("")),
+			.unwrap_or(&pontus_onyx::Etag::from("")),
 		&super::convert_actix_if_none_match(&request)
 			.iter()
 			.collect::<Vec<&pontus_onyx::Etag>>(),

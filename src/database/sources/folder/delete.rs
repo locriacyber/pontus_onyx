@@ -460,7 +460,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::Path::new("A/AA/AAA"),
+				std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -482,7 +482,7 @@ mod tests {
 
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
-			&std::path::Path::new("A/AA/AAA"),
+			std::path::Path::new("A/AA/AAA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -596,7 +596,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::Path::new("A/AA/"),
+				std::path::Path::new("A/AA/"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -734,7 +734,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::Path::new("A/AA/AAA"),
+				std::path::Path::new("A/AA/AAA"),
 				&crate::Etag::from("OTHER_ETAG"),
 			)
 			.unwrap_err()
@@ -866,7 +866,7 @@ mod tests {
 
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
-			&std::path::Path::new("A/AA/AAA"),
+			std::path::Path::new("A/AA/AAA"),
 			&AAA_etag,
 		)
 		.unwrap();
@@ -970,7 +970,7 @@ mod tests {
 
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
-			&std::path::Path::new("A/AA/AAA"),
+			std::path::Path::new("A/AA/AAA"),
 			&crate::Etag::from("*"),
 		)
 		.unwrap();
@@ -1084,7 +1084,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::Path::new("A/AA"),
+				std::path::Path::new("A/AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()
@@ -1214,7 +1214,7 @@ mod tests {
 
 		let old_BA_etag = delete(
 			&tmp_folder_path,
-			&std::path::Path::new("public/B/BA"),
+			std::path::Path::new("public/B/BA"),
 			&crate::Etag::from(""),
 		)
 		.unwrap();
@@ -1313,7 +1313,7 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				&std::path::Path::new("A/../AA"),
+				std::path::Path::new("A/../AA"),
 				&crate::Etag::from(""),
 			)
 			.unwrap_err()

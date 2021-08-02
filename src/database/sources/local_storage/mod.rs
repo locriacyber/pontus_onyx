@@ -105,22 +105,22 @@ pub trait Storage {
 #[cfg(feature = "server_local_storage")]
 impl Storage for web_sys::Storage {
 	fn length(&self) -> Result<u32, wasm_bindgen::JsValue> {
-		web_sys::Storage::length(&self)
+		web_sys::Storage::length(self)
 	}
 	fn clear(&self) -> Result<(), wasm_bindgen::JsValue> {
-		web_sys::Storage::clear(&self)
+		web_sys::Storage::clear(self)
 	}
 	fn get_item(&self, key: &str) -> Result<Option<String>, wasm_bindgen::JsValue> {
-		web_sys::Storage::get_item(&self, key)
+		web_sys::Storage::get_item(self, key)
 	}
 	fn key(&self, index: u32) -> Result<Option<String>, wasm_bindgen::JsValue> {
-		web_sys::Storage::key(&self, index)
+		web_sys::Storage::key(self, index)
 	}
 	fn remove_item(&self, key: &str) -> Result<(), wasm_bindgen::JsValue> {
-		web_sys::Storage::remove_item(&self, key)
+		web_sys::Storage::remove_item(self, key)
 	}
 	fn set_item(&self, key: &str, value: &str) -> Result<(), wasm_bindgen::JsValue> {
-		web_sys::Storage::set_item(&self, key, value)
+		web_sys::Storage::set_item(self, key, value)
 	}
 }
 

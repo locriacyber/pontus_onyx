@@ -16,10 +16,10 @@ pub async fn head_item(
 		.unwrap();
 
 	match database.lock().unwrap().get(
-		&std::path::Path::new(&path.to_string()),
-		&super::convert_actix_if_match(&request)
+		std::path::Path::new(&path.to_string()),
+		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&&pontus_onyx::Etag::from("")),
+			.unwrap_or(&pontus_onyx::Etag::from("")),
 		&super::convert_actix_if_none_match(&request)
 			.iter()
 			.collect::<Vec<&pontus_onyx::Etag>>(),
