@@ -1,6 +1,6 @@
 [package]
 name = "pontus_onyx"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Jimskapt <rami.programmer@gmail.com>"]
 edition = "2018"
 resolver = "2"

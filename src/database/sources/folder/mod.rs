@@ -20,7 +20,7 @@ pub struct FolderStorage {
 impl crate::database::DataSource for FolderStorage {
 	fn get(
 		&self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
 		get_content: bool,
@@ -36,7 +36,7 @@ impl crate::database::DataSource for FolderStorage {
 
 	fn put(
 		&mut self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
 		new_item: crate::Item,
@@ -52,7 +52,7 @@ impl crate::database::DataSource for FolderStorage {
 
 	fn delete(
 		&mut self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		if_match: &crate::Etag,
 	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
 		delete::delete(&self.root_folder_path, path, if_match)

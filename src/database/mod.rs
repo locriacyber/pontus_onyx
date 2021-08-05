@@ -19,7 +19,7 @@ impl Database {
 
 	pub fn get(
 		&self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
 	) -> Result<crate::Item, Box<dyn std::error::Error>> {
@@ -28,7 +28,7 @@ impl Database {
 
 	pub fn put(
 		&mut self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		content: crate::Item,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
@@ -45,7 +45,7 @@ impl Database {
 
 	pub fn delete(
 		&mut self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		if_match: &crate::Etag,
 	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
 		/*

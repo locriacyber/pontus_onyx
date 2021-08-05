@@ -1,84 +1,90 @@
 pub fn delete(
 	storage: &dyn super::Storage,
 	prefix: &str,
-	path: &std::path::Path,
+	path: &crate::ItemPath,
 	if_match: &crate::Etag,
 ) -> Result<crate::Etag, Box<dyn std::error::Error>> {
-	if path.to_str().unwrap().ends_with('/') || path.to_str().unwrap().ends_with('\\') {
+	if path.is_folder() {
 		return Err(Box::new(DeleteError::DoesNotWorksForFolders));
 	}
 
 	match super::get(storage, prefix, path, if_match, &[], false) {
 		Ok(crate::Item::Document { etag: old_etag, .. }) => {
-			let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
+			let parent = path.parent().unwrap_or_else(|| crate::ItemPath::from(""));
 
-			let file_path = format!(
-				"{}/.{}.itemdata.json",
-				parent.to_str().unwrap(),
-				path.file_name().unwrap().to_str().unwrap()
-			);
+			let file_path = parent
+				.joined_doc(&format!(".{}.itemdata.json", path.file_name()))
+				.unwrap();
 			if storage
 				.remove_item(&format!("{}/{}", prefix, file_path))
 				.is_err()
 			{
 				return Err(Box::new(DeleteError::CanNotWriteFile {
-					path: std::path::PathBuf::from(&file_path),
+					item_path: file_path,
 					error: String::new(),
 				}));
 			}
 
-			let file_path = path.file_name().unwrap().to_str().unwrap();
 			if storage
 				.remove_item(&format!("{}/{}", prefix, file_path))
 				.is_err()
 			{
 				return Err(Box::new(DeleteError::CanNotWriteFile {
-					path: std::path::PathBuf::from(&file_path),
+					item_path: file_path,
 					error: String::new(),
 				}));
 			}
 
 			if storage
-				.remove_item(&format!("{}/{}", prefix, &path.to_str().unwrap()))
+				.remove_item(&format!("{}/{}", prefix, &path))
 				.is_err()
 			{
 				return Err(Box::new(DeleteError::CanNotWriteFile {
-					path: std::path::PathBuf::from(path),
+					item_path: path.clone(),
 					error: String::new(),
 				}));
 			}
 
-			for parent in path.ancestors().skip(1) {
+			for parent in path
+				.ancestors()
+				.into_iter()
+				.take(path.ancestors().len().saturating_sub(1))
+			{
 				let mut has_childs = false;
 				for i in 0..storage.length().unwrap_or_default() {
 					let key = storage.key(i).unwrap_or_default().unwrap_or_default();
-					if key.starts_with(&format!("{}/{}", prefix, parent.to_str().unwrap()))
+					if key.starts_with(&format!("{}/{}", prefix, parent))
 						&& !key.ends_with(".itemdata.json")
 					{
 						has_childs = true;
 						break;
 					}
 				}
-				let mut parent_as_str = String::from(parent.to_str().unwrap());
+				let mut parent_as_str = format!("{}", parent);
 				parent_as_str =
 					String::from(parent_as_str.strip_suffix('/').unwrap_or(&parent_as_str));
 				if !parent_as_str.is_empty() {
 					parent_as_str = format!("{}/", parent_as_str);
 				}
-				let folder_itemdata_path =
-					format!("{}/{}.folder.itemdata.json", prefix, parent_as_str);
+				let folder_itemdata_path = crate::ItemPath::from(
+					format!("{}/{}.folder.itemdata.json", prefix, parent_as_str).as_str(),
+				);
 
 				if !has_childs {
-					if storage.remove_item(&folder_itemdata_path).is_err() {
+					if storage
+						.remove_item(&format!("{}", folder_itemdata_path))
+						.is_err()
+					{
 						return Err(Box::new(DeleteError::CanNotWriteFile {
-							path: std::path::PathBuf::from(&parent),
+							item_path: parent,
 							error: String::new(),
 						}));
 					}
 
 				// TODO : eventually cleanup folder content ? (eventually remaining *.itemdata.* files, but should not)
 				} else {
-					let folder_itemdata_content = storage.get_item(&folder_itemdata_path);
+					let folder_itemdata_content =
+						storage.get_item(&format!("{}", folder_itemdata_path));
 
 					match folder_itemdata_content {
 						Ok(Some(folder_itemdata_content)) => {
@@ -95,16 +101,14 @@ pub fn delete(
 										Ok(new_folder_itemdata_content) => {
 											if storage
 												.set_item(
-													&folder_itemdata_path,
+													&format!("{}", folder_itemdata_path),
 													&new_folder_itemdata_content,
 												)
 												.is_err()
 											{
 												return Err(Box::new(
 													DeleteError::CanNotWriteFile {
-														path: std::path::PathBuf::from(
-															&folder_itemdata_path,
-														),
+														item_path: folder_itemdata_path,
 														error: String::new(),
 													},
 												));
@@ -113,9 +117,7 @@ pub fn delete(
 										Err(error) => {
 											return Err(Box::new(
 												DeleteError::CanNotSerializeFile {
-													path: std::path::PathBuf::from(
-														&folder_itemdata_path,
-													),
+													item_path: folder_itemdata_path,
 													error: format!("{}", error),
 												},
 											));
@@ -124,7 +126,7 @@ pub fn delete(
 								}
 								Err(error) => {
 									return Err(Box::new(DeleteError::CanNotDeserializeFile {
-										path: std::path::PathBuf::from(&folder_itemdata_path),
+										item_path: folder_itemdata_path,
 										error: format!("{}", error),
 									}));
 								}
@@ -133,18 +135,21 @@ pub fn delete(
 						Ok(None) => match serde_json::to_string(&crate::DataFolder::default()) {
 							Ok(new_folder_itemdata_content) => {
 								if storage
-									.set_item(&folder_itemdata_path, &new_folder_itemdata_content)
+									.set_item(
+										&format!("{}", folder_itemdata_path),
+										&new_folder_itemdata_content,
+									)
 									.is_err()
 								{
 									return Err(Box::new(DeleteError::CanNotWriteFile {
-										path: std::path::PathBuf::from(&folder_itemdata_path),
+										item_path: folder_itemdata_path,
 										error: String::new(),
 									}));
 								}
 							}
 							Err(error) => {
 								return Err(Box::new(DeleteError::CanNotSerializeFile {
-									path: std::path::PathBuf::from(&folder_itemdata_path),
+									item_path: folder_itemdata_path,
 									error: format!("{}", error),
 								}));
 							}
@@ -170,23 +175,23 @@ pub enum DeleteError {
 	GetError(super::GetError),
 	DoesNotWorksForFolders,
 	CanNotDelete {
-		path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	CanNotReadFile {
-		path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	CanNotWriteFile {
-		path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	CanNotSerializeFile {
-		path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	CanNotDeserializeFile {
-		path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 }
@@ -195,30 +200,25 @@ impl std::fmt::Display for DeleteError {
 		match self {
 			Self::GetError(get_error) => std::fmt::Display::fmt(get_error, f),
 			Self::DoesNotWorksForFolders => f.write_str("this method does not works for folders"),
-			Self::CanNotDelete { path, error } => f.write_fmt(format_args!(
+			Self::CanNotDelete { item_path, error } => f.write_fmt(format_args!(
 				"can not delete file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+				item_path, error
 			)),
-			Self::CanNotReadFile { path, error } => f.write_fmt(format_args!(
+			Self::CanNotReadFile { item_path, error } => f.write_fmt(format_args!(
 				"can not read file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+				item_path, error
 			)),
-			Self::CanNotWriteFile { path, error } => f.write_fmt(format_args!(
+			Self::CanNotWriteFile { item_path, error } => f.write_fmt(format_args!(
 				"can not write file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+				item_path, error
 			)),
-			Self::CanNotSerializeFile { path, error } => f.write_fmt(format_args!(
+			Self::CanNotSerializeFile { item_path, error } => f.write_fmt(format_args!(
 				"can not serialize file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+				item_path, error
 			)),
-			Self::CanNotDeserializeFile { path, error } => f.write_fmt(format_args!(
+			Self::CanNotDeserializeFile { item_path, error } => f.write_fmt(format_args!(
 				"can not deserialize file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+				item_path, error
 			)),
 		}
 	}
@@ -240,7 +240,10 @@ impl crate::database::Error for DeleteError {
 				Some(format!("{}", self)),
 				should_have_body,
 			),
-			Self::CanNotDelete { path: _, error: _ } => crate::database::build_http_json_response(
+			Self::CanNotDelete {
+				item_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
 				origin,
 				&actix_web::http::Method::PUT,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -248,46 +251,50 @@ impl crate::database::Error for DeleteError {
 				None,
 				should_have_body,
 			),
-			Self::CanNotReadFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotWriteFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotSerializeFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotDeserializeFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
+			Self::CanNotReadFile {
+				item_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotWriteFile {
+				item_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotSerializeFile {
+				item_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotDeserializeFile {
+				item_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
 		}
 	}
 }
@@ -297,31 +304,32 @@ mod tests {
 	#![allow(non_snake_case)]
 
 	use super::{super::GetError, super::LocalStorageMock, super::Storage, delete, DeleteError};
+	use crate::{Etag, Item, ItemPath};
 
 	// TODO : test last_modified
 
 	fn build_test_db() -> (
 		LocalStorageMock,
 		String,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
 	) {
-		let AAA = crate::Item::new_doc(b"AAA", "text/plain");
-		let AA = crate::Item::new_folder(vec![("AAA", AAA.clone())]);
-		let AB = crate::Item::new_doc(b"AB", "text/plain");
-		let A = crate::Item::new_folder(vec![("AA", AA.clone()), ("AB", AB.clone())]);
+		let AAA = Item::new_doc(b"AAA", "text/plain");
+		let AA = Item::new_folder(vec![("AAA", AAA.clone())]);
+		let AB = Item::new_doc(b"AB", "text/plain");
+		let A = Item::new_folder(vec![("AA", AA.clone()), ("AB", AB.clone())]);
 
-		let BA = crate::Item::new_doc(b"BA", "text/plain");
-		let B = crate::Item::new_folder(vec![("BA", BA.clone())]);
-		let public = crate::Item::new_folder(vec![("B", B.clone())]);
+		let BA = Item::new_doc(b"BA", "text/plain");
+		let B = Item::new_folder(vec![("BA", BA.clone())]);
+		let public = Item::new_folder(vec![("B", B.clone())]);
 
-		let root = crate::Item::new_folder(vec![("A", A.clone()), ("public", public.clone())]);
+		let root = Item::new_folder(vec![("A", A.clone()), ("public", public.clone())]);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -368,7 +376,7 @@ mod tests {
 			)
 			.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: AAA_etag,
 			content_type: AAA_content_type,
@@ -395,7 +403,7 @@ mod tests {
 			panic!();
 		}
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: AB_etag,
 			content_type: AB_content_type,
@@ -454,7 +462,7 @@ mod tests {
 			)
 			.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: BA_etag,
 			content_type: BA_content_type,
@@ -521,14 +529,14 @@ mod tests {
 			*delete(
 				&storage,
 				&prefix,
-				std::path::Path::new("A/AA/AAA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA/AAA"),
+				&Etag::from(""),
 			)
 			.unwrap_err()
 			.downcast::<DeleteError>()
 			.unwrap(),
 			DeleteError::GetError(GetError::NotFound {
-				item_path: std::path::PathBuf::from("A/")
+				item_path: ItemPath::from("A/")
 			})
 		);
 
@@ -546,8 +554,8 @@ mod tests {
 		let old_AAA_etag = delete(
 			&storage,
 			&prefix,
-			std::path::Path::new("A/AA/AAA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("A/AA/AAA"),
+			&Etag::from(""),
 		)
 		.unwrap();
 
@@ -622,15 +630,10 @@ mod tests {
 		let (storage, prefix, root_etag, A_etag, AA_etag, _, AAA_etag, _, _, _) = build_test_db();
 
 		assert_eq!(
-			*delete(
-				&storage,
-				&prefix,
-				std::path::Path::new("A/AA/"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&storage, &prefix, &ItemPath::from("A/AA/"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::DoesNotWorksForFolders,
 		);
 
@@ -726,16 +729,16 @@ mod tests {
 			*delete(
 				&storage,
 				&prefix,
-				std::path::Path::new("A/AA/AAA"),
-				&crate::Etag::from("OTHER_ETAG"),
+				&ItemPath::from("A/AA/AAA"),
+				&Etag::from("OTHER_ETAG"),
 			)
 			.unwrap_err()
 			.downcast::<DeleteError>()
 			.unwrap(),
 			DeleteError::GetError(GetError::NoIfMatch {
-				item_path: std::path::PathBuf::from("A/AA/AAA"),
+				item_path: ItemPath::from("A/AA/AAA"),
 				found: AAA_etag.clone(),
-				search: crate::Etag::from("OTHER_ETAG")
+				search: Etag::from("OTHER_ETAG")
 			})
 		);
 
@@ -827,13 +830,8 @@ mod tests {
 	fn delete_with_if_match_found() {
 		let (storage, prefix, root_etag, A_etag, _, _, AAA_etag, _, _, _) = build_test_db();
 
-		let old_AAA_etag = delete(
-			&storage,
-			&prefix,
-			std::path::Path::new("A/AA/AAA"),
-			&AAA_etag,
-		)
-		.unwrap();
+		let old_AAA_etag =
+			delete(&storage, &prefix, &ItemPath::from("A/AA/AAA"), &AAA_etag).unwrap();
 
 		assert_eq!(old_AAA_etag, AAA_etag);
 
@@ -908,8 +906,8 @@ mod tests {
 		let old_AAA_etag = delete(
 			&storage,
 			&prefix,
-			std::path::Path::new("A/AA/AAA"),
-			&crate::Etag::from("*"),
+			&ItemPath::from("A/AA/AAA"),
+			&Etag::from("*"),
 		)
 		.unwrap();
 
@@ -984,17 +982,12 @@ mod tests {
 		let (storage, prefix, root_etag, A_etag, AA_etag, _, AAA_etag, _, _, _) = build_test_db();
 
 		assert_eq!(
-			*delete(
-				&storage,
-				&prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&storage, &prefix, &ItemPath::from("A/AA"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::GetError(GetError::Conflict {
-				item_path: std::path::PathBuf::from("A/AA/")
+				item_path: ItemPath::from("A/AA/")
 			})
 		);
 
@@ -1089,8 +1082,8 @@ mod tests {
 		let old_BA_etag = delete(
 			&storage,
 			&prefix,
-			std::path::Path::new("public/B/BA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("public/B/BA"),
+			&Etag::from(""),
 		)
 		.unwrap();
 
@@ -1155,15 +1148,15 @@ mod tests {
 			*delete(
 				&storage,
 				&prefix,
-				std::path::Path::new("A/../AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/A\0A"),
+				&Etag::from(""),
 			)
 			.unwrap_err()
 			.downcast::<DeleteError>()
 			.unwrap(),
 			DeleteError::GetError(GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed")
+				item_path: ItemPath::from("A/A\0A"),
+				error: String::from("`A\0A` should not contains `\\0` character")
 			})
 		);
 

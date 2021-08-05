@@ -1,34 +1,27 @@
 pub fn get(
 	storage: &dyn super::Storage,
 	prefix: &str,
-	path: &std::path::Path,
+	path: &crate::ItemPath,
 	if_match: &crate::Etag,
 	if_none_match: &[&crate::Etag],
 	get_content: bool,
 ) -> Result<crate::Item, Box<dyn std::error::Error>> {
-	if path
-		.file_name()
-		.unwrap_or_default()
-		.to_str()
-		.unwrap_or_default()
-		.ends_with(".itemdata.json")
-	{
+	if path.ends_with(".itemdata.json") {
 		return Err(Box::new(GetError::IsSystemFile));
 	}
 
-	if path.to_str().unwrap().starts_with("public/") && path.to_str().unwrap().ends_with('/') {
+	if path.starts_with("public/") && path.is_folder() {
 		return Err(Box::new(GetError::CanNotBeListed {
-			item_path: path.to_path_buf(),
+			item_path: path.clone(),
 		}));
 	}
 
-	if path != std::path::PathBuf::from("") {
-		let mut cumulated_path = std::path::PathBuf::new();
-		let temp_path = path.as_os_str().to_str().unwrap();
-		for item_name in temp_path.strip_suffix('/').unwrap_or(temp_path).split('/') {
-			cumulated_path.push(item_name);
-			if let Err(error) = crate::item_name_is_ok_without_itemdata(item_name) {
-				if path != std::path::PathBuf::from("") {
+	if path != &crate::ItemPath::from("") {
+		let mut cumulated_path = crate::ItemPath::from("");
+		for part in path.parts_iter() {
+			cumulated_path = cumulated_path.joined(part).unwrap();
+			if let Err(error) = crate::item_name_is_ok_without_itemdata(part.name()) {
+				if path != &crate::ItemPath::from("") {
 					return Err(Box::new(GetError::IncorrectItemName {
 						item_path: cumulated_path,
 						error,
@@ -38,30 +31,14 @@ pub fn get(
 		}
 	}
 
-	let folderdata_path = format!(
-		"{}/{}.folder.itemdata.json",
-		prefix,
-		if !path.to_str().unwrap().is_empty() {
-			format!(
-				"{}/",
-				path.to_str()
-					.unwrap()
-					.strip_suffix('/')
-					.unwrap_or_else(|| path.to_str().unwrap())
-			)
-		} else {
-			String::new()
-		}
-	);
+	let folderdata_path =
+		crate::ItemPath::from(format!("{}/{}.folder.itemdata.json", prefix, path,).as_str());
 
-	match storage.get_item(&folderdata_path) {
+	match storage.get_item(&format!("{}", folderdata_path)) {
 		Ok(Some(folderdata_content)) => {
-			if !path.to_str().unwrap().ends_with('/')
-				&& !path.to_str().unwrap().ends_with('\\')
-				&& !path.to_string_lossy().is_empty()
-			{
+			if !path.is_folder() {
 				return Err(Box::new(GetError::Conflict {
-					item_path: path.to_path_buf(),
+					item_path: path.clone(),
 				}));
 			}
 
@@ -71,9 +48,7 @@ pub fn get(
 				for i in 0..storage.length().unwrap() {
 					let key = storage.key(i).unwrap().unwrap();
 
-					if let Some(remain) =
-						key.strip_prefix(&format!("{}/{}", prefix, path.to_str().unwrap()))
-					{
+					if let Some(remain) = key.strip_prefix(&format!("{}/{}", prefix, path)) {
 						if !remain.ends_with(".itemdata.json") {
 							if !remain.contains('/') && !remain.contains('\\') {
 								content.insert(
@@ -82,8 +57,8 @@ pub fn get(
 										get(
 											storage,
 											prefix,
-											std::path::Path::new(
-												&key.strip_prefix(&format!("{}/", prefix)).unwrap(),
+											&crate::ItemPath::from(
+												key.strip_prefix(&format!("{}/", prefix)).unwrap(),
 											),
 											&crate::Etag::from(""),
 											&[],
@@ -101,11 +76,7 @@ pub fn get(
 											let target_get = get(
 												storage,
 												prefix,
-												std::path::Path::new(&format!(
-													"{}{}/",
-													path.to_str().unwrap(),
-													&name
-												)),
+												&path.joined_folder(name).unwrap(),
 												&crate::Etag::from(""),
 												&[],
 												true,
@@ -147,7 +118,7 @@ pub fn get(
 							&& upper_if_match != "*"
 						{
 							return Err(Box::new(GetError::NoIfMatch {
-								item_path: path.to_path_buf(),
+								item_path: path.clone(),
 								search: if_match.clone(),
 								found: folderdata.etag,
 							}));
@@ -161,7 +132,7 @@ pub fn get(
 								|| search_etag.trim() == "*"
 							{
 								return Err(Box::new(GetError::IfNoneMatch {
-									item_path: path.to_path_buf(),
+									item_path: path.clone(),
 									search: (*search_etag).clone(),
 									found: folderdata.etag,
 								}));
@@ -176,46 +147,36 @@ pub fn get(
 				}
 				Err(error) => {
 					return Err(Box::new(GetError::CanNotSerializeFile {
-						item_path: std::path::PathBuf::from(folderdata_path),
+						item_path: folderdata_path,
 						error: format!("{}", error),
 					}))
 				}
 			}
 		}
 		Ok(None) => {
-			let target_parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
-			let filedata_path = format!(
-				"{}/{}{}",
-				prefix,
-				if target_parent != std::path::Path::new("") {
-					format!("{}/", target_parent.to_str().unwrap())
-				} else {
-					String::new()
-				},
+			let target_parent = path.parent().unwrap_or_else(|| crate::ItemPath::from(""));
+			let filedata_path = crate::ItemPath::from(
 				format!(
-					".{}.itemdata.json",
-					path.file_name().unwrap_or_default().to_str().unwrap()
+					"{}/{}{}",
+					prefix,
+					target_parent,
+					format!(".{}.itemdata.json", path.file_name())
 				)
+				.as_str(),
 			);
 
-			match storage.get_item(&filedata_path) {
+			match storage.get_item(&format!("{}", filedata_path)) {
 				Ok(Some(filedata_content)) => {
-					if path.to_str().unwrap().ends_with('/')
-						|| path.to_str().unwrap().ends_with('\\')
-					{
+					if path.is_folder() {
 						return Err(Box::new(GetError::Conflict {
-							item_path: path.to_path_buf(),
+							item_path: path.document_clone(),
 						}));
 					}
 
 					match serde_json::from_str::<crate::DataDocument>(&filedata_content) {
 						Ok(filedata) => {
 							let content = if get_content {
-								match storage.get_item(&format!(
-									"{}/{}",
-									prefix,
-									path.to_str().unwrap()
-								)) {
+								match storage.get_item(&format!("{}/{}", prefix, path)) {
 									Ok(Some(content)) => match base64::decode(content) {
 										Ok(content) => Some(content),
 										Err(_) => None,
@@ -232,7 +193,7 @@ pub fn get(
 									&& upper_if_match != "*"
 								{
 									return Err(Box::new(GetError::NoIfMatch {
-										item_path: path.to_path_buf(),
+										item_path: path.clone(),
 										search: if_match.clone(),
 										found: filedata.etag,
 									}));
@@ -246,7 +207,7 @@ pub fn get(
 										== "*"
 									{
 										return Err(Box::new(GetError::IfNoneMatch {
-											item_path: path.to_path_buf(),
+											item_path: path.clone(),
 											search: (*search_etag).clone(),
 											found: filedata.etag,
 										}));
@@ -263,48 +224,30 @@ pub fn get(
 						}
 						Err(error) => {
 							return Err(Box::new(GetError::CanNotSerializeFile {
-								item_path: std::path::PathBuf::from(filedata_path),
+								item_path: filedata_path,
 								error: format!("{}", error),
 							}))
 						}
 					}
 				}
 				Ok(None) => {
-					let filedata_path = format!(
-						"{}/{}.folder.itemdata.json",
-						prefix,
-						if !path.to_str().unwrap().is_empty() {
-							format!(
-								"{}/",
-								path.to_str()
-									.unwrap()
-									.strip_suffix('/')
-									.unwrap_or_else(|| path.to_str().unwrap())
-							)
-						} else {
-							String::new()
-						}
-					);
+					let filedata_path =
+						format!("{}/{}.folder.itemdata.json", prefix, path.folder_clone(),);
+
 					match storage.get_item(&filedata_path) {
 						Ok(Some(_)) => {
 							return Err(Box::new(GetError::Conflict {
-								item_path: std::path::PathBuf::from(
-									path.to_str()
-										.unwrap()
-										.strip_suffix('/')
-										.unwrap_or_else(|| path.to_str().unwrap()),
-								),
+								item_path: path.folder_clone(),
 							}));
 						}
 						Ok(None) => {
-							if path != std::path::Path::new("") {
-								let parent =
-									path.parent().unwrap_or_else(|| std::path::Path::new(""));
+							if path != &crate::ItemPath::from("") {
+								let parent = path.parent().unwrap();
 
 								let parent_get = get(
 									storage,
 									prefix,
-									parent,
+									&parent,
 									&crate::Etag::from(""),
 									&[],
 									false,
@@ -312,21 +255,23 @@ pub fn get(
 
 								if let Ok(crate::Item::Document { .. }) = parent_get {
 									return Err(Box::new(GetError::Conflict {
-										item_path: parent.to_path_buf(),
+										item_path: parent.clone(),
 									}));
 								}
 
 								if let Err(error) = parent_get {
-									if let GetError::NotFound { item_path } =
-										*error.downcast::<GetError>().unwrap()
+									if let GetError::CanNotBeListed { item_path: _ } =
+										error.downcast_ref::<GetError>().unwrap()
 									{
-										return Err(Box::new(GetError::NotFound { item_path }));
+										// nothing to do
+									} else {
+										return Err(error);
 									}
 								}
 							}
 
 							return Err(Box::new(GetError::NotFound {
-								item_path: path.to_path_buf(),
+								item_path: path.clone(),
 							}));
 						}
 						Err(_) => return Err(Box::new(GetError::CanNotGetStorage)),
@@ -342,31 +287,31 @@ pub fn get(
 #[derive(Debug, PartialEq, Eq)]
 pub enum GetError {
 	Conflict {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 	},
 	NotFound {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 	},
 	IncorrectItemName {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	CanNotBeListed {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 	},
 	NoIfMatch {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		search: crate::Etag,
 		found: crate::Etag,
 	},
 	IfNoneMatch {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		search: crate::Etag,
 		found: crate::Etag,
 	},
 	CanNotGetStorage,
 	CanNotSerializeFile {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	IsSystemFile,
@@ -374,14 +319,14 @@ pub enum GetError {
 impl std::fmt::Display for GetError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		match self {
-			Self::Conflict { item_path } => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
-			Self::NotFound { item_path } => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
-			Self::IncorrectItemName { item_path, error } => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
-			Self::CanNotBeListed { item_path } => f.write_fmt(format_args!("the folder `{}` can not be listed", item_path.to_string_lossy())),
-			Self::NoIfMatch { item_path, search, found } => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
-			Self::IfNoneMatch { item_path, search, found } => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path.to_string_lossy(), found)),
+			Self::Conflict { item_path } => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path)),
+			Self::NotFound { item_path } => f.write_fmt(format_args!("path not found : `{}`", item_path)),
+			Self::IncorrectItemName { item_path, error } => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path, error)),
+			Self::CanNotBeListed { item_path } => f.write_fmt(format_args!("the folder `{}` can not be listed", item_path)),
+			Self::NoIfMatch { item_path, search, found } => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path, found)),
+			Self::IfNoneMatch { item_path, search, found } => f.write_fmt(format_args!("the unwanted etag `{}` (through `IfNoneMatch`) for `{}` was matches with `{}`", search, item_path, found)),
 			Self::CanNotGetStorage => f.write_str("can not get storage"),
-			Self::CanNotSerializeFile { item_path, error } => f.write_fmt(format_args!("can not parse file `{}` because {}", item_path.to_string_lossy(), error)),
+			Self::CanNotSerializeFile { item_path, error } => f.write_fmt(format_args!("can not parse file `{}` because {}", item_path, error)),
 			Self::IsSystemFile => f.write_str("this is a system file, that should not be server"),
 		}
 	}
@@ -398,10 +343,7 @@ impl crate::database::Error for GetError {
 						&actix_web::http::Method::GET,
 						actix_web::http::StatusCode::NOT_FOUND,
 						None,
-						Some(format!(
-							"path not found : `{}`",
-							item_path.to_string_lossy()
-						)),
+						Some(format!("path not found : `{}`", item_path)),
 						should_have_body,
 					)
 				} else {
@@ -436,10 +378,7 @@ impl crate::database::Error for GetError {
 				&actix_web::http::Method::GET,
 				actix_web::http::StatusCode::NOT_FOUND,
 				None,
-				Some(format!(
-					"path not found : `{}`",
-					item_path.to_string_lossy()
-				)),
+				Some(format!("path not found : `{}`", item_path)),
 				should_have_body,
 			),
 			Self::NoIfMatch { .. } => crate::database::build_http_json_response(
@@ -491,36 +430,37 @@ mod tests {
 	#![allow(non_snake_case)]
 
 	use super::{super::LocalStorageMock, super::Storage, get, GetError};
+	use crate::{Etag, Item, ItemPath};
 
 	// TODO : test if folderdata found but content is file
 	// TODO : test if filedata found but content is folder
 
 	#[test]
 	fn all_tests_bulk() {
-		let AA = crate::Item::new_doc(b"AA", "text/plain");
-		let AB = crate::Item::new_doc(b"AB", "text/plain");
-		let AC = crate::Item::new_doc(b"AC", "text/plain");
-		let BA = crate::Item::new_doc(b"BA", "text/plain");
-		let BB = crate::Item::new_doc(b"BB", "text/plain");
-		let CA = crate::Item::new_doc(b"CA", "text/plain");
+		let AA = Item::new_doc(b"AA", "text/plain");
+		let AB = Item::new_doc(b"AB", "text/plain");
+		let AC = Item::new_doc(b"AC", "text/plain");
+		let BA = Item::new_doc(b"BA", "text/plain");
+		let BB = Item::new_doc(b"BB", "text/plain");
+		let CA = Item::new_doc(b"CA", "text/plain");
 
-		let A = crate::Item::new_folder(vec![
+		let A = Item::new_folder(vec![
 			("AA", AA.clone()),
 			("AB", AB.clone()),
 			("AC", AC.clone()),
 		]);
-		let B = crate::Item::new_folder(vec![("BA", BA.clone()), ("BB", BB.clone())]);
-		let C = crate::Item::new_folder(vec![("CA", CA.clone())]);
-		let public = crate::Item::new_folder(vec![("C", C.clone())]);
+		let B = Item::new_folder(vec![("BA", BA.clone()), ("BB", BB.clone())]);
+		let C = Item::new_folder(vec![("CA", CA.clone())]);
+		let public = Item::new_folder(vec![("C", C.clone())]);
 
-		let root = crate::Item::new_folder(vec![
+		let root = Item::new_folder(vec![
 			("A", A.clone()),
 			("B", B.clone()),
 			("public", public.clone()),
 		]);
 
 		let mut root_without_public = root.clone();
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			content: Some(content),
 			..
 		} = &mut root_without_public
@@ -558,7 +498,7 @@ mod tests {
 			)
 			.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: AA_etag,
 			content_type: AA_content_type,
@@ -583,7 +523,7 @@ mod tests {
 				.unwrap();
 		}
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: AB_etag,
 			content_type: AB_content_type,
@@ -608,7 +548,7 @@ mod tests {
 				.unwrap();
 		}
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: AC_etag,
 			content_type: AC_content_type,
@@ -644,7 +584,7 @@ mod tests {
 			)
 			.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: BA_etag,
 			content_type: BA_content_type,
@@ -669,7 +609,7 @@ mod tests {
 				.unwrap();
 		}
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: BB_etag,
 			content_type: BB_content_type,
@@ -716,7 +656,7 @@ mod tests {
 			)
 			.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: CA_etag,
 			content_type: CA_content_type,
@@ -759,8 +699,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new(""),
-				&crate::Etag::from(""),
+				&ItemPath::from(""),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -772,8 +712,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -785,8 +725,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -798,8 +738,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AB"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AB"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -811,8 +751,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AC"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AC"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -824,8 +764,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("B/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("B/"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -837,8 +777,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("B/BA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("B/BA"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -850,8 +790,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("B/BB"),
-				&crate::Etag::from(""),
+				&ItemPath::from("B/BB"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -863,8 +803,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("public/C/CA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("public/C/CA"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -879,7 +819,7 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new(""),
+				&ItemPath::from(""),
 				root.get_etag(),
 				&vec![],
 				true
@@ -892,7 +832,7 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/"),
+				&ItemPath::from("A/"),
 				A.get_etag(),
 				&vec![],
 				true
@@ -905,7 +845,7 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AA"),
+				&ItemPath::from("A/AA"),
 				AA.get_etag(),
 				&vec![],
 				true
@@ -921,9 +861,9 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new(""),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("ANOTHER_ETAG")],
+				&ItemPath::from(""),
+				&Etag::from(""),
+				&[&Etag::from("ANOTHER_ETAG")],
 				true
 			)
 			.unwrap(),
@@ -934,9 +874,9 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/"),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("ANOTHER_ETAG")],
+				&ItemPath::from("A/"),
+				&Etag::from(""),
+				&[&Etag::from("ANOTHER_ETAG")],
 				true
 			)
 			.unwrap(),
@@ -947,9 +887,9 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("ANOTHER_ETAG")],
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
+				&[&Etag::from("ANOTHER_ETAG")],
 				true
 			)
 			.unwrap(),
@@ -963,8 +903,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -972,7 +912,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::Conflict {
-				item_path: std::path::PathBuf::from("A")
+				item_path: ItemPath::from("A/")
 			}
 		);
 		println!("//////// 170 ////////");
@@ -980,8 +920,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AA/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA/"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -989,7 +929,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::Conflict {
-				item_path: std::path::PathBuf::from("A/AA/")
+				item_path: ItemPath::from("A/AA")
 			}
 		);
 		println!("//////// 180 ////////");
@@ -997,8 +937,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AC/not_exists"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AC/not_exists"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1006,7 +946,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::Conflict {
-				item_path: std::path::PathBuf::from("A/AC/")
+				item_path: ItemPath::from("A/AC")
 			}
 		);
 		println!("//////// 190 ////////");
@@ -1014,8 +954,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/not_exists"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/not_exists"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1023,7 +963,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NotFound {
-				item_path: std::path::PathBuf::from("A/not_exists")
+				item_path: ItemPath::from("A/not_exists")
 			}
 		);
 		println!("//////// 200 ////////");
@@ -1031,8 +971,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/not_exists/nested"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/not_exists/nested"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1040,7 +980,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NotFound {
-				item_path: std::path::PathBuf::from("A/not_exists/")
+				item_path: ItemPath::from("A/not_exists/")
 			}
 		);
 		println!("//////// 210 ////////");
@@ -1048,8 +988,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("B/not_exists"),
-				&crate::Etag::from(""),
+				&ItemPath::from("B/not_exists"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1057,7 +997,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NotFound {
-				item_path: std::path::PathBuf::from("B/not_exists")
+				item_path: ItemPath::from("B/not_exists")
 			}
 		);
 		println!("//////// 220 ////////");
@@ -1065,8 +1005,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("not_exists/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("not_exists/"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1074,7 +1014,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NotFound {
-				item_path: std::path::PathBuf::from("not_exists/")
+				item_path: ItemPath::from("not_exists/")
 			}
 		);
 		println!("//////// 230 ////////");
@@ -1082,8 +1022,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("not_exists"),
-				&crate::Etag::from(""),
+				&ItemPath::from("not_exists"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1091,16 +1031,18 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NotFound {
-				item_path: std::path::PathBuf::from("not_exists")
+				item_path: ItemPath::from("not_exists")
 			}
 		);
+		/*
+		// useless with `ItemPath`
 		println!("//////// 240 ////////");
 		assert_eq!(
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("."),
-				&crate::Etag::from(""),
+				&ItemPath::from("."),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1108,17 +1050,33 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("."),
+				item_path: ItemPath::from("."),
 				error: String::from("`.` is not allowed")
 			}
 		);
+		*/
+		println!("//////// 245 ////////");
+		assert_eq!(
+			get(
+				&storage,
+				prefix,
+				&ItemPath::from("."),
+				&Etag::from(""),
+				&vec![],
+				true
+			)
+			.unwrap(),
+			root_without_public,
+		);
+		/*
+		// useless with `ItemPath`
 		println!("//////// 250 ////////");
 		assert_eq!(
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/.."),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/.."),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1126,17 +1084,33 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/.."),
+				item_path: ItemPath::from("A/.."),
 				error: String::from("`..` is not allowed")
 			}
 		);
+		*/
+		println!("//////// 255 ////////");
+		assert_eq!(
+			get(
+				&storage,
+				prefix,
+				&ItemPath::from("A/.."),
+				&Etag::from(""),
+				&vec![],
+				true
+			)
+			.unwrap(),
+			root_without_public,
+		);
+		/*
+		// useless with `ItemPath`
 		println!("//////// 260 ////////");
 		assert_eq!(
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/../"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/../"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1144,17 +1118,33 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/../"),
+				item_path: ItemPath::from("A/../"),
 				error: String::from("`..` is not allowed")
 			}
 		);
+		*/
+		println!("//////// 265 ////////");
+		assert_eq!(
+			get(
+				&storage,
+				prefix,
+				&ItemPath::from("A/../"),
+				&Etag::from(""),
+				&vec![],
+				true
+			)
+			.unwrap(),
+			root_without_public
+		);
+		/*
+		// useless with `ItemPath`
 		println!("//////// 270 ////////");
 		assert_eq!(
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/../AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/../AA"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1162,17 +1152,18 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/../"),
+				item_path: ItemPath::from("A/../"),
 				error: String::from("`..` is not allowed")
 			}
 		);
+		*/
 		println!("//////// 280 ////////");
 		assert_eq!(
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/A\0A"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/A\0A"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1180,7 +1171,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/A\0A"),
+				item_path: ItemPath::from("A/A\0A"),
 				error: format!("`{}` should not contains `\\0` character", "A\0A")
 			}
 		);
@@ -1189,8 +1180,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("public/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("public/"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1198,7 +1189,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/")
+				item_path: ItemPath::from("public/")
 			},
 		);
 		println!("//////// 300 ////////");
@@ -1206,8 +1197,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("public/C/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("public/C/"),
+				&Etag::from(""),
 				&vec![],
 				true
 			)
@@ -1215,7 +1206,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/C/")
+				item_path: ItemPath::from("public/C/")
 			}
 		);
 
@@ -1226,8 +1217,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new(""),
-				&crate::Etag::from("ANOTHER_ETAG"),
+				&ItemPath::from(""),
+				&Etag::from("ANOTHER_ETAG"),
 				&vec![],
 				true
 			)
@@ -1235,8 +1226,8 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NoIfMatch {
-				item_path: std::path::PathBuf::from(""),
-				search: crate::Etag::from("ANOTHER_ETAG"),
+				item_path: ItemPath::from(""),
+				search: Etag::from("ANOTHER_ETAG"),
 				found: root.get_etag().clone()
 			}
 		);
@@ -1245,8 +1236,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/"),
-				&crate::Etag::from("ANOTHER_ETAG"),
+				&ItemPath::from("A/"),
+				&Etag::from("ANOTHER_ETAG"),
 				&vec![],
 				true
 			)
@@ -1254,8 +1245,8 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NoIfMatch {
-				item_path: std::path::PathBuf::from("A/"),
-				search: crate::Etag::from("ANOTHER_ETAG"),
+				item_path: ItemPath::from("A/"),
+				search: Etag::from("ANOTHER_ETAG"),
 				found: A.get_etag().clone()
 			}
 		);
@@ -1264,8 +1255,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from("ANOTHER_ETAG"),
+				&ItemPath::from("A/AA"),
+				&Etag::from("ANOTHER_ETAG"),
 				&vec![],
 				true
 			)
@@ -1273,8 +1264,8 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NoIfMatch {
-				item_path: std::path::PathBuf::from("A/AA"),
-				search: crate::Etag::from("ANOTHER_ETAG"),
+				item_path: ItemPath::from("A/AA"),
+				search: Etag::from("ANOTHER_ETAG"),
 				found: AA.get_etag().clone()
 			}
 		);
@@ -1286,17 +1277,17 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new(""),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("*")],
+				&ItemPath::from(""),
+				&Etag::from(""),
+				&[&Etag::from("*")],
 				true
 			)
 			.unwrap_err()
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IfNoneMatch {
-				item_path: std::path::PathBuf::from(""),
-				search: crate::Etag::from("*"),
+				item_path: ItemPath::from(""),
+				search: Etag::from("*"),
 				found: root.get_etag().clone()
 			}
 		);
@@ -1305,17 +1296,17 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/"),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("*")],
+				&ItemPath::from("A/"),
+				&Etag::from(""),
+				&[&Etag::from("*")],
 				true
 			)
 			.unwrap_err()
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IfNoneMatch {
-				item_path: std::path::PathBuf::from("A/"),
-				search: crate::Etag::from("*"),
+				item_path: ItemPath::from("A/"),
+				search: Etag::from("*"),
 				found: A.get_etag().clone()
 			}
 		);
@@ -1324,17 +1315,17 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("*")],
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
+				&[&Etag::from("*")],
 				true
 			)
 			.unwrap_err()
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IfNoneMatch {
-				item_path: std::path::PathBuf::from("A/AA"),
-				search: crate::Etag::from("*"),
+				item_path: ItemPath::from("A/AA"),
+				search: Etag::from("*"),
 				found: AA.get_etag().clone()
 			}
 		);
@@ -1346,8 +1337,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new(""),
-				&crate::Etag::from(""),
+				&ItemPath::from(""),
+				&Etag::from(""),
 				&[root.get_etag()],
 				true
 			)
@@ -1355,7 +1346,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IfNoneMatch {
-				item_path: std::path::PathBuf::from(""),
+				item_path: ItemPath::from(""),
 				search: root.get_etag().clone(),
 				found: root.get_etag().clone()
 			}
@@ -1365,8 +1356,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/"),
+				&Etag::from(""),
 				&[A.get_etag()],
 				true
 			)
@@ -1374,7 +1365,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IfNoneMatch {
-				item_path: std::path::PathBuf::from("A/"),
+				item_path: ItemPath::from("A/"),
 				search: A.get_etag().clone(),
 				found: A.get_etag().clone()
 			}
@@ -1384,8 +1375,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
 				&[AA.get_etag()],
 				true
 			)
@@ -1393,7 +1384,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::IfNoneMatch {
-				item_path: std::path::PathBuf::from("A/AA"),
+				item_path: ItemPath::from("A/AA"),
 				search: AA.get_etag().clone(),
 				found: AA.get_etag().clone()
 			}
@@ -1406,8 +1397,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new(""),
-				&crate::Etag::from(""),
+				&ItemPath::from(""),
+				&Etag::from(""),
 				&[],
 				false
 			)
@@ -1419,8 +1410,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/"),
+				&Etag::from(""),
 				&[],
 				false
 			)
@@ -1432,8 +1423,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
 				&[],
 				false
 			)
@@ -1445,8 +1436,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("public/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("public/"),
+				&Etag::from(""),
 				&[],
 				false
 			)
@@ -1454,7 +1445,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/")
+				item_path: ItemPath::from("public/")
 			}
 		);
 		println!("//////// 440 ////////");
@@ -1462,8 +1453,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("public/C/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("public/C/"),
+				&Etag::from(""),
 				&[],
 				false
 			)
@@ -1471,7 +1462,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/C/")
+				item_path: ItemPath::from("public/C/")
 			}
 		);
 		println!("//////// 450 ////////");
@@ -1479,8 +1470,8 @@ mod tests {
 			get(
 				&storage,
 				prefix,
-				std::path::Path::new("public/C/CA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("public/C/CA"),
+				&Etag::from(""),
 				&[],
 				false
 			)
@@ -1492,8 +1483,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("public/not_exists"),
-				&crate::Etag::from(""),
+				&ItemPath::from("public/not_exists"),
+				&Etag::from(""),
 				&[],
 				false
 			)
@@ -1501,7 +1492,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::NotFound {
-				item_path: std::path::PathBuf::from("public/not_exists")
+				item_path: ItemPath::from("public/not_exists")
 			}
 		);
 		println!("//////// 470 ////////");
@@ -1509,8 +1500,8 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("public/not_exists/"),
-				&crate::Etag::from(""),
+				&ItemPath::from("public/not_exists/"),
+				&Etag::from(""),
 				&[],
 				false
 			)
@@ -1518,7 +1509,7 @@ mod tests {
 			.downcast::<GetError>()
 			.unwrap(),
 			GetError::CanNotBeListed {
-				item_path: std::path::PathBuf::from("public/not_exists/")
+				item_path: ItemPath::from("public/not_exists/")
 			}
 		);
 
@@ -1529,9 +1520,9 @@ mod tests {
 			*get(
 				&storage,
 				prefix,
-				std::path::Path::new("A/.AA.itemdata.json"),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("*")],
+				&ItemPath::from("A/.AA.itemdata.json"),
+				&Etag::from(""),
+				&[&Etag::from("*")],
 				true
 			)
 			.unwrap_err()

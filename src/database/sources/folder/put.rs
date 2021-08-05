@@ -1,27 +1,23 @@
 pub fn put(
 	root_folder_path: &std::path::Path,
-	path: &std::path::Path,
+	path: &crate::ItemPath,
 	if_match: &crate::Etag,
 	if_none_match: &[&crate::Etag],
 	new_item: crate::Item,
 ) -> crate::database::PutResult {
 	// TODO : test if path is document and new_item is folder (and vice-versa) ?
-	if path.to_str().unwrap().ends_with('/')
-		|| path.to_str().unwrap().ends_with('\\')
-		|| path == std::path::PathBuf::from("")
-	{
+	if path.is_folder() {
 		return crate::database::PutResult::Err(Box::new(PutError::DoesNotWorksForFolders));
 	}
 
 	let item_fetch = super::get::get(root_folder_path, path, if_match, if_none_match, true);
 
-	let target_content_path = root_folder_path.join(path);
+	let target_content_path = root_folder_path.join(std::path::PathBuf::from(path));
 	let target_data_path = root_folder_path
-		.join(path.parent().unwrap_or_else(|| std::path::Path::new("")))
-		.join(format!(
-			".{}.itemdata.toml",
-			path.file_name().unwrap().to_str().unwrap()
-		));
+		.join(std::path::PathBuf::from(
+			&path.parent().unwrap_or_else(|| crate::ItemPath::from("")),
+		))
+		.join(format!(".{}.itemdata.toml", path.file_name()));
 
 	match item_fetch {
 		Ok(crate::Item::Document {
@@ -38,8 +34,13 @@ pub fn put(
 				if new_content != old_content || new_content_type != old_content_type {
 					let new_etag = crate::Etag::new();
 
-					for parent_path in path.ancestors().skip(1) {
-						let target_parent_path = root_folder_path.join(parent_path);
+					for parent_path in path
+						.ancestors()
+						.into_iter()
+						.take(path.ancestors().len().saturating_sub(1))
+					{
+						let target_parent_path =
+							root_folder_path.join(std::path::PathBuf::from(&parent_path));
 						let parent_datafile_path = target_parent_path.join(".folder.itemdata.toml");
 
 						let mut parent_datafile: crate::DataFolder = {
@@ -50,7 +51,7 @@ pub fn put(
 									Err(error) => {
 										return crate::database::PutResult::Err(Box::new(
 											PutError::CanNotDeserializeFile {
-												path: parent_datafile_path,
+												os_path: parent_datafile_path,
 												error: format!("{}", error),
 											},
 										));
@@ -59,7 +60,7 @@ pub fn put(
 								Err(error) => {
 									return crate::database::PutResult::Err(Box::new(
 										PutError::CanNotReadFile {
-											path: parent_datafile_path,
+											os_path: parent_datafile_path,
 											error: format!("{}", error),
 										},
 									));
@@ -78,7 +79,7 @@ pub fn put(
 								{
 									return crate::database::PutResult::Err(Box::new(
 										PutError::CanNotWriteFile {
-											path: parent_datafile_path,
+											os_path: parent_datafile_path,
 											error: format!("{}", error),
 										},
 									));
@@ -87,7 +88,7 @@ pub fn put(
 							Err(error) => {
 								return crate::database::PutResult::Err(Box::new(
 									PutError::CanNotSerializeFile {
-										path: parent_datafile_path,
+										os_path: parent_datafile_path,
 										error: format!("{}", error),
 									},
 								));
@@ -99,7 +100,7 @@ pub fn put(
 						if let Err(error) = std::fs::write(&target_content_path, &new_content) {
 							return crate::database::PutResult::Err(Box::new(
 								PutError::CanNotWriteFile {
-									path: target_content_path,
+									os_path: target_content_path,
 									error: format!("{}", error),
 								},
 							));
@@ -116,7 +117,7 @@ pub fn put(
 							if let Err(error) = std::fs::write(&target_data_path, &datadoc) {
 								return crate::database::PutResult::Err(Box::new(
 									PutError::CanNotWriteFile {
-										path: target_data_path,
+										os_path: target_data_path,
 										error: format!("{}", error),
 									},
 								));
@@ -125,7 +126,7 @@ pub fn put(
 						Err(error) => {
 							return crate::database::PutResult::Err(Box::new(
 								PutError::CanNotSerializeFile {
-									path: target_data_path,
+									os_path: target_data_path,
 									error: format!("{}", error),
 								},
 							));
@@ -141,11 +142,8 @@ pub fn put(
 			}
 		}
 		Ok(crate::Item::Folder { .. }) => {
-			let tmp_path = path.to_str().unwrap();
 			return crate::database::PutResult::Err(Box::new(super::GetError::Conflict {
-				item_path: std::path::PathBuf::from(
-					tmp_path.strip_suffix('/').unwrap_or(tmp_path).to_string() + "/",
-				),
+				item_path: path.clone(),
 			}));
 		}
 		Err(boxed_error) => {
@@ -160,14 +158,19 @@ pub fn put(
 				{
 					let new_etag = crate::Etag::new();
 
-					for parent_path in path.ancestors().skip(1) {
-						let target_parent_path = root_folder_path.join(parent_path);
+					for parent_path in path
+						.ancestors()
+						.into_iter()
+						.take(path.ancestors().len().saturating_sub(1))
+					{
+						let target_parent_path =
+							root_folder_path.join(std::path::PathBuf::from(&parent_path));
 						let parent_datafile_path = target_parent_path.join(".folder.itemdata.toml");
 
 						if let Err(error) = std::fs::create_dir_all(&target_parent_path) {
 							return crate::database::PutResult::Err(Box::new(
 								PutError::CanNotWriteFile {
-									path: target_parent_path,
+									os_path: target_parent_path,
 									error: format!("{}", error),
 								},
 							));
@@ -184,7 +187,7 @@ pub fn put(
 								{
 									return crate::database::PutResult::Err(Box::new(
 										PutError::CanNotWriteFile {
-											path: parent_datafile_path,
+											os_path: parent_datafile_path,
 											error: format!("{}", error),
 										},
 									));
@@ -193,7 +196,7 @@ pub fn put(
 							Err(error) => {
 								return crate::database::PutResult::Err(Box::new(
 									PutError::CanNotSerializeFile {
-										path: parent_datafile_path,
+										os_path: parent_datafile_path,
 										error: format!("{}", error),
 									},
 								));
@@ -205,7 +208,7 @@ pub fn put(
 						if let Err(error) = std::fs::write(&target_content_path, &new_content) {
 							return crate::database::PutResult::Err(Box::new(
 								PutError::CanNotWriteFile {
-									path: target_content_path,
+									os_path: target_content_path,
 									error: format!("{}", error),
 								},
 							));
@@ -222,7 +225,7 @@ pub fn put(
 							if let Err(error) = std::fs::write(&target_data_path, &datafile) {
 								return crate::database::PutResult::Err(Box::new(
 									PutError::CanNotWriteFile {
-										path: target_data_path,
+										os_path: target_data_path,
 										error: format!("{}", error),
 									},
 								));
@@ -231,7 +234,7 @@ pub fn put(
 						Err(error) => {
 							return crate::database::PutResult::Err(Box::new(
 								PutError::CanNotSerializeFile {
-									path: target_data_path,
+									os_path: target_data_path,
 									error: format!("{}", error),
 								},
 							));
@@ -257,19 +260,19 @@ pub enum PutError {
 	DoesNotWorksForFolders,
 	ContentNotChanged,
 	CanNotReadFile {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 	CanNotWriteFile {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 	CanNotSerializeFile {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 	CanNotDeserializeFile {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 }
@@ -281,25 +284,21 @@ impl std::fmt::Display for PutError {
 				f.write_str("this method does not works for folders in payload")
 			}
 			Self::ContentNotChanged => f.write_str("the content has not changed"),
-			Self::CanNotReadFile { path, error } => f.write_fmt(format_args!(
-				"can not read file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotReadFile { os_path, error } => f.write_fmt(format_args!(
+				"can not read file `{:?}` because : {}",
+				os_path, error
 			)),
-			Self::CanNotWriteFile { path, error } => f.write_fmt(format_args!(
-				"can not write file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotWriteFile { os_path, error } => f.write_fmt(format_args!(
+				"can not write file `{:?}` because : {}",
+				os_path, error
 			)),
-			Self::CanNotSerializeFile { path, error } => f.write_fmt(format_args!(
-				"can not serialize file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotSerializeFile { os_path, error } => f.write_fmt(format_args!(
+				"can not serialize file `{:?}` because : {}",
+				os_path, error
 			)),
-			Self::CanNotDeserializeFile { path, error } => f.write_fmt(format_args!(
-				"can not deserialize file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotDeserializeFile { os_path, error } => f.write_fmt(format_args!(
+				"can not deserialize file `{:?}` because : {}",
+				os_path, error
 			)),
 		}
 	}
@@ -329,46 +328,50 @@ impl crate::database::Error for PutError {
 				Some(format!("{}", self)),
 				should_have_body,
 			),
-			Self::CanNotReadFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotWriteFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotSerializeFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotDeserializeFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
+			Self::CanNotReadFile {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotWriteFile {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotSerializeFile {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotDeserializeFile {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
 		}
 	}
 }
@@ -380,13 +383,14 @@ mod tests {
 	use std::convert::TryFrom;
 
 	use super::{super::GetError, put, PutError};
+	use crate::{Etag, Item, ItemPath};
 
 	// TODO : test last_modified
 
-	fn build_test_db() -> (tempfile::TempDir, crate::Etag, crate::Etag, crate::Etag) {
-		let AA = crate::Item::new_doc(b"AA", "text/plain");
-		let A = crate::Item::new_folder(vec![("AA", AA.clone())]);
-		let root = crate::Item::new_folder(vec![("A", A.clone())]);
+	fn build_test_db() -> (tempfile::TempDir, Etag, Etag, Etag) {
+		let AA = Item::new_doc(b"AA", "text/plain");
+		let A = Item::new_folder(vec![("AA", AA.clone())]);
+		let root = Item::new_folder(vec![("A", A.clone())]);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -432,7 +436,7 @@ mod tests {
 		)
 		.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			..
 		} = &AA
@@ -473,10 +477,10 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			std::path::Path::new("AA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("AA"),
+			&Etag::from(""),
 			&[],
-			crate::Item::new_doc(b"AA", "text/plain"),
+			Item::new_doc(b"AA", "text/plain"),
 		)
 		.unwrap();
 
@@ -503,10 +507,10 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			std::path::Path::new("A/AA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("A/AA"),
+			&Etag::from(""),
 			&[],
-			crate::Item::new_doc(b"AA2", "text/plain2"),
+			Item::new_doc(b"AA2", "text/plain2"),
 		)
 		.unwrap();
 
@@ -551,10 +555,10 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"AA", "text/plain")
+				Item::new_doc(b"AA", "text/plain")
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
@@ -600,10 +604,10 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				std::path::Path::new(""),
-				&crate::Etag::from(""),
+				&ItemPath::from(""),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_folder(vec![])
+				Item::new_folder(vec![])
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
@@ -623,10 +627,10 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			std::path::Path::new("A/AA"),
-			&crate::Etag::from(""),
-			&[&crate::Etag::from("*")],
-			crate::Item::new_doc(b"AA", "text/plain"),
+			&ItemPath::from("A/AA"),
+			&Etag::from(""),
+			&[&Etag::from("*")],
+			Item::new_doc(b"AA", "text/plain"),
 		)
 		.unwrap();
 
@@ -655,18 +659,18 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("*")],
-				crate::Item::new_doc(b"AA2", "text/plain2"),
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
+				&[&Etag::from("*")],
+				Item::new_doc(b"AA2", "text/plain2"),
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(GetError::IfNoneMatch {
-				item_path: std::path::PathBuf::from("A/AA"),
+				item_path: ItemPath::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("*")
+				search: Etag::from("*")
 			})
 		);
 
@@ -709,18 +713,18 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from("ANOTHER_ETAG"),
+				&ItemPath::from("A/AA"),
+				&Etag::from("ANOTHER_ETAG"),
 				&[],
-				crate::Item::new_doc(b"AA2", "text/plain2"),
+				Item::new_doc(b"AA2", "text/plain2"),
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(GetError::NoIfMatch {
-				item_path: std::path::PathBuf::from("A/AA"),
+				item_path: ItemPath::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("ANOTHER_ETAG")
+				search: Etag::from("ANOTHER_ETAG")
 			})
 		);
 
@@ -762,10 +766,10 @@ mod tests {
 
 		AA_etag = put(
 			&tmp_folder_path,
-			std::path::Path::new("A/AA"),
+			&ItemPath::from("A/AA"),
 			&AA_etag,
 			&[],
-			crate::Item::new_doc(b"AA2", "text/plain2"),
+			Item::new_doc(b"AA2", "text/plain2"),
 		)
 		.unwrap();
 
@@ -807,10 +811,10 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			std::path::Path::new("A/AA"),
-			&crate::Etag::from("*"),
+			&ItemPath::from("A/AA"),
+			&Etag::from("*"),
 			&[],
-			crate::Item::new_doc(b"AA2", "text/plain2"),
+			Item::new_doc(b"AA2", "text/plain2"),
 		)
 		.unwrap();
 
@@ -855,16 +859,16 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				std::path::Path::new("A/AA/AAA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA/AAA"),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"AAA", "text/plain")
+				Item::new_doc(b"AAA", "text/plain")
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(GetError::Conflict {
-				item_path: std::path::PathBuf::from("A/AA")
+				item_path: ItemPath::from("A/AA")
 			})
 		);
 
@@ -913,16 +917,16 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				std::path::Path::new("A"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A"),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"A", "text/plain")
+				Item::new_doc(b"A", "text/plain")
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(GetError::Conflict {
-				item_path: std::path::PathBuf::from("A")
+				item_path: ItemPath::from("A/")
 			})
 		);
 
@@ -963,10 +967,10 @@ mod tests {
 
 		let AA_etag = put(
 			&tmp_folder_path,
-			std::path::Path::new("public/A/AA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("public/A/AA"),
+			&Etag::from(""),
 			&[],
-			crate::Item::new_doc(b"AA", "text/plain"),
+			Item::new_doc(b"AA", "text/plain"),
 		)
 		.unwrap();
 
@@ -1017,17 +1021,17 @@ mod tests {
 		assert_eq!(
 			*put(
 				&tmp_folder_path,
-				std::path::Path::new("A/../AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/A\0A"),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"AA", "text/plain"),
+				Item::new_doc(b"AA2", "text/plain2"),
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed")
+				item_path: ItemPath::from("A/A\0A"),
+				error: String::from("`A\0A` should not contains `\\0` character")
 			})
 		);
 

@@ -44,7 +44,7 @@ pub async fn put_item(
 	}
 
 	match database.lock().unwrap().put(
-		std::path::Path::new(&path.to_string()),
+		&pontus_onyx::ItemPath::from(path.as_str()),
 		pontus_onyx::Item::Document {
 			etag: pontus_onyx::Etag::from(""),
 			content: Some(content.to_vec()),

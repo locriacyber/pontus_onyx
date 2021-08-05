@@ -20,7 +20,7 @@ pub struct MemoryStorage {
 impl crate::database::DataSource for MemoryStorage {
 	fn get(
 		&self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
 		_get_content: bool,
@@ -30,7 +30,7 @@ impl crate::database::DataSource for MemoryStorage {
 
 	fn put(
 		&mut self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		if_match: &crate::Etag,
 		if_none_match: &[&crate::Etag],
 		new_item: crate::Item,
@@ -40,7 +40,7 @@ impl crate::database::DataSource for MemoryStorage {
 
 	fn delete(
 		&mut self,
-		path: &std::path::Path,
+		path: &crate::ItemPath,
 		if_match: &crate::Etag,
 	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
 		delete::delete(&mut self.root_item, path, if_match)

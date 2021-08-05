@@ -1,16 +1,16 @@
 pub fn delete(
 	root_item: &mut crate::Item,
-	path: &std::path::Path,
+	path: &crate::ItemPath,
 	if_match: &crate::Etag,
 ) -> Result<crate::Etag, Box<dyn std::error::Error>> {
-	if path.ends_with("/") {
+	if path.is_folder() {
 		return Err(Box::new(DeleteError::DoesNotWorksForFolders));
 	}
 
-	let mut cumulated_path = std::path::PathBuf::new();
-	for path_part in path {
-		cumulated_path = cumulated_path.join(path_part);
-		if let Err(error) = crate::item_name_is_ok(path_part.to_str().unwrap()) {
+	let mut cumulated_path = crate::ItemPath::from("");
+	for path_part in path.parts_iter() {
+		cumulated_path = cumulated_path.joined(path_part).unwrap();
+		if let Err(error) = crate::item_name_is_ok(path_part.name()) {
 			return Err(Box::new(DeleteError::IncorrectItemName {
 				item_path: cumulated_path,
 				error,
@@ -18,9 +18,9 @@ pub fn delete(
 		}
 	}
 
-	cumulated_path = std::path::PathBuf::new();
-	for path_part in path {
-		cumulated_path = cumulated_path.join(path_part);
+	cumulated_path = crate::ItemPath::from("");
+	for path_part in path.parts_iter() {
+		cumulated_path = cumulated_path.joined(path_part).unwrap();
 		if root_item.get_child(&cumulated_path).is_none() {
 			return Err(Box::new(DeleteError::NotFound {
 				item_path: cumulated_path,
@@ -29,38 +29,37 @@ pub fn delete(
 	}
 
 	let parent_path = path.parent().unwrap();
-	match root_item.get_child_mut(parent_path) {
+	match root_item.get_child_mut(&parent_path) {
 		Some(crate::Item::Folder {
 			content: Some(parent_content),
 			..
-		}) => match parent_content.get_mut(path.file_name().unwrap().to_str().unwrap()) {
+		}) => match parent_content.get_mut(path.file_name()) {
 			Some(found_item) => match &**found_item {
 				crate::Item::Document {
 					etag: found_etag, ..
 				} => {
 					if !if_match.is_empty() && if_match.trim() != "*" && if_match != found_etag {
 						return Err(Box::new(DeleteError::NoIfMatch {
-							item_path: path.to_path_buf(),
+							item_path: path.clone(),
 							search: if_match.clone(),
 							found: found_etag.clone(),
 						}));
 					}
 					let old_etag = found_etag.clone();
 
-					parent_content.remove(path.file_name().unwrap().to_str().unwrap());
+					parent_content.remove(path.file_name());
 
 					{
-						let parents = {
-							let ancestors = path.ancestors();
-							let paths: Vec<&std::path::Path> = ancestors.into_iter().collect();
-							paths
-						};
-
-						for path_part in parents {
+						for path_part in path
+							.ancestors()
+							.into_iter()
+							.take(path.ancestors().len().saturating_sub(1))
+							.rev()
+						{
 							if let Some(crate::Item::Folder {
 								content: Some(parent_content),
 								etag,
-							}) = root_item.get_child_mut(path_part)
+							}) = root_item.get_child_mut(&path_part)
 							{
 								let mut to_delete = vec![];
 								for (child_name, child_item) in &*parent_content {
@@ -87,16 +86,9 @@ pub fn delete(
 					return Ok(old_etag);
 				}
 				crate::Item::Folder { .. } => {
-					if cumulated_path
-						.as_os_str()
-						.to_str()
-						.unwrap()
-						.trim()
-						.replace(std::path::MAIN_SEPARATOR, "/")
-						== path.as_os_str().to_str().unwrap().trim()
-					{
+					if cumulated_path == *path {
 						return Err(Box::new(DeleteError::Conflict {
-							item_path: cumulated_path,
+							item_path: cumulated_path.folder_clone(),
 						}));
 					} else {
 						return Err(Box::new(DeleteError::DoesNotWorksForFolders));
@@ -105,23 +97,23 @@ pub fn delete(
 			},
 			None => {
 				return Err(Box::new(DeleteError::NotFound {
-					item_path: path.to_path_buf(),
+					item_path: path.clone(),
 				}));
 			}
 		},
 		Some(crate::Item::Folder { content: None, .. }) => {
 			return Err(Box::new(DeleteError::NoContentInside {
-				item_path: parent_path.to_path_buf(),
+				item_path: parent_path,
 			}));
 		}
 		Some(crate::Item::Document { .. }) => {
 			return Err(Box::new(DeleteError::Conflict {
-				item_path: parent_path.to_path_buf(),
+				item_path: parent_path,
 			}));
 		}
 		None => {
 			return Err(Box::new(DeleteError::NotFound {
-				item_path: parent_path.to_path_buf(),
+				item_path: parent_path,
 			}));
 		}
 	}
@@ -130,21 +122,21 @@ pub fn delete(
 #[derive(Debug, PartialEq)]
 pub enum DeleteError {
 	Conflict {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 	},
 	DoesNotWorksForFolders,
 	NotFound {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 	},
 	NoContentInside {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 	},
 	IncorrectItemName {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	NoIfMatch {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		search: crate::Etag,
 		found: crate::Etag,
 	},
@@ -152,12 +144,12 @@ pub enum DeleteError {
 impl std::fmt::Display for DeleteError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
 		match self {
-			Self::Conflict { item_path } => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path.to_string_lossy())),
+			Self::Conflict { item_path } => f.write_fmt(format_args!("name conflict between folder and file on the path `{}`", item_path)),
 			Self::DoesNotWorksForFolders => f.write_str("this method does not works on folders"),
-			Self::NotFound { item_path } => f.write_fmt(format_args!("path not found : `{}`", item_path.to_string_lossy())),
-			Self::NoContentInside { item_path } => f.write_fmt(format_args!("no content found in `{}`", item_path.to_string_lossy())),
-			Self::IncorrectItemName { item_path, error } => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path.to_string_lossy(), error)),
-			Self::NoIfMatch { item_path, search, found } => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path.to_string_lossy(), found)),
+			Self::NotFound { item_path } => f.write_fmt(format_args!("path not found : `{}`", item_path)),
+			Self::NoContentInside { item_path } => f.write_fmt(format_args!("no content found in `{}`", item_path)),
+			Self::IncorrectItemName { item_path, error } => f.write_fmt(format_args!("the path `{}` is incorrect, because {}", item_path, error)),
+			Self::NoIfMatch { item_path, search, found } => f.write_fmt(format_args!("the requested `{}` etag (through `IfMatch`) for `{}` was not found, found `{}` instead", search, item_path, found)),
 		}
 	}
 }
@@ -230,78 +222,64 @@ mod tests {
 	#![allow(non_snake_case)]
 
 	use super::{delete, DeleteError};
+	use crate::{Etag, Item, ItemPath};
 
 	// TODO : test last_modified
 
-	fn build_test_db() -> (
-		crate::Item,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-	) {
-		let root = crate::Item::new_folder(vec![
+	fn build_test_db() -> (Item, Etag, Etag, Etag, Etag, Etag, Etag) {
+		let root = Item::new_folder(vec![
 			(
 				"A",
-				crate::Item::new_folder(vec![
+				Item::new_folder(vec![
 					(
 						"AA",
-						crate::Item::new_folder(vec![(
+						Item::new_folder(vec![(
 							"AAA",
-							crate::Item::new_folder(vec![(
-								"AAAA",
-								crate::Item::new_doc(b"AAAA", "text/plain"),
-							)]),
+							Item::new_folder(vec![("AAAA", Item::new_doc(b"AAAA", "text/plain"))]),
 						)]),
 					),
-					("AB", crate::Item::new_doc(b"AB", "text/plain")),
+					("AB", Item::new_doc(b"AB", "text/plain")),
 				]),
 			),
 			(
 				"public",
-				crate::Item::new_folder(vec![(
+				Item::new_folder(vec![(
 					"C",
-					crate::Item::new_folder(vec![(
+					Item::new_folder(vec![(
 						"CC",
-						crate::Item::new_folder(vec![(
-							"CCC",
-							crate::Item::new_doc(b"CCC", "text/plain"),
-						)]),
+						Item::new_folder(vec![("CCC", Item::new_doc(b"CCC", "text/plain"))]),
 					)]),
 				)]),
 			),
 		]);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag: root_etag,
 			content: Some(content),
 		} = &root
 		{
-			if let crate::Item::Folder {
+			if let Item::Folder {
 				etag: A_etag,
 				content: Some(content),
 			} = &**content.get("A").unwrap()
 			{
-				let AB_etag =
-					if let crate::Item::Document { etag, .. } = &**content.get("AB").unwrap() {
-						etag
-					} else {
-						panic!();
-					};
+				let AB_etag = if let Item::Document { etag, .. } = &**content.get("AB").unwrap() {
+					etag
+				} else {
+					panic!();
+				};
 
-				if let crate::Item::Folder {
+				if let Item::Folder {
 					etag: AA_etag,
 					content: Some(content),
 				} = &**content.get("AA").unwrap()
 				{
-					if let crate::Item::Folder {
+					if let Item::Folder {
 						etag: AAA_etag,
 						content: Some(content),
 					} = &**content.get("AAA").unwrap()
 					{
-						if let crate::Item::Document {
+						if let Item::Document {
 							etag: AAAA_etag, ..
 						} = &**content.get("AAAA").unwrap()
 						{
@@ -333,24 +311,20 @@ mod tests {
 
 	#[test]
 	fn simple_delete_on_not_existing() {
-		let mut root = crate::Item::new_folder(vec![]);
+		let mut root = Item::new_folder(vec![]);
 		let root_etag = root.get_etag().clone();
 
 		assert_eq!(
-			*delete(
-				&mut root,
-				std::path::Path::new("A/AA/AAA/AAAA"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&mut root, &ItemPath::from("A/AA/AAA/AAAA"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::NotFound {
-				item_path: std::path::PathBuf::from("A/")
+				item_path: ItemPath::from("A/")
 			}
 		);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = root
@@ -366,16 +340,12 @@ mod tests {
 	fn simple_delete_on_existing() {
 		let (mut root, root_etag, A_etag, _, _, AAAA_etag, AB_etag) = build_test_db();
 
-		let old_AAAA_etag = delete(
-			&mut root,
-			std::path::Path::new("A/AA/AAA/AAAA"),
-			&crate::Etag::from(""),
-		)
-		.unwrap();
+		let old_AAAA_etag =
+			delete(&mut root, &ItemPath::from("A/AA/AAA/AAAA"), &Etag::from("")).unwrap();
 
 		assert_eq!(AAAA_etag, old_AAAA_etag);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = root
@@ -383,7 +353,7 @@ mod tests {
 			assert_ne!(etag, root_etag);
 			assert!(!content.is_empty());
 
-			if let crate::Item::Folder {
+			if let Item::Folder {
 				etag,
 				content: Some(content),
 			} = &**content.get("A").unwrap()
@@ -393,7 +363,7 @@ mod tests {
 
 				assert_eq!(content.get("AA"), None);
 
-				if let crate::Item::Document { etag, .. } = &**content.get("AB").unwrap() {
+				if let Item::Document { etag, .. } = &**content.get("AB").unwrap() {
 					assert_eq!(etag, &AB_etag);
 				} else {
 					panic!();
@@ -411,43 +381,38 @@ mod tests {
 		let (mut root, root_etag, A_etag, AA_etag, AAA_etag, AAAA_etag, _) = build_test_db();
 
 		assert_eq!(
-			*delete(
-				&mut root,
-				std::path::Path::new("A/AA/"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&mut root, &ItemPath::from("A/AA/"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::DoesNotWorksForFolders,
 		);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = &root
 		{
 			assert_eq!(etag, &root_etag);
-			if let crate::Item::Folder {
+			if let Item::Folder {
 				etag,
 				content: Some(content),
 			} = &**content.get("A").unwrap()
 			{
 				assert_eq!(etag, &A_etag);
-				if let crate::Item::Folder {
+				if let Item::Folder {
 					etag,
 					content: Some(content),
 				} = &**content.get("AA").unwrap()
 				{
 					assert_eq!(etag, &AA_etag);
-					if let crate::Item::Folder {
+					if let Item::Folder {
 						etag,
 						content: Some(content),
 					} = &**content.get("AAA").unwrap()
 					{
 						assert_eq!(etag, &AAA_etag);
-						if let crate::Item::Document { etag, .. } = &**content.get("AAAA").unwrap()
-						{
+						if let Item::Document { etag, .. } = &**content.get("AAAA").unwrap() {
 							assert_eq!(etag, &AAAA_etag);
 						} else {
 							panic!();
@@ -473,45 +438,44 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&mut root,
-				std::path::Path::new("A/AA/AAA/AAAA"),
-				&crate::Etag::from("OTHER_ETAG"),
+				&ItemPath::from("A/AA/AAA/AAAA"),
+				&Etag::from("OTHER_ETAG"),
 			)
 			.unwrap_err()
 			.downcast::<DeleteError>()
 			.unwrap(),
 			DeleteError::NoIfMatch {
-				item_path: std::path::PathBuf::from("A/AA/AAA/AAAA"),
+				item_path: ItemPath::from("A/AA/AAA/AAAA"),
 				found: AAAA_etag.clone(),
-				search: crate::Etag::from("OTHER_ETAG")
+				search: Etag::from("OTHER_ETAG")
 			}
 		);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = &root
 		{
 			assert_eq!(etag, &root_etag);
-			if let crate::Item::Folder {
+			if let Item::Folder {
 				etag,
 				content: Some(content),
 			} = &**content.get("A").unwrap()
 			{
 				assert_eq!(etag, &A_etag);
-				if let crate::Item::Folder {
+				if let Item::Folder {
 					etag,
 					content: Some(content),
 				} = &**content.get("AA").unwrap()
 				{
 					assert_eq!(etag, &AA_etag);
-					if let crate::Item::Folder {
+					if let Item::Folder {
 						etag,
 						content: Some(content),
 					} = &**content.get("AAA").unwrap()
 					{
 						assert_eq!(etag, &AAA_etag);
-						if let crate::Item::Document { etag, .. } = &**content.get("AAAA").unwrap()
-						{
+						if let Item::Document { etag, .. } = &**content.get("AAAA").unwrap() {
 							assert_eq!(etag, &AAAA_etag);
 						} else {
 							panic!();
@@ -535,11 +499,11 @@ mod tests {
 		let (mut root, root_etag, A_etag, _, _, AAAA_etag, _) = build_test_db();
 
 		let old_AAAA_etag =
-			delete(&mut root, std::path::Path::new("A/AA/AAA/AAAA"), &AAAA_etag).unwrap();
+			delete(&mut root, &ItemPath::from("A/AA/AAA/AAAA"), &AAAA_etag).unwrap();
 
 		assert_eq!(old_AAAA_etag, AAAA_etag);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = &root
@@ -547,7 +511,7 @@ mod tests {
 			assert_ne!(etag, &root_etag);
 			assert!(!content.is_empty());
 
-			if let crate::Item::Folder {
+			if let Item::Folder {
 				etag,
 				content: Some(content),
 			} = &**content.get("A").unwrap()
@@ -571,14 +535,14 @@ mod tests {
 
 		let old_AAAA_etag = delete(
 			&mut root,
-			std::path::Path::new("A/AA/AAA/AAAA"),
-			&crate::Etag::from("*"),
+			&ItemPath::from("A/AA/AAA/AAAA"),
+			&Etag::from("*"),
 		)
 		.unwrap();
 
 		assert_eq!(old_AAAA_etag, AAAA_etag);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = &root
@@ -586,7 +550,7 @@ mod tests {
 			assert_ne!(etag, &root_etag);
 			assert!(!content.is_empty());
 
-			if let crate::Item::Folder {
+			if let Item::Folder {
 				etag,
 				content: Some(content),
 			} = &**content.get("A").unwrap()
@@ -609,20 +573,16 @@ mod tests {
 		let (mut root, root_etag, A_etag, AA_etag, AAA_etag, _, _) = build_test_db();
 
 		assert_eq!(
-			*delete(
-				&mut root,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&mut root, &ItemPath::from("A/AA"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::Conflict {
-				item_path: std::path::PathBuf::from("A/AA/")
+				item_path: ItemPath::from("A/AA/")
 			}
 		);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = &root
@@ -630,7 +590,7 @@ mod tests {
 			assert_eq!(etag, &root_etag);
 			assert!(!content.is_empty());
 
-			if let crate::Item::Folder {
+			if let Item::Folder {
 				etag,
 				content: Some(content),
 			} = &**content.get("A").unwrap()
@@ -638,7 +598,7 @@ mod tests {
 				assert_eq!(etag, &A_etag);
 				assert!(!content.is_empty());
 
-				if let crate::Item::Folder {
+				if let Item::Folder {
 					etag,
 					content: Some(content),
 				} = &**content.get("AA").unwrap()
@@ -646,7 +606,7 @@ mod tests {
 					assert_eq!(etag, &AA_etag);
 					assert!(!content.is_empty());
 
-					if let crate::Item::Folder {
+					if let Item::Folder {
 						etag,
 						content: Some(content),
 					} = &**content.get("AAA").unwrap()
@@ -671,12 +631,12 @@ mod tests {
 
 		delete(
 			&mut root,
-			std::path::Path::new("public/C/CC/CCC"),
-			&crate::Etag::from(""),
+			&ItemPath::from("public/C/CC/CCC"),
+			&Etag::from(""),
 		)
 		.unwrap();
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = &root
@@ -693,25 +653,21 @@ mod tests {
 
 	#[test]
 	fn delete_in_incorrect_path() {
-		let mut root = crate::Item::new_folder(vec![]);
+		let mut root = Item::new_folder(vec![]);
 		let root_etag = root.get_etag().clone();
 
 		assert_eq!(
-			*delete(
-				&mut root,
-				std::path::Path::new("A/../AA"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&mut root, &ItemPath::from("A/A\0A"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed")
+				item_path: ItemPath::from("A/A\0A"),
+				error: String::from("`A\0A` should not contains `\\0` character")
 			}
 		);
 
-		if let crate::Item::Folder {
+		if let Item::Folder {
 			etag,
 			content: Some(content),
 		} = root

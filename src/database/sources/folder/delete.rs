@@ -1,12 +1,9 @@
 pub fn delete(
 	root_folder_path: &std::path::Path,
-	path: &std::path::Path,
+	path: &crate::ItemPath,
 	if_match: &crate::Etag,
 ) -> Result<crate::Etag, Box<dyn std::error::Error>> {
-	if path.to_str().unwrap().ends_with('/')
-		|| path.to_str().unwrap().ends_with('\\')
-		|| path == std::path::PathBuf::from("")
-	{
+	if path.is_folder() {
 		return Err(Box::new(DeleteError::DoesNotWorksForFolders));
 	}
 
@@ -14,57 +11,71 @@ pub fn delete(
 		Ok(target_item) => {
 			let old_target_item = target_item.get_etag().clone();
 
-			let target_file_path = root_folder_path.join(path.parent().unwrap()).join(format!(
-				".{}.itemdata.toml",
-				path.file_name().unwrap().to_str().unwrap()
-			));
+			let target_file_path = root_folder_path
+				.join(&format!("{}", path.parent().unwrap()))
+				.join(format!(".{}.itemdata.toml", path.file_name()));
 			if target_file_path.exists() {
 				if let Err(error) = std::fs::remove_file(&target_file_path) {
 					return Err(Box::new(DeleteError::CanNotDelete {
-						path: target_file_path,
+						os_path: target_file_path,
 						error: format!("{}", error),
 					}));
 				}
 			}
 
-			match std::fs::remove_file(root_folder_path.join(path)) {
+			match std::fs::remove_file(root_folder_path.join(std::path::PathBuf::from(path))) {
 				Ok(()) => {
-					for parent in path.ancestors().skip(1) {
-						if std::fs::read_dir(&root_folder_path.join(parent))
-							.unwrap()
-							.filter(|e| e.as_ref().unwrap().file_name() != ".folder.itemdata.toml")
-							.count() == 0
+					for parent in path
+						.ancestors()
+						.into_iter()
+						.take(path.ancestors().len().saturating_sub(1))
+						.rev()
+					{
+						if std::fs::read_dir(
+							&root_folder_path.join(std::path::PathBuf::from(&parent)),
+						)
+						.unwrap()
+						.filter(|e| e.as_ref().unwrap().file_name() != ".folder.itemdata.toml")
+						.count() == 0
 						{
 							if root_folder_path
-								.join(parent)
+								.join(std::path::PathBuf::from(&parent))
 								.join(".folder.itemdata.toml")
 								.exists()
 							{
 								if let Err(error) = std::fs::remove_file(
-									root_folder_path.join(parent).join(".folder.itemdata.toml"),
+									root_folder_path
+										.join(std::path::PathBuf::from(&parent))
+										.join(".folder.itemdata.toml"),
 								) {
 									return Err(Box::new(DeleteError::CanNotDelete {
-										path: root_folder_path
-											.join(parent)
+										os_path: root_folder_path
+											.join(std::path::PathBuf::from(&parent))
 											.join(".folder.itemdata.toml"),
 										error: format!("{}", error),
 									}));
 								}
 							}
 
-							if root_folder_path.join(parent).exists() {
-								if let Err(error) =
-									std::fs::remove_dir(root_folder_path.join(parent))
-								{
+							if root_folder_path
+								.join(std::path::PathBuf::from(&parent))
+								.exists()
+							{
+								if let Err(error) = std::fs::remove_dir(
+									root_folder_path.join(std::path::PathBuf::from(&parent)),
+								) {
 									return Err(Box::new(DeleteError::CanNotDelete {
-										path: root_folder_path.join(parent),
+										os_path: root_folder_path
+											.join(std::path::PathBuf::from(&parent)),
 										error: format!("{}", error),
 									}));
 								}
 							}
 						} else {
 							let mut folderdata = match std::fs::read(
-								root_folder_path.join(parent).join(".folder.itemdata.toml"),
+								root_folder_path
+									.join(std::path::PathBuf::from(&parent))
+									.join(".folder.itemdata.toml"),
 							) {
 								Ok(folderdata_content) => {
 									match toml::from_slice::<crate::DataFolder>(&folderdata_content)
@@ -73,7 +84,8 @@ pub fn delete(
 										Err(error) => {
 											return Err(Box::new(
 												DeleteError::CanNotDeserializeFile {
-													path: root_folder_path.join(parent),
+													os_path: root_folder_path
+														.join(std::path::PathBuf::from(&parent)),
 													error: format!("{}", error),
 												},
 											));
@@ -82,8 +94,8 @@ pub fn delete(
 								}
 								Err(error) => {
 									return Err(Box::new(DeleteError::CanNotReadFile {
-										path: root_folder_path
-											.join(parent)
+										os_path: root_folder_path
+											.join(std::path::PathBuf::from(&parent))
 											.join(".folder.itemdata.toml"),
 										error: format!("{}", error),
 									}));
@@ -96,12 +108,14 @@ pub fn delete(
 							match toml::to_vec(&folderdata) {
 								Ok(folderdata_content) => {
 									if let Err(error) = std::fs::write(
-										root_folder_path.join(parent).join(".folder.itemdata.toml"),
+										root_folder_path
+											.join(std::path::PathBuf::from(&parent))
+											.join(".folder.itemdata.toml"),
 										&folderdata_content,
 									) {
 										return Err(Box::new(DeleteError::CanNotWriteFile {
-											path: root_folder_path
-												.join(parent)
+											os_path: root_folder_path
+												.join(std::path::PathBuf::from(&parent))
 												.join(".folder.itemdata.toml"),
 											error: format!("{}", error),
 										}));
@@ -109,8 +123,8 @@ pub fn delete(
 								}
 								Err(error) => {
 									return Err(Box::new(DeleteError::CanNotSerializeFile {
-										path: root_folder_path
-											.join(parent)
+										os_path: root_folder_path
+											.join(std::path::PathBuf::from(&parent))
 											.join(".folder.itemdata.toml"),
 										error: format!("{}", error),
 									}));
@@ -123,7 +137,7 @@ pub fn delete(
 				}
 				Err(error) => {
 					return Err(Box::new(DeleteError::CanNotDelete {
-						path: root_folder_path.join(path),
+						os_path: root_folder_path.join(std::path::PathBuf::from(path)),
 						error: format!("{}", error),
 					}));
 				}
@@ -142,23 +156,23 @@ pub enum DeleteError {
 	GetError(super::GetError),
 	DoesNotWorksForFolders,
 	CanNotDelete {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 	CanNotReadFile {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 	CanNotWriteFile {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 	CanNotSerializeFile {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 	CanNotDeserializeFile {
-		path: std::path::PathBuf,
+		os_path: std::path::PathBuf,
 		error: String,
 	},
 }
@@ -167,30 +181,25 @@ impl std::fmt::Display for DeleteError {
 		match self {
 			Self::GetError(get_error) => std::fmt::Display::fmt(get_error, f),
 			Self::DoesNotWorksForFolders => f.write_str("this method does not works for folders"),
-			Self::CanNotDelete { path, error } => f.write_fmt(format_args!(
-				"can not delete file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotDelete { os_path, error } => f.write_fmt(format_args!(
+				"can not delete file `{:?}` because : {}",
+				os_path, error
 			)),
-			Self::CanNotReadFile { path, error } => f.write_fmt(format_args!(
-				"can not read file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotReadFile { os_path, error } => f.write_fmt(format_args!(
+				"can not read file `{:?}` because : {}",
+				os_path, error
 			)),
-			Self::CanNotWriteFile { path, error } => f.write_fmt(format_args!(
-				"can not write file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotWriteFile { os_path, error } => f.write_fmt(format_args!(
+				"can not write file `{:?}` because : {}",
+				os_path, error
 			)),
-			Self::CanNotSerializeFile { path, error } => f.write_fmt(format_args!(
-				"can not serialize file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotSerializeFile { os_path, error } => f.write_fmt(format_args!(
+				"can not serialize file `{:?}` because : {}",
+				os_path, error
 			)),
-			Self::CanNotDeserializeFile { path, error } => f.write_fmt(format_args!(
-				"can not deserialize file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+			Self::CanNotDeserializeFile { os_path, error } => f.write_fmt(format_args!(
+				"can not deserialize file `{:?}` because : {}",
+				os_path, error
 			)),
 		}
 	}
@@ -212,7 +221,10 @@ impl crate::database::Error for DeleteError {
 				Some(format!("{}", self)),
 				should_have_body,
 			),
-			Self::CanNotDelete { path: _, error: _ } => crate::database::build_http_json_response(
+			Self::CanNotDelete {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
 				origin,
 				&actix_web::http::Method::PUT,
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -220,46 +232,50 @@ impl crate::database::Error for DeleteError {
 				None,
 				should_have_body,
 			),
-			Self::CanNotReadFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotWriteFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotSerializeFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
-			Self::CanNotDeserializeFile { path: _, error: _ } => {
-				crate::database::build_http_json_response(
-					origin,
-					&actix_web::http::Method::PUT,
-					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-					None,
-					None,
-					should_have_body,
-				)
-			}
+			Self::CanNotReadFile {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotWriteFile {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotSerializeFile {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
+			Self::CanNotDeserializeFile {
+				os_path: _,
+				error: _,
+			} => crate::database::build_http_json_response(
+				origin,
+				&actix_web::http::Method::PUT,
+				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
+				None,
+				should_have_body,
+			),
 		}
 	}
 }
@@ -271,30 +287,31 @@ mod tests {
 	use std::convert::TryFrom;
 
 	use super::{super::GetError, delete, DeleteError};
+	use crate::{Etag, Item, ItemPath};
 
 	// TODO : test last_modified
 
 	fn build_test_db() -> (
 		tempfile::TempDir,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
+		Etag,
 	) {
-		let AAA = crate::Item::new_doc(b"AAA", "text/plain");
-		let AA = crate::Item::new_folder(vec![("AAA", AAA.clone())]);
-		let AB = crate::Item::new_doc(b"AB", "text/plain");
-		let A = crate::Item::new_folder(vec![("AA", AA.clone()), ("AB", AB.clone())]);
+		let AAA = Item::new_doc(b"AAA", "text/plain");
+		let AA = Item::new_folder(vec![("AAA", AAA.clone())]);
+		let AB = Item::new_doc(b"AB", "text/plain");
+		let A = Item::new_folder(vec![("AA", AA.clone()), ("AB", AB.clone())]);
 
-		let BA = crate::Item::new_doc(b"BA", "text/plain");
-		let B = crate::Item::new_folder(vec![("BA", BA.clone())]);
-		let public = crate::Item::new_folder(vec![("B", B.clone())]);
+		let BA = Item::new_doc(b"BA", "text/plain");
+		let B = Item::new_folder(vec![("BA", BA.clone())]);
+		let public = Item::new_folder(vec![("B", B.clone())]);
 
-		let root = crate::Item::new_folder(vec![("A", A.clone()), ("public", public.clone())]);
+		let root = Item::new_folder(vec![("A", A.clone()), ("public", public.clone())]);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -357,7 +374,7 @@ mod tests {
 		)
 		.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			..
 		} = &AB
@@ -374,7 +391,7 @@ mod tests {
 		)
 		.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			..
 		} = &AAA
@@ -413,7 +430,7 @@ mod tests {
 		)
 		.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			..
 		} = &BA
@@ -460,14 +477,14 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				std::path::Path::new("A/AA/AAA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA/AAA"),
+				&Etag::from(""),
 			)
 			.unwrap_err()
 			.downcast::<DeleteError>()
 			.unwrap(),
 			DeleteError::GetError(GetError::NotFound {
-				item_path: std::path::PathBuf::from("A/")
+				item_path: ItemPath::from("A/")
 			})
 		);
 
@@ -482,8 +499,8 @@ mod tests {
 
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
-			std::path::Path::new("A/AA/AAA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("A/AA/AAA"),
+			&Etag::from(""),
 		)
 		.unwrap();
 
@@ -594,14 +611,10 @@ mod tests {
 		let tmp_folder_path = tmp_folder.path().to_path_buf();
 
 		assert_eq!(
-			*delete(
-				&tmp_folder_path,
-				std::path::Path::new("A/AA/"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&tmp_folder_path, &ItemPath::from("A/AA/"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::DoesNotWorksForFolders,
 		);
 
@@ -734,16 +747,16 @@ mod tests {
 		assert_eq!(
 			*delete(
 				&tmp_folder_path,
-				std::path::Path::new("A/AA/AAA"),
-				&crate::Etag::from("OTHER_ETAG"),
+				&ItemPath::from("A/AA/AAA"),
+				&Etag::from("OTHER_ETAG"),
 			)
 			.unwrap_err()
 			.downcast::<DeleteError>()
 			.unwrap(),
 			DeleteError::GetError(GetError::NoIfMatch {
-				item_path: std::path::PathBuf::from("A/AA/AAA"),
+				item_path: ItemPath::from("A/AA/AAA"),
 				found: AAA_etag.clone(),
-				search: crate::Etag::from("OTHER_ETAG")
+				search: Etag::from("OTHER_ETAG")
 			})
 		);
 
@@ -864,12 +877,8 @@ mod tests {
 			build_test_db();
 		let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-		let old_AAA_etag = delete(
-			&tmp_folder_path,
-			std::path::Path::new("A/AA/AAA"),
-			&AAA_etag,
-		)
-		.unwrap();
+		let old_AAA_etag =
+			delete(&tmp_folder_path, &ItemPath::from("A/AA/AAA"), &AAA_etag).unwrap();
 
 		assert_eq!(old_AAA_etag, AAA_etag);
 
@@ -970,8 +979,8 @@ mod tests {
 
 		let old_AAA_etag = delete(
 			&tmp_folder_path,
-			std::path::Path::new("A/AA/AAA"),
-			&crate::Etag::from("*"),
+			&ItemPath::from("A/AA/AAA"),
+			&Etag::from("*"),
 		)
 		.unwrap();
 
@@ -1082,16 +1091,12 @@ mod tests {
 		let tmp_folder_path = tmp_folder.path().to_path_buf();
 
 		assert_eq!(
-			*delete(
-				&tmp_folder_path,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&tmp_folder_path, &ItemPath::from("A/AA"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::GetError(GetError::Conflict {
-				item_path: std::path::PathBuf::from("A/AA/")
+				item_path: ItemPath::from("A/AA/")
 			})
 		);
 
@@ -1214,8 +1219,8 @@ mod tests {
 
 		let old_BA_etag = delete(
 			&tmp_folder_path,
-			std::path::Path::new("public/B/BA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("public/B/BA"),
+			&Etag::from(""),
 		)
 		.unwrap();
 
@@ -1311,17 +1316,13 @@ mod tests {
 		let tmp_folder_path = tmp_folder.path().to_path_buf();
 
 		assert_eq!(
-			*delete(
-				&tmp_folder_path,
-				std::path::Path::new("A/../AA"),
-				&crate::Etag::from(""),
-			)
-			.unwrap_err()
-			.downcast::<DeleteError>()
-			.unwrap(),
+			*delete(&tmp_folder_path, &ItemPath::from("A/A\0A"), &Etag::from(""),)
+				.unwrap_err()
+				.downcast::<DeleteError>()
+				.unwrap(),
 			DeleteError::GetError(GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed")
+				item_path: ItemPath::from("A/A\0A"),
+				error: String::from("`A\0A` should not contains `\\0` character")
 			})
 		);
 

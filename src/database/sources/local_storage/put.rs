@@ -1,7 +1,7 @@
 pub fn put(
 	storage: &dyn super::Storage,
 	prefix: &str,
-	path: &std::path::Path,
+	path: &crate::ItemPath,
 	if_match: &crate::Etag,
 	if_none_match: &[&crate::Etag],
 	item: crate::Item,
@@ -30,22 +30,28 @@ pub fn put(
 								content_type: new_content_type,
 							});
 
-							let filedata_path = format!(
-								"{}/{}/.{}.itemdata.json",
-								prefix,
-								path.parent().unwrap().to_str().unwrap(),
-								path.file_name().unwrap().to_str().unwrap()
+							let filedata_path = crate::ItemPath::from(
+								format!(
+									"{}/{}/.{}.itemdata.json",
+									prefix,
+									path.parent().unwrap(),
+									path.file_name()
+								)
+								.as_str(),
 							);
 							match serialized_data {
 								Ok(serialized_data) => {
-									if storage.set_item(&filedata_path, &serialized_data).is_err() {
+									if storage
+										.set_item(&format!("{}", filedata_path), &serialized_data)
+										.is_err()
+									{
 										return crate::database::PutResult::Err(Box::new(
 											PutError::GetError(super::GetError::CanNotGetStorage),
 										));
 									}
 									if storage
 										.set_item(
-											&format!("{}/{}", prefix, path.to_str().unwrap()),
+											&format!("{}/{}", prefix, path),
 											&base64::encode(new_content),
 										)
 										.is_err()
@@ -55,21 +61,21 @@ pub fn put(
 										));
 									}
 
-									for ancestor in path.ancestors().skip(1) {
-										let mut ancestor_path = String::new();
-										if ancestor.to_str().unwrap() != "" {
-											ancestor_path += ancestor.to_str().unwrap();
-											if !ancestor_path.is_empty() {
-												ancestor_path += "/";
-											}
-										}
+									for ancestor in path
+										.ancestors()
+										.into_iter()
+										.take(path.ancestors().len().saturating_sub(1))
+									{
+										let folderdata_path =
+											crate::ItemPath::from(
+												format!(
+													"{}/{}.folder.itemdata.json",
+													prefix, ancestor,
+												)
+												.as_str(),
+											);
 
-										let folderdata_path = format!(
-											"{}/{}.folder.itemdata.json",
-											prefix, ancestor_path,
-										);
-
-										match storage.get_item(&folderdata_path) {
+										match storage.get_item(&format!("{}", folderdata_path)) {
 											Ok(Some(folderdata_content)) => {
 												match serde_json::from_str::<crate::DataFolder>(
 													&folderdata_content,
@@ -80,20 +86,18 @@ pub fn put(
 
 														match serde_json::to_string(&new_folderdata) {
 														Ok(new_folderdata_content) => {
-															if storage.set_item(&folderdata_path, &new_folderdata_content).is_err() {
+															if storage.set_item(&format!("{}", folderdata_path), &new_folderdata_content).is_err() {
 																return crate::database::PutResult::Err(Box::new(PutError::GetError(super::GetError::CanNotGetStorage)));
 															}
 														}
-														Err(error) => return crate::database::PutResult::Err(Box::new(PutError::CanNotSerializeFile { path: std::path::PathBuf::from(folderdata_path), error: format!("{}", error) })),
+														Err(error) => return crate::database::PutResult::Err(Box::new(PutError::CanNotSerializeFile { item_path: folderdata_path, error: format!("{}", error) })),
 													}
 													}
 													Err(error) => {
 														return crate::database::PutResult::Err(
 															Box::new(
 																PutError::CanNotDeserializeFile {
-																	path: std::path::PathBuf::from(
-																		folderdata_path,
-																	),
+																	item_path: folderdata_path,
 																	error: format!("{}", error),
 																},
 															),
@@ -123,7 +127,7 @@ pub fn put(
 								Err(error) => {
 									return crate::database::PutResult::Err(Box::new(
 										PutError::CanNotDeserializeFile {
-											path: std::path::PathBuf::from(filedata_path),
+											item_path: filedata_path,
 											error: format!("{}", error),
 										},
 									));
@@ -133,7 +137,7 @@ pub fn put(
 						None => {
 							return crate::database::PutResult::Err(Box::new(
 								PutError::NoContentInside {
-									item_path: path.to_path_buf(), // TODO : not really path, but the `item` parameter of this method
+									item_path: path.clone(),
 								},
 							));
 						}
@@ -144,7 +148,7 @@ pub fn put(
 			} else {
 				return crate::database::PutResult::Err(Box::new(PutError::GetError(
 					super::GetError::Conflict {
-						item_path: path.to_path_buf(),
+						item_path: path.clone(),
 					},
 				)));
 			}
@@ -155,7 +159,7 @@ pub fn put(
 			} else {
 				return crate::database::PutResult::Err(Box::new(PutError::GetError(
 					super::GetError::Conflict {
-						item_path: path.to_path_buf(),
+						item_path: path.clone(),
 					},
 				)));
 			}
@@ -175,22 +179,13 @@ pub fn put(
 							..Default::default()
 						};
 
-						let mut parent_path = String::new();
-						if let Some(parent) = path.parent() {
-							let parent = parent.to_str().unwrap();
-							parent_path += parent;
-							if !parent.is_empty() {
-								parent_path += "/";
-							}
-						}
-
 						if storage
 							.set_item(
 								&format!(
 									"{}/{}.{}.itemdata.json",
 									prefix,
-									parent_path,
-									path.file_name().unwrap().to_str().unwrap()
+									path.parent().unwrap(),
+									path.file_name()
 								),
 								&serde_json::to_string(&datadocument).unwrap(),
 							)
@@ -203,7 +198,7 @@ pub fn put(
 
 						if storage
 							.set_item(
-								&format!("{}/{}", prefix, path.to_str().unwrap()),
+								&format!("{}/{}", prefix, path),
 								&base64::encode(&new_content),
 							)
 							.is_err()
@@ -213,48 +208,34 @@ pub fn put(
 							)));
 						}
 
-						for ancestor in path.ancestors().skip(1) {
+						for ancestor in path
+							.ancestors()
+							.into_iter()
+							.take(path.ancestors().len().saturating_sub(1))
+						{
 							match storage.get_item(&format!(
-								"{}/{}/.{}.itemdata.json",
+								"{}/{}.{}.itemdata.json",
 								prefix,
 								ancestor
 									.parent()
-									.unwrap_or_else(|| std::path::Path::new(""))
-									.to_str()
-									.unwrap(),
-								ancestor
-									.file_name()
-									.unwrap_or_default()
-									.to_str()
-									.unwrap_or_default()
+									.unwrap_or_else(|| crate::ItemPath::from("")),
+								ancestor.file_name()
 							)) {
 								Ok(Some(_)) => {
 									return crate::database::PutResult::Err(Box::new(
 										PutError::GetError(super::GetError::Conflict {
-											item_path: std::path::PathBuf::from(
-												ancestor
-													.to_str()
-													.unwrap()
-													.strip_suffix('/')
-													.unwrap_or_else(|| ancestor.to_str().unwrap()),
-											),
+											item_path: ancestor,
 										}),
 									))
 								}
 								Ok(None) => {
 									let datafolder = crate::DataFolder::default();
 
-									let mut ancestor_path =
-										String::from(ancestor.to_str().unwrap());
-									if !ancestor_path.is_empty() {
-										ancestor_path += "/";
-									}
-
 									if storage
 										.set_item(
 											&format!(
 												"{}/{}.folder.itemdata.json",
-												prefix, ancestor_path,
+												prefix, ancestor,
 											),
 											&serde_json::to_string(&datafolder).unwrap(),
 										)
@@ -268,10 +249,10 @@ pub fn put(
 								Err(_) => {
 									return crate::database::PutResult::Err(Box::new(
 										PutError::CanNotDeserializeFile {
-											path: ancestor.to_path_buf(),
+											item_path: ancestor,
 											error: String::new(),
 										},
-									))
+									));
 								}
 							}
 						}
@@ -280,7 +261,7 @@ pub fn put(
 					}
 					crate::Item::Document { content: None, .. } => {
 						crate::database::PutResult::Err(Box::new(PutError::NoContentInside {
-							item_path: path.to_path_buf(), // TODO : not really path, but the `item` parameter of this method
+							item_path: path.clone(), // TODO : not really path, but the `item` parameter of this method
 						}))
 					}
 					crate::Item::Folder { .. } => {
@@ -299,15 +280,15 @@ pub enum PutError {
 	DoesNotWorksForFolders,
 	ContentNotChanged,
 	CanNotSerializeFile {
-		path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	CanNotDeserializeFile {
-		path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 		error: String,
 	},
 	NoContentInside {
-		item_path: std::path::PathBuf,
+		item_path: crate::ItemPath,
 	},
 	InternalError,
 }
@@ -317,20 +298,17 @@ impl std::fmt::Display for PutError {
 			Self::GetError(get_error) => std::fmt::Display::fmt(get_error, f),
 			Self::DoesNotWorksForFolders => f.write_str("this method does not works on folders"),
 			Self::ContentNotChanged => f.write_str("content not changed"),
-			Self::CanNotSerializeFile { path, error } => f.write_fmt(format_args!(
+			Self::CanNotSerializeFile { item_path, error } => f.write_fmt(format_args!(
 				"can not serialize file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+				item_path, error
 			)),
-			Self::CanNotDeserializeFile { path, error } => f.write_fmt(format_args!(
+			Self::CanNotDeserializeFile { item_path, error } => f.write_fmt(format_args!(
 				"can not deserialize file `{}` because : {}",
-				path.to_string_lossy(),
-				error
+				item_path, error
 			)),
-			Self::NoContentInside { item_path } => f.write_fmt(format_args!(
-				"no content found in `{}`",
-				item_path.to_string_lossy()
-			)),
+			Self::NoContentInside { item_path } => {
+				f.write_fmt(format_args!("no content found in `{}`", item_path))
+			}
 			Self::InternalError => f.write_str("internal server error"),
 		}
 	}
@@ -401,19 +379,14 @@ mod tests {
 	#![allow(non_snake_case)]
 
 	use super::{super::LocalStorageMock, super::Storage, put, PutError};
+	use crate::{Etag, Item, ItemPath};
 
 	// TODO : test last_modified
 
-	fn build_test_db() -> (
-		LocalStorageMock,
-		String,
-		crate::Etag,
-		crate::Etag,
-		crate::Etag,
-	) {
-		let AA = crate::Item::new_doc(b"AA", "text/plain");
-		let A = crate::Item::new_folder(vec![("AA", AA.clone())]);
-		let root = crate::Item::new_folder(vec![("A", A.clone())]);
+	fn build_test_db() -> (LocalStorageMock, String, Etag, Etag, Etag) {
+		let AA = Item::new_doc(b"AA", "text/plain");
+		let A = Item::new_folder(vec![("AA", AA.clone())]);
+		let root = Item::new_folder(vec![("A", A.clone())]);
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -447,7 +420,7 @@ mod tests {
 			)
 			.unwrap();
 
-		if let crate::Item::Document {
+		if let Item::Document {
 			content: Some(content),
 			etag: AA_etag,
 			content_type: AA_content_type,
@@ -491,10 +464,10 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			std::path::Path::new("AA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("AA"),
+			&Etag::from(""),
 			&[],
-			crate::Item::new_doc(b"AA", "text/plain"),
+			Item::new_doc(b"AA", "text/plain"),
 		)
 		.unwrap();
 
@@ -530,10 +503,10 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			std::path::Path::new("A/AA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("A/AA"),
+			&Etag::from(""),
 			&[],
-			crate::Item::new_doc(b"AA2", "text/plain2"),
+			Item::new_doc(b"AA2", "text/plain2"),
 		)
 		.unwrap();
 
@@ -600,10 +573,10 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"AA", "text/plain")
+				Item::new_doc(b"AA", "text/plain")
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
@@ -673,10 +646,10 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				std::path::Path::new(""),
-				&crate::Etag::from(""),
+				&ItemPath::from(""),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_folder(vec![])
+				Item::new_folder(vec![])
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
@@ -695,10 +668,10 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			std::path::Path::new("A/AA"),
-			&crate::Etag::from(""),
-			&[&crate::Etag::from("*")],
-			crate::Item::new_doc(b"AA", "text/plain"),
+			&ItemPath::from("A/AA"),
+			&Etag::from(""),
+			&[&Etag::from("*")],
+			Item::new_doc(b"AA", "text/plain"),
 		)
 		.unwrap();
 
@@ -755,18 +728,18 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from(""),
-				&[&crate::Etag::from("*")],
-				crate::Item::new_doc(b"AA2", "text/plain2"),
+				&ItemPath::from("A/AA"),
+				&Etag::from(""),
+				&[&Etag::from("*")],
+				Item::new_doc(b"AA2", "text/plain2"),
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(super::super::GetError::IfNoneMatch {
-				item_path: std::path::PathBuf::from("A/AA"),
+				item_path: ItemPath::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("*")
+				search: Etag::from("*")
 			})
 		);
 
@@ -831,18 +804,18 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				std::path::Path::new("A/AA"),
-				&crate::Etag::from("ANOTHER_ETAG"),
+				&ItemPath::from("A/AA"),
+				&Etag::from("ANOTHER_ETAG"),
 				&[],
-				crate::Item::new_doc(b"AA2", "text/plain2"),
+				Item::new_doc(b"AA2", "text/plain2"),
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(super::super::GetError::NoIfMatch {
-				item_path: std::path::PathBuf::from("A/AA"),
+				item_path: ItemPath::from("A/AA"),
 				found: AA_etag.clone(),
-				search: crate::Etag::from("ANOTHER_ETAG")
+				search: Etag::from("ANOTHER_ETAG")
 			})
 		);
 
@@ -906,10 +879,10 @@ mod tests {
 		AA_etag = put(
 			&storage,
 			&prefix,
-			std::path::Path::new("A/AA"),
+			&ItemPath::from("A/AA"),
 			&AA_etag,
 			&[],
-			crate::Item::new_doc(b"AA2", "text/plain2"),
+			Item::new_doc(b"AA2", "text/plain2"),
 		)
 		.unwrap();
 
@@ -973,10 +946,10 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			std::path::Path::new("A/AA"),
-			&crate::Etag::from("*"),
+			&ItemPath::from("A/AA"),
+			&Etag::from("*"),
 			&[],
-			crate::Item::new_doc(b"AA2", "text/plain2"),
+			Item::new_doc(b"AA2", "text/plain2"),
 		)
 		.unwrap();
 
@@ -1043,16 +1016,16 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				std::path::Path::new("A/AA/AAA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/AA/AAA"),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"AAA", "text/plain")
+				Item::new_doc(b"AAA", "text/plain")
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(super::super::GetError::Conflict {
-				item_path: std::path::PathBuf::from("A/AA")
+				item_path: ItemPath::from("A/AA")
 			})
 		);
 
@@ -1117,16 +1090,16 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				std::path::Path::new("A"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A"),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"A", "text/plain")
+				Item::new_doc(b"A", "text/plain")
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(super::super::GetError::Conflict {
-				item_path: std::path::PathBuf::from("A")
+				item_path: ItemPath::from("A/")
 			})
 		);
 
@@ -1191,10 +1164,10 @@ mod tests {
 		let AA_etag = put(
 			&storage,
 			&prefix,
-			std::path::Path::new("public/A/AA"),
-			&crate::Etag::from(""),
+			&ItemPath::from("public/A/AA"),
+			&Etag::from(""),
 			&[],
-			crate::Item::new_doc(b"AA", "text/plain"),
+			Item::new_doc(b"AA", "text/plain"),
 		)
 		.unwrap();
 
@@ -1264,17 +1237,17 @@ mod tests {
 			*put(
 				&storage,
 				&prefix,
-				std::path::Path::new("A/../AA"),
-				&crate::Etag::from(""),
+				&ItemPath::from("A/A\0A"),
+				&Etag::from(""),
 				&[],
-				crate::Item::new_doc(b"AA", "text/plain"),
+				Item::new_doc(b"AA2", "text/plain2"),
 			)
 			.unwrap_err()
 			.downcast::<PutError>()
 			.unwrap(),
 			PutError::GetError(super::super::GetError::IncorrectItemName {
-				item_path: std::path::PathBuf::from("A/../"),
-				error: String::from("`..` is not allowed")
+				item_path: ItemPath::from("A/A\0A"),
+				error: String::from("`A\0A` should not contains `\\0` character")
 			})
 		);
 

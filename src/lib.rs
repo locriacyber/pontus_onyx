@@ -210,22 +210,16 @@ impl Item {
 		}
 	}
 
-	/// If this is an [`Folder`][`crate::Item::Folder`], it should returns the child `path` from its `content`.
-	pub fn get_child_mut(&mut self, path: &std::path::Path) -> Option<&mut Self> {
-		let parents = {
-			let ancestors = path.ancestors();
-			let mut paths: Vec<&std::path::Path> = ancestors.into_iter().collect();
-			paths = paths
-				.into_iter()
-				.rev()
-				.skip(1)
-				.take(ancestors.count().saturating_sub(1))
-				.collect();
-			paths
-		};
+	/// If `self` is an [`Folder`][`crate::Item::Folder`], it should returns the child `path` from its `content`.
+	pub fn get_child_mut(&mut self, path: &crate::ItemPath) -> Option<&mut Self> {
+		let parents: Vec<crate::ItemPath> = path.ancestors();
+
+		if path == &crate::ItemPath::from("") {
+			return Some(self);
+		}
 
 		let mut pending_parent = Some(Box::new(self));
-		for path_part in parents {
+		for path_part in parents.into_iter().skip(1) {
 			if let Some(boxed_parent) = pending_parent {
 				match *boxed_parent {
 					Self::Folder {
@@ -233,7 +227,7 @@ impl Item {
 						..
 					} => {
 						pending_parent = content
-							.get_mut(path_part.file_name().unwrap().to_str().unwrap())
+							.get_mut(path_part.file_name())
 							.map(|e| Box::new(&mut **e));
 					}
 					_ => {
@@ -248,31 +242,23 @@ impl Item {
 		return pending_parent.map(|e| &mut **e);
 	}
 
-	/// If this is an [`Folder`][`crate::Item::Folder`], it should returns the child `path` from its `content`.
-	pub fn get_child(&self, path: &std::path::Path) -> Option<&Self> {
-		let parents = {
-			let ancestors = path.ancestors();
-			let mut paths: Vec<&std::path::Path> = ancestors.into_iter().collect();
-			paths = paths
-				.into_iter()
-				.rev()
-				.skip(1)
-				.take(ancestors.count().saturating_sub(1))
-				.collect();
-			paths
-		};
+	/// If `self` is an [`Folder`][`crate::Item::Folder`], it should returns the child `path` from its `content`.
+	pub fn get_child(&self, path: &crate::ItemPath) -> Option<&Self> {
+		let parents: Vec<crate::ItemPath> = path.ancestors();
+
+		if path == &crate::ItemPath::from("") {
+			return Some(self);
+		}
 
 		let mut pending_parent = Some(Box::new(self));
-		for path_part in parents {
+		for path_part in parents.into_iter().skip(1) {
 			if let Some(boxed_parent) = pending_parent {
 				match *boxed_parent {
 					Self::Folder {
 						content: Some(content),
 						..
 					} => {
-						pending_parent = content
-							.get(path_part.file_name().unwrap().to_str().unwrap())
-							.map(|e| Box::new(&**e));
+						pending_parent = content.get(path_part.file_name()).map(|e| Box::new(&**e));
 					}
 					_ => {
 						pending_parent = None;
@@ -295,19 +281,19 @@ fn jlupvpfbk7wbig1at4h() {
 	let root = crate::Item::new_folder(vec![("A", A.clone())]);
 
 	assert_eq!(
-		root.get_child(std::path::Path::new("A/AA/AAA.txt")),
+		root.get_child(&crate::ItemPath::from("A/AA/AAA.txt")),
 		Some(&AAA)
 	);
-	assert_eq!(root.get_child(std::path::Path::new("A/AA/")), Some(&AA));
-	assert_eq!(root.get_child(std::path::Path::new("A/AA")), Some(&AA));
-	assert_eq!(root.get_child(std::path::Path::new("A/")), Some(&A));
-	assert_eq!(root.get_child(std::path::Path::new("A")), Some(&A));
-	assert_eq!(root.get_child(std::path::Path::new("")), Some(&root));
+	assert_eq!(root.get_child(&crate::ItemPath::from("A/AA/")), Some(&AA));
+	assert_eq!(root.get_child(&crate::ItemPath::from("A/AA")), Some(&AA));
+	assert_eq!(root.get_child(&crate::ItemPath::from("A/")), Some(&A));
+	assert_eq!(root.get_child(&crate::ItemPath::from("A")), Some(&A));
+	assert_eq!(root.get_child(&crate::ItemPath::from("")), Some(&root));
 
-	assert_eq!(root.get_child(std::path::Path::new("B")), None);
-	assert_eq!(root.get_child(std::path::Path::new("B/")), None);
-	assert_eq!(root.get_child(std::path::Path::new("B/BB")), None);
-	assert_eq!(root.get_child(std::path::Path::new("B/BB/")), None);
+	assert_eq!(root.get_child(&crate::ItemPath::from("B")), None);
+	assert_eq!(root.get_child(&crate::ItemPath::from("B/")), None);
+	assert_eq!(root.get_child(&crate::ItemPath::from("B/BB")), None);
+	assert_eq!(root.get_child(&crate::ItemPath::from("B/BB/")), None);
 }
 
 #[test]
@@ -318,25 +304,31 @@ fn j5bmhdxhlgkhdk82rjio3ej6() {
 	let mut root = crate::Item::new_folder(vec![("A", A.clone())]);
 
 	assert_eq!(
-		root.get_child_mut(std::path::Path::new("A/AA/AAA.txt")),
+		root.get_child_mut(&crate::ItemPath::from("A/AA/AAA.txt")),
 		Some(&mut AAA)
 	);
 	assert_eq!(
-		root.get_child_mut(std::path::Path::new("A/AA/")),
+		root.get_child_mut(&crate::ItemPath::from("A/AA/")),
 		Some(&mut AA)
 	);
 	assert_eq!(
-		root.get_child_mut(std::path::Path::new("A/AA")),
+		root.get_child_mut(&crate::ItemPath::from("A/AA")),
 		Some(&mut AA)
 	);
-	assert_eq!(root.get_child_mut(std::path::Path::new("A/")), Some(&mut A));
-	assert_eq!(root.get_child_mut(std::path::Path::new("A")), Some(&mut A));
-	assert!(root.get_child_mut(std::path::Path::new("")).is_some());
+	assert_eq!(
+		root.get_child_mut(&crate::ItemPath::from("A/")),
+		Some(&mut A)
+	);
+	assert_eq!(
+		root.get_child_mut(&crate::ItemPath::from("A")),
+		Some(&mut A)
+	);
+	assert!(root.get_child_mut(&crate::ItemPath::from("")).is_some());
 
-	assert_eq!(root.get_child_mut(std::path::Path::new("B")), None);
-	assert_eq!(root.get_child_mut(std::path::Path::new("B/")), None);
-	assert_eq!(root.get_child_mut(std::path::Path::new("B/BB")), None);
-	assert_eq!(root.get_child_mut(std::path::Path::new("B/BB/")), None);
+	assert_eq!(root.get_child_mut(&crate::ItemPath::from("B")), None);
+	assert_eq!(root.get_child_mut(&crate::ItemPath::from("B/")), None);
+	assert_eq!(root.get_child_mut(&crate::ItemPath::from("B/BB")), None);
+	assert_eq!(root.get_child_mut(&crate::ItemPath::from("B/BB/")), None);
 }
 
 /// Check if a name of the part of a path does not contains unauthorized content.
@@ -500,4 +492,540 @@ pub enum ScopeParsingError {
 	IncorrectFormat(String),
 	IncorrectModule(String),
 	IncorrectRight(String),
+}
+
+#[derive(PartialEq, Eq, Clone)]
+pub struct ItemPath(Vec<ItemPathPart>);
+impl From<&str> for ItemPath {
+	fn from(input: &str) -> Self {
+		let mut result = vec![];
+
+		let input = input
+			.trim()
+			.strip_prefix('/')
+			.unwrap_or(input)
+			.strip_prefix('\\')
+			.unwrap_or(input);
+
+		for slash_stage in input.split('/') {
+			for backslash_stage in slash_stage.trim().split('\\') {
+				if backslash_stage.trim() == ".." {
+					result.pop();
+					if result.first().is_none() {
+						result.push(ItemPathPart::Folder(String::new()));
+					}
+				} else if backslash_stage.trim() == "." {
+					// nothing to add
+
+					if result.first().is_none() {
+						result.push(ItemPathPart::Folder(String::new()));
+					}
+				} else {
+					if let Some(ItemPathPart::Folder(folder_name)) = result.first() {
+						if folder_name.is_empty() {
+							result.remove(0);
+						}
+					}
+
+					if result.len() > 1
+						&& result
+							.last()
+							.unwrap_or(&ItemPathPart::Folder(String::from("anything_else")))
+							.name()
+							.is_empty()
+					{
+						result.pop();
+					}
+
+					result.push(ItemPathPart::Folder(String::from(backslash_stage.trim())));
+				}
+			}
+		}
+
+		match result.last_mut() {
+			Some(last) => {
+				if last.name().is_empty() {
+					if result.len() > 1 {
+						result.pop();
+					}
+				} else {
+					*last = ItemPathPart::Document(String::from(last.name()));
+				}
+			}
+			None => result.push(ItemPathPart::Folder(String::new())),
+		}
+
+		return Self(result);
+	}
+}
+
+impl ItemPath {
+	pub fn joined(&self, part: &ItemPathPart) -> Result<Self, String> {
+		if self.is_document() {
+			return Err(String::from("last item is a document"));
+		} else {
+			let mut parts = self.0.clone();
+
+			if part.name().is_empty() {
+				if let Some(ItemPathPart::Folder(last_name)) = self.0.last() {
+					if !last_name.is_empty() {
+						parts.push(part.clone());
+					}
+				}
+			} else {
+				if let Some(item) = self.0.last() {
+					if item.name().is_empty() {
+						parts.pop().unwrap();
+					}
+				}
+
+				parts.push(part.clone());
+			}
+
+			return Ok(Self(parts));
+		}
+	}
+	pub fn joined_folder(&self, name: &str) -> Result<Self, String> {
+		self.joined(&ItemPathPart::Folder(String::from(name)))
+	}
+	pub fn joined_doc(&self, name: &str) -> Result<Self, String> {
+		self.joined(&ItemPathPart::Document(String::from(name)))
+	}
+	pub fn folder_clone(&self) -> Self {
+		let mut parts = self.0.clone();
+		*parts.last_mut().unwrap() =
+			ItemPathPart::Folder(String::from(parts.last().unwrap().name()));
+
+		Self(parts)
+	}
+	pub fn document_clone(&self) -> Self {
+		let mut parts = self.0.clone();
+		*parts.last_mut().unwrap() =
+			ItemPathPart::Document(String::from(parts.last().unwrap().name()));
+
+		Self(parts)
+	}
+	pub fn file_name(&self) -> &str {
+		match self.0.last() {
+			Some(item) => item.name(),
+			None => "",
+		}
+	}
+	pub fn parent(&self) -> Option<Self> {
+		let mut result = self.0.clone();
+
+		result.pop()?;
+
+		if !result.is_empty() {
+			return Some(Self(result));
+		} else if self.file_name().is_empty() {
+			return None;
+		} else {
+			return Some(Self(vec![ItemPathPart::Folder(String::new())]));
+		}
+	}
+	pub fn starts_with(&self, other: &str) -> bool {
+		format!("{}", self).starts_with(other)
+	}
+	pub fn ends_with(&self, other: &str) -> bool {
+		format!("{}", self).ends_with(other)
+	}
+	pub fn is_folder(&self) -> bool {
+		matches!(self.0.last(), Some(ItemPathPart::Folder(_)))
+	}
+	pub fn is_document(&self) -> bool {
+		matches!(self.0.last(), Some(ItemPathPart::Document(_)))
+	}
+	pub fn parts_iter(&self) -> ItemPathPartIterator {
+		ItemPathPartIterator {
+			parts: &self.0,
+			current_pos: 0,
+		}
+	}
+	// TODO : make it Iterator ?
+	pub fn ancestors(&self) -> Vec<ItemPath> {
+		let mut result = vec![];
+
+		let mut cumulated = vec![];
+		for part in self.0.iter() {
+			cumulated.push(part.clone());
+
+			result.push(ItemPath(cumulated.clone()));
+		}
+
+		if result
+			.first()
+			.unwrap_or(&crate::ItemPath::from("everything_else"))
+			!= &crate::ItemPath::from("")
+		{
+			result.insert(0, crate::ItemPath::from(""));
+		}
+
+		return result;
+	}
+}
+impl std::fmt::Display for ItemPath {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		for (i, part) in self.0.iter().enumerate() {
+			if !(i == 0 && part.name().is_empty()) {
+				if let Err(error) = f.write_fmt(format_args!("{}", part)) {
+					return Err(error);
+				}
+			}
+		}
+
+		Ok(())
+	}
+}
+impl std::convert::From<&ItemPath> for std::path::PathBuf {
+	fn from(input: &ItemPath) -> Self {
+		std::path::PathBuf::from(
+			&format!("{}", input).replace('/', &String::from(std::path::MAIN_SEPARATOR)),
+		)
+	}
+}
+impl std::fmt::Debug for ItemPath {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		f.write_fmt(format_args!(
+			"[{}]",
+			self.0.iter().fold(String::new(), |mut acc, e| {
+				if !acc.is_empty() {
+					acc += ", ";
+				}
+				acc += &format!("{:?}", e);
+
+				acc
+			})
+		))
+	}
+}
+
+#[test]
+fn gu6qe5xy4zdl() {
+	assert_eq!(
+		ItemPath::from("a/b/c").0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Document(String::from("c"))
+		]
+	);
+}
+#[test]
+fn ojni817xbdfsv4lryfol3() {
+	assert_eq!(
+		ItemPath::from("a/b/c/").0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Folder(String::from("c"))
+		]
+	);
+}
+#[test]
+fn h60ujth6dopz1fbcg() {
+	assert_eq!(
+		ItemPath::from("a/b/../c/").0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("c"))
+		]
+	);
+}
+#[test]
+fn pwjqrwivvf4es31() {
+	assert_eq!(
+		ItemPath::from("..").0,
+		vec![ItemPathPart::Folder(String::from("")),]
+	);
+}
+#[test]
+fn ccyet1ejsei14hxrmberswip() {
+	assert_eq!(
+		ItemPath::from("a\\b\\c").0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Document(String::from("c"))
+		]
+	);
+}
+#[test]
+fn tuxcgtsmdowij() {
+	assert_eq!(
+		ItemPath::from("a\\b\\c\\").0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Folder(String::from("c"))
+		]
+	);
+}
+#[test]
+fn jcavyevvgnm60mdlg2g12() {
+	assert_eq!(
+		ItemPath::from("a\\b\\..\\c\\").0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("c"))
+		]
+	);
+}
+#[test]
+fn v201kvbp5rkamp1m2u62gkd1() {
+	assert_eq!(
+		ItemPath::from("a\\b/c").0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Document(String::from("c"))
+		]
+	);
+}
+#[test]
+fn wprify4w2e82oaalbbxvjwi() {
+	assert_eq!(
+		ItemPath::from("").0,
+		vec![ItemPathPart::Folder(String::from("")),]
+	);
+}
+#[test]
+fn ci40aqtbosaxg50cpl5z() {
+	assert_eq!(
+		ItemPath::from("/").0,
+		vec![ItemPathPart::Folder(String::from("")),]
+	);
+}
+#[test]
+fn edtq0renvugb08s03j186ghn() {
+	assert_eq!(
+		ItemPath::from("/a/").0,
+		vec![ItemPathPart::Folder(String::from("a")),]
+	);
+}
+
+#[test]
+fn p3ubrdxjoepapkt1h() {
+	assert_eq!(
+		ItemPath::from("./a/b").0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Document(String::from("b"))
+		]
+	);
+}
+
+#[test]
+fn qm2ek4irkfzrbwriz56() {
+	assert_eq!(
+		ItemPath::from("a/aa/aaa.txt").ancestors(),
+		vec![
+			ItemPath::from(""),
+			ItemPath::from("a/"),
+			ItemPath::from("a/aa/"),
+			ItemPath::from("a/aa/aaa.txt"),
+		]
+	);
+}
+
+#[test]
+fn vca2gwyljdba7r4xrv8hc386() {
+	assert_eq!(
+		ItemPath::from("a/aa/").ancestors(),
+		vec![
+			ItemPath::from(""),
+			ItemPath::from("a/"),
+			ItemPath::from("a/aa/"),
+		]
+	);
+}
+
+#[test]
+fn kowoqexgrbp() {
+	assert_eq!(ItemPath::from("").ancestors(), vec![ItemPath::from(""),]);
+}
+
+#[test]
+fn hf40iqi11jtqn6hhqrxttbgj() {
+	assert_eq!(ItemPath::from("/").ancestors(), vec![ItemPath::from(""),]);
+}
+
+#[test]
+fn xes8rxrql76hb() {
+	assert_eq!(
+		ItemPath::from("")
+			.joined(&crate::ItemPathPart::Folder(String::new()))
+			.unwrap(),
+		ItemPath::from("")
+	);
+}
+
+#[test]
+fn bp6kvtpdcyhu5ip8() {
+	assert_eq!(
+		ItemPath::from("")
+			.joined(&crate::ItemPathPart::Folder(String::from("A")))
+			.unwrap(),
+		ItemPath::from("A/")
+	);
+}
+
+#[test]
+fn h8br2stuj50joa() {
+	assert_eq!(
+		ItemPath::from("")
+			.joined(&crate::ItemPathPart::Folder(String::from("A")))
+			.unwrap()
+			.joined(&crate::ItemPathPart::Folder(String::new()))
+			.unwrap()
+			.joined(&crate::ItemPathPart::Folder(String::from("AA")))
+			.unwrap(),
+		ItemPath::from("A/AA/")
+	);
+}
+
+#[test]
+fn pqxxd8pzob0a8mk182hn() {
+	assert_eq!(ItemPath::from("A/").parent(), Some(ItemPath::from("")));
+}
+
+#[test]
+fn vuzxh45545c6pdbh7azm() {
+	assert_eq!(ItemPath::from("").parent(), None);
+}
+
+impl From<&std::path::Path> for ItemPath {
+	fn from(input: &std::path::Path) -> Self {
+		ItemPath::from(&*input.to_string_lossy())
+	}
+}
+
+#[test]
+fn jmnk3j1xv8mq7cgvifwpz43() {
+	assert_eq!(
+		ItemPath::from(std::path::Path::new("a/b/c.txt")).0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Document(String::from("c.txt"))
+		]
+	);
+}
+
+#[test]
+fn u2wb0ag5vhk0xhmd460() {
+	assert_eq!(
+		ItemPath::from(std::path::Path::new("a/b/c/")).0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Folder(String::from("c"))
+		]
+	);
+}
+
+#[test]
+fn ap4x45tny4jekferziyr() {
+	assert_eq!(
+		ItemPath::from(std::path::Path::new("a\\b/c")).0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Document(String::from("c"))
+		]
+	);
+}
+
+#[test]
+fn al7alq4uqj6mnnma1g() {
+	assert_eq!(
+		ItemPath::from(std::path::Path::new("C:\\a\\b")).0,
+		vec![
+			ItemPathPart::Folder(String::from("C:")),
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Document(String::from("b"))
+		]
+	);
+}
+
+#[test]
+fn hr1lrd0v64hrpypoq() {
+	assert_eq!(
+		ItemPath::from(std::path::Path::new("\\\\SERVER\\a\\b")).0,
+		vec![
+			ItemPathPart::Folder(String::from("SERVER")),
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Document(String::from("b"))
+		]
+	);
+}
+
+#[test]
+fn bjwt3pbcft0gacq284s() {
+	assert_eq!(
+		ItemPath::from(std::path::Path::new("\\a\\\\b\\c")).0,
+		vec![
+			ItemPathPart::Folder(String::from("a")),
+			ItemPathPart::Folder(String::from("b")),
+			ItemPathPart::Document(String::from("c"))
+		]
+	);
+}
+
+#[derive(PartialEq, Eq, Clone)]
+pub enum ItemPathPart {
+	Folder(String),
+	Document(String),
+}
+impl std::fmt::Display for ItemPathPart {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		match self {
+			Self::Folder(name) => f.write_fmt(format_args!("{}/", name)),
+			Self::Document(name) => f.write_str(name),
+		}
+	}
+}
+impl ItemPathPart {
+	fn name(&self) -> &str {
+		match self {
+			Self::Folder(name) => name,
+			Self::Document(name) => name,
+		}
+	}
+}
+impl std::fmt::Debug for ItemPathPart {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		match self {
+			Self::Folder(name) => f.write_fmt(format_args!("Folder({:?})", name)),
+			Self::Document(name) => f.write_fmt(format_args!("Document({:?})", name)),
+		}
+	}
+}
+
+pub struct ItemPathPartIterator<'a> {
+	parts: &'a Vec<ItemPathPart>,
+	current_pos: usize,
+}
+impl<'a> Iterator for ItemPathPartIterator<'a> {
+	type Item = &'a ItemPathPart;
+	fn next(&mut self) -> Option<Self::Item> {
+		let result = self.parts.get(self.current_pos);
+		self.current_pos += 1;
+
+		return result;
+	}
+}
+
+pub struct ItemPathAncestorsIterator<'a> {
+	ancestors: &'a [ItemPath],
+	current_pos: usize,
+}
+impl<'a> Iterator for ItemPathAncestorsIterator<'a> {
+	type Item = &'a ItemPath;
+	fn next(&mut self) -> Option<Self::Item> {
+		let result = self.ancestors.get(self.current_pos);
+		self.current_pos += 1;
+
+		return result;
+	}
 }
