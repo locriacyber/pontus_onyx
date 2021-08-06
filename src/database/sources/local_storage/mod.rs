@@ -19,11 +19,11 @@ pub struct LocalStorage {
 impl crate::database::DataSource for LocalStorage {
 	fn get(
 		&self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-		if_none_match: &[&crate::Etag],
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+		if_none_match: &[&crate::item::Etag],
 		get_content: bool,
-	) -> Result<crate::Item, Box<dyn std::error::Error>> {
+	) -> Result<crate::item::Item, Box<dyn std::error::Error>> {
 		match web_sys::window() {
 			Some(window) => match window.local_storage() {
 				Ok(Some(local_storage)) => get(
@@ -43,10 +43,10 @@ impl crate::database::DataSource for LocalStorage {
 
 	fn put(
 		&mut self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-		if_none_match: &[&crate::Etag],
-		new_item: crate::Item,
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+		if_none_match: &[&crate::item::Etag],
+		new_item: crate::item::Item,
 	) -> crate::database::PutResult {
 		match web_sys::window() {
 			Some(window) => match window.local_storage() {
@@ -73,9 +73,9 @@ impl crate::database::DataSource for LocalStorage {
 
 	fn delete(
 		&mut self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+	) -> Result<crate::item::Etag, Box<dyn std::error::Error>> {
 		match web_sys::window() {
 			Some(window) => match window.local_storage() {
 				Ok(Some(local_storage)) => delete(&local_storage, &self.prefix, path, if_match),

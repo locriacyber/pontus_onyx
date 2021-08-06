@@ -1,6 +1,6 @@
 # Pontus Onyx
 
-A [remoteStorage](https://remotestorage.io/) server and client implemented Rust.
+A [remoteStorage](https://remotestorage.io/) server and client implemented in Rust.
 
 ```txt
 ⚠ Warning : it is not production-ready until version 1.0.0 !

@@ -11,7 +11,7 @@ pub use put::PutError;
 /// Data should be saved as several nested files and folders.
 ///
 /// Metadata (like ETag for example) are stored inside `*.itemdata.*` files,
-/// which are serialization of [`DataFolder`][`crate::DataFolder`] and [`DataDocument`][`crate::DataDocument`].
+/// which are serialization of [`DataFolder`][`crate::item::DataFolder`] and [`DataDocument`][`crate::item::DataDocument`].
 #[derive(Debug)]
 pub struct FolderStorage {
 	/// The path of the folder inside the file system where to store data.
@@ -20,11 +20,11 @@ pub struct FolderStorage {
 impl crate::database::DataSource for FolderStorage {
 	fn get(
 		&self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-		if_none_match: &[&crate::Etag],
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+		if_none_match: &[&crate::item::Etag],
 		get_content: bool,
-	) -> Result<crate::Item, Box<dyn std::error::Error>> {
+	) -> Result<crate::item::Item, Box<dyn std::error::Error>> {
 		get::get(
 			&self.root_folder_path,
 			path,
@@ -36,10 +36,10 @@ impl crate::database::DataSource for FolderStorage {
 
 	fn put(
 		&mut self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-		if_none_match: &[&crate::Etag],
-		new_item: crate::Item,
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+		if_none_match: &[&crate::item::Etag],
+		new_item: crate::item::Item,
 	) -> crate::database::PutResult {
 		put::put(
 			&self.root_folder_path,
@@ -52,9 +52,9 @@ impl crate::database::DataSource for FolderStorage {
 
 	fn delete(
 		&mut self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+	) -> Result<crate::item::Etag, Box<dyn std::error::Error>> {
 		delete::delete(&self.root_folder_path, path, if_match)
 	}
 }

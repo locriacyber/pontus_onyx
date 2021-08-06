@@ -44,19 +44,21 @@ pub async fn put_item(
 	}
 
 	match database.lock().unwrap().put(
-		&pontus_onyx::ItemPath::from(path.as_str()),
-		pontus_onyx::Item::Document {
-			etag: pontus_onyx::Etag::from(""),
+		&pontus_onyx::item::ItemPath::from(path.as_str()),
+		pontus_onyx::item::Item::Document {
+			etag: pontus_onyx::item::Etag::from(""),
 			content: Some(content.to_vec()),
-			content_type: pontus_onyx::ContentType::from(content_type.unwrap().to_str().unwrap()),
+			content_type: pontus_onyx::item::ContentType::from(
+				content_type.unwrap().to_str().unwrap(),
+			),
 			last_modified: chrono::Utc::now(),
 		},
 		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&pontus_onyx::Etag::from("")),
+			.unwrap_or(&pontus_onyx::item::Etag::from("")),
 		&super::convert_actix_if_none_match(&request)
 			.iter()
-			.collect::<Vec<&pontus_onyx::Etag>>(),
+			.collect::<Vec<&pontus_onyx::item::Etag>>(),
 	) {
 		pontus_onyx::database::PutResult::Created(new_etag) => {
 			return pontus_onyx::database::build_http_json_response(

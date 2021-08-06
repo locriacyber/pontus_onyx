@@ -84,7 +84,7 @@ impl BaseClient {
 		&self,
 		_path: &std::path::Path,
 		_max_age: Option<std::time::Duration>,
-	) -> Box<dyn std::future::Future<Output = Vec<crate::Item>>> {
+	) -> Box<dyn std::future::Future<Output = Vec<crate::item::Item>>> {
 		todo!()
 	}
 
@@ -102,7 +102,7 @@ impl BaseClient {
 		&self,
 		_path: &std::path::Path,
 		_max_age: Option<std::time::Duration>,
-	) -> Box<dyn std::future::Future<Output = Vec<crate::Item>>> {
+	) -> Box<dyn std::future::Future<Output = Vec<crate::item::Item>>> {
 		todo!()
 	}
 
@@ -233,12 +233,12 @@ impl BaseClient {
 	/// ```
 	/// async {
 	///     let mut client = pontus_onyx::client::BaseClient::new();
-	///     client.store_file(&pontus_onyx::ContentType::from("text/html"), std::path::Path::new("index.html"), b"<h1>Hello World!</h1>").await;
+	///     client.store_file(&pontus_onyx::item::ContentType::from("text/html"), std::path::Path::new("index.html"), b"<h1>Hello World!</h1>").await;
 	/// };
 	/// ````
 	pub async fn store_file(
 		&mut self,
-		_mime_type: &crate::ContentType,
+		_mime_type: &crate::item::ContentType,
 		_path: &std::path::Path,
 		_body: &[u8],
 	) -> Box<dyn std::future::Future<Output = Result<String, Box<dyn std::error::Error>>>> {
@@ -306,9 +306,9 @@ pub struct ChangeEvent {
 	/// New body of the changed node (remote version in conflicts; undefined if deletion)
 	pub new_value: Vec<u8>,
 	/// Old contentType of the changed node (local version for conflicts; undefined if creation)
-	pub old_content_type: Option<crate::ContentType>,
+	pub old_content_type: Option<crate::item::ContentType>,
 	/// New contentType of the changed node (remote version for conflicts; undefined if deletion)
-	pub new_content_type: crate::ContentType,
+	pub new_content_type: crate::item::ContentType,
 }
 
 pub enum EventOrigin {

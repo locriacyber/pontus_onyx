@@ -16,10 +16,10 @@ pub async fn delete_item(
 		.unwrap();
 
 	match database.lock().unwrap().delete(
-		&pontus_onyx::ItemPath::from(path.as_str()),
+		&pontus_onyx::item::ItemPath::from(path.as_str()),
 		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&pontus_onyx::Etag::from("")),
+			.unwrap_or(&pontus_onyx::item::Etag::from("")),
 	) {
 		Ok(etag) => {
 			return pontus_onyx::database::build_http_json_response(

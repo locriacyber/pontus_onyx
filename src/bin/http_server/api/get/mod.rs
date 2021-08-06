@@ -16,15 +16,15 @@ pub async fn get_item(
 		.unwrap();
 
 	match database.lock().unwrap().get(
-		&pontus_onyx::ItemPath::from(path.as_str()),
+		&pontus_onyx::item::ItemPath::from(path.as_str()),
 		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&pontus_onyx::Etag::from("")),
+			.unwrap_or(&pontus_onyx::item::Etag::from("")),
 		&super::convert_actix_if_none_match(&request)
 			.iter()
-			.collect::<Vec<&pontus_onyx::Etag>>(),
+			.collect::<Vec<&pontus_onyx::item::Etag>>(),
 	) {
-		Ok(pontus_onyx::Item::Document {
+		Ok(pontus_onyx::item::Item::Document {
 			etag,
 			content: Some(content),
 			content_type,
@@ -50,26 +50,26 @@ pub async fn get_item(
 
 			return response.body(content);
 		}
-		Ok(pontus_onyx::Item::Folder {
+		Ok(pontus_onyx::item::Item::Folder {
 			etag: folder_etag,
 			content: Some(content),
 		}) => {
 			let mut items_result = serde_json::json!({});
 			for (child_name, child) in content.iter().filter(|(_, e)| match &***e {
-				pontus_onyx::Item::Document { .. } => true,
-				pontus_onyx::Item::Folder {
+				pontus_onyx::item::Item::Document { .. } => true,
+				pontus_onyx::item::Item::Folder {
 					content: Some(content),
 					..
 				} => !content.is_empty(),
-				pontus_onyx::Item::Folder { content: None, .. } => todo!(),
+				pontus_onyx::item::Item::Folder { content: None, .. } => todo!(),
 			}) {
 				match &**child {
-					pontus_onyx::Item::Folder { etag, .. } => {
+					pontus_onyx::item::Item::Folder { etag, .. } => {
 						items_result[format!("{}/", child_name)] = serde_json::json!({
 							"ETag": etag,
 						});
 					}
-					pontus_onyx::Item::Document {
+					pontus_onyx::item::Item::Document {
 						etag,
 						content: Some(document_content),
 						content_type,
@@ -83,7 +83,7 @@ pub async fn get_item(
 							"Last-Modified": last_modified.format(crate::http_server::RFC5322).to_string(),
 						});
 					}
-					pontus_onyx::Item::Document { content: None, .. } => {
+					pontus_onyx::item::Item::Document { content: None, .. } => {
 						return pontus_onyx::database::build_http_json_response(
 							origin,
 							request.method(),
@@ -121,7 +121,7 @@ pub async fn get_item(
 				.to_string(),
 			);
 		}
-		Ok(pontus_onyx::Item::Document { content: None, .. }) => {
+		Ok(pontus_onyx::item::Item::Document { content: None, .. }) => {
 			return pontus_onyx::database::build_http_json_response(
 				origin,
 				request.method(),
@@ -131,7 +131,7 @@ pub async fn get_item(
 				true,
 			);
 		}
-		Ok(pontus_onyx::Item::Folder { content: None, .. }) => {
+		Ok(pontus_onyx::item::Item::Folder { content: None, .. }) => {
 			return pontus_onyx::database::build_http_json_response(
 				origin,
 				request.method(),

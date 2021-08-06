@@ -4,19 +4,21 @@ use actix_web::http::{header::EntityTag, Method, StatusCode};
 async fn basics() {
 	let database = pontus_onyx::database::Database::new(Box::new(
 		pontus_onyx::database::sources::MemoryStorage {
-			root_item: pontus_onyx::Item::new_folder(vec![
+			root_item: pontus_onyx::item::Item::new_folder(vec![
 				(
 					"user",
-					pontus_onyx::Item::new_folder(vec![(
+					pontus_onyx::item::Item::new_folder(vec![(
 						"a",
-						pontus_onyx::Item::new_folder(vec![(
+						pontus_onyx::item::Item::new_folder(vec![(
 							"b",
-							pontus_onyx::Item::new_folder(vec![(
+							pontus_onyx::item::Item::new_folder(vec![(
 								"c",
-								pontus_onyx::Item::Document {
-									etag: pontus_onyx::Etag::new(),
+								pontus_onyx::item::Item::Document {
+									etag: pontus_onyx::item::Etag::new(),
 									content: Some(b"HELLO".to_vec()),
-									content_type: pontus_onyx::ContentType::from("text/plain"),
+									content_type: pontus_onyx::item::ContentType::from(
+										"text/plain",
+									),
 									last_modified: chrono::Utc::now(),
 								},
 							)]),
@@ -25,18 +27,20 @@ async fn basics() {
 				),
 				(
 					"public",
-					pontus_onyx::Item::new_folder(vec![(
+					pontus_onyx::item::Item::new_folder(vec![(
 						"user",
-						pontus_onyx::Item::new_folder(vec![(
+						pontus_onyx::item::Item::new_folder(vec![(
 							"0",
-							pontus_onyx::Item::new_folder(vec![(
+							pontus_onyx::item::Item::new_folder(vec![(
 								"1",
-								pontus_onyx::Item::new_folder(vec![(
+								pontus_onyx::item::Item::new_folder(vec![(
 									"2",
-									pontus_onyx::Item::Document {
-										etag: pontus_onyx::Etag::new(),
+									pontus_onyx::item::Item::Document {
+										etag: pontus_onyx::item::Etag::new(),
 										content: Some(b"HELLO".to_vec()),
-										content_type: pontus_onyx::ContentType::from("text/plain"),
+										content_type: pontus_onyx::item::ContentType::from(
+											"text/plain",
+										),
 										last_modified: chrono::Utc::now(),
 									},
 								)]),
@@ -148,18 +152,18 @@ async fn basics() {
 async fn if_none_match() {
 	let database = pontus_onyx::database::Database::new(Box::new(
 		pontus_onyx::database::sources::MemoryStorage {
-			root_item: pontus_onyx::Item::new_folder(vec![(
+			root_item: pontus_onyx::item::Item::new_folder(vec![(
 				"user",
-				pontus_onyx::Item::new_folder(vec![(
+				pontus_onyx::item::Item::new_folder(vec![(
 					"a",
-					pontus_onyx::Item::new_folder(vec![(
+					pontus_onyx::item::Item::new_folder(vec![(
 						"b",
-						pontus_onyx::Item::new_folder(vec![(
+						pontus_onyx::item::Item::new_folder(vec![(
 							"c",
-							pontus_onyx::Item::Document {
-								etag: pontus_onyx::Etag::from("A"),
+							pontus_onyx::item::Item::Document {
+								etag: pontus_onyx::item::Etag::from("A"),
 								content: Some(b"HELLO".to_vec()),
-								content_type: pontus_onyx::ContentType::from("text/plain"),
+								content_type: pontus_onyx::item::ContentType::from("text/plain"),
 								last_modified: chrono::Utc::now(),
 							},
 						)]),

@@ -1,6 +1,6 @@
-pub mod sources;
-
 use sources::DataSource;
+
+pub mod sources;
 
 #[cfg(feature = "server_file_storage")]
 pub use sources::FolderStorage;
@@ -19,19 +19,19 @@ impl Database {
 
 	pub fn get(
 		&self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-		if_none_match: &[&crate::Etag],
-	) -> Result<crate::Item, Box<dyn std::error::Error>> {
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+		if_none_match: &[&crate::item::Etag],
+	) -> Result<crate::item::Item, Box<dyn std::error::Error>> {
 		self.source.get(path, if_match, if_none_match, true)
 	}
 
 	pub fn put(
 		&mut self,
-		path: &crate::ItemPath,
-		content: crate::Item,
-		if_match: &crate::Etag,
-		if_none_match: &[&crate::Etag],
+		path: &crate::item::ItemPath,
+		content: crate::item::Item,
+		if_match: &crate::item::Etag,
+		if_none_match: &[&crate::item::Etag],
 	) -> PutResult {
 		/*
 		TODO :
@@ -45,9 +45,9 @@ impl Database {
 
 	pub fn delete(
 		&mut self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+	) -> Result<crate::item::Etag, Box<dyn std::error::Error>> {
 		/*
 		TODO : option to keep old documents ?
 			A provider MAY offer version rollback functionality to its users,
@@ -61,12 +61,12 @@ impl Database {
 #[derive(Debug)]
 #[must_use = "this `PutResult` may be an `Err` variant, which should be handled"]
 pub enum PutResult {
-	Created(crate::Etag),
-	Updated(crate::Etag),
+	Created(crate::item::Etag),
+	Updated(crate::item::Etag),
 	Err(Box<dyn std::error::Error>),
 }
 impl PutResult {
-	pub fn unwrap(self) -> crate::Etag {
+	pub fn unwrap(self) -> crate::item::Etag {
 		match self {
 			Self::Created(etag) => etag,
 			Self::Updated(etag) => etag,
@@ -89,7 +89,7 @@ struct JsonResponse {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	http_description: Option<&'static str>,
 	#[serde(rename = "ETag", skip_serializing_if = "Option::is_none")]
-	etag: Option<crate::Etag>,
+	etag: Option<crate::item::Etag>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	hint: Option<String>,
 }
@@ -99,7 +99,7 @@ pub fn build_http_json_response(
 	origin: &str,
 	request_method: &actix_web::http::Method,
 	code: actix_web::http::StatusCode,
-	etag: Option<crate::Etag>,
+	etag: Option<crate::item::Etag>,
 	hint: Option<String>,
 	should_have_body: bool,
 ) -> actix_web::HttpResponse {

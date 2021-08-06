@@ -14,35 +14,35 @@ pub use put::PutError;
 /// like sandboxes without filesystem or unit tests, for example.
 #[derive(Debug)]
 pub struct MemoryStorage {
-	/// All data is stored inside `content` of this item, so it should be only the [`Folder`][`crate::Item::Folder`] variant.
-	pub root_item: crate::Item,
+	/// All data is stored inside `content` of this item, so it should be only the [`Folder`][`crate::item::Item::Folder`] variant.
+	pub root_item: crate::item::Item,
 }
 impl crate::database::DataSource for MemoryStorage {
 	fn get(
 		&self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-		if_none_match: &[&crate::Etag],
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+		if_none_match: &[&crate::item::Etag],
 		_get_content: bool,
-	) -> Result<crate::Item, Box<dyn std::error::Error>> {
+	) -> Result<crate::item::Item, Box<dyn std::error::Error>> {
 		get::get(&self.root_item, path, if_match, if_none_match)
 	}
 
 	fn put(
 		&mut self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-		if_none_match: &[&crate::Etag],
-		new_item: crate::Item,
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+		if_none_match: &[&crate::item::Etag],
+		new_item: crate::item::Item,
 	) -> crate::database::PutResult {
 		put::put(&mut self.root_item, path, if_match, if_none_match, new_item)
 	}
 
 	fn delete(
 		&mut self,
-		path: &crate::ItemPath,
-		if_match: &crate::Etag,
-	) -> Result<crate::Etag, Box<dyn std::error::Error>> {
+		path: &crate::item::ItemPath,
+		if_match: &crate::item::Etag,
+	) -> Result<crate::item::Etag, Box<dyn std::error::Error>> {
 		delete::delete(&mut self.root_item, path, if_match)
 	}
 }
