@@ -7,7 +7,7 @@ pub fn load_or_create_users(
 	let users_path = std::path::PathBuf::from(settings.userfile_path.clone());
 
 	let users = {
-		let userlist = match std::fs::read(&settings.userfile_path) {
+		let userlist = match std::fs::read(&users_path) {
 			Ok(bytes) => match bincode::deserialize::<crate::http_server::Users>(&bytes) {
 				Ok(users) => Ok(users),
 				Err(e) => Err(format!("can not parse users file : {}", e)),

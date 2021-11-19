@@ -210,7 +210,15 @@ pub async fn post_oauth(
 
 	if form.allow == "Allow" {
 		std::thread::sleep(std::time::Duration::from_secs(
-			settings.lock().unwrap().oauth_wait_seconds,
+			settings
+				.lock()
+				.unwrap()
+				.oauth_wait_seconds
+				.unwrap_or_else(|| {
+					crate::http_server::Settings::default()
+						.oauth_wait_seconds
+						.unwrap()
+				}),
 		));
 		if users
 			.lock()

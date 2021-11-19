@@ -120,7 +120,7 @@ async fn main() -> std::io::Result<()> {
 		println!();
 	}
 
-	let http_post = settings.lock().unwrap().port;
+	let http_port = settings.lock().unwrap().port;
 
 	logger.lock().unwrap().push(
 		vec![
@@ -130,7 +130,7 @@ async fn main() -> std::io::Result<()> {
 		],
 		Some(&format!(
 			"API should now listen to http://localhost:{}/",
-			http_post
+			http_port
 		)),
 	);
 
@@ -167,7 +167,7 @@ async fn main() -> std::io::Result<()> {
 				logger_for_server.clone(),
 			))
 	})
-	.bind(format!("localhost:{}", http_post));
+	.bind(format!("localhost:{}", http_port));
 
 	match http_binding {
 		Ok(binding) => binding.run().await,

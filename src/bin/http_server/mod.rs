@@ -41,7 +41,8 @@ pub fn configure_server(
 			.data(settings.clone())
 			.data(program_state.clone())
 			.data(logger)
-			.service(favicon)
+			.service(options_favicon)
+			.service(get_favicon)
 			.service(get_oauth)
 			.service(post_oauth)
 			.service(webfinger_handle)
@@ -55,9 +56,21 @@ pub fn configure_server(
 	};
 }
 
+#[actix_web::options("/favicon.ico")]
+pub async fn options_favicon() -> impl actix_web::Responder {
+	let mut res = actix_web::HttpResponse::Ok();
+	res.set_header(actix_web::http::header::ALLOW, "OPTIONS, GET");
+	res.set_header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+
+	return res;
+}
+
 #[actix_web::get("/favicon.ico")]
-pub async fn favicon() -> impl actix_web::Responder {
-	return actix_web::HttpResponse::Ok().body(actix_web::web::Bytes::from_static(include_bytes!(
+pub async fn get_favicon() -> impl actix_web::Responder {
+	let mut res = actix_web::HttpResponse::Ok();
+	res.set_header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+
+	return res.body(actix_web::web::Bytes::from_static(include_bytes!(
 		"static/favicon.ico"
 	)));
 }

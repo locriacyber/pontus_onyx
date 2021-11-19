@@ -1,6 +1,6 @@
 [package]
 name = "pontus_onyx"
-version = "0.13.0"
+version = "0.13.1"
 authors = ["Jimskapt <rami.programmer@gmail.com>"]
 edition = "2018"
 resolver = "2"
@@ -12,7 +12,8 @@ client_lib = [
 ]
 server_lib = [
     "bincode",
-    "toml"
+    "toml",
+    "reqwest"
 ]
 server_local_storage = [
     "web-sys",
@@ -42,34 +43,35 @@ server_bin = [
 ]
 
 [dependencies]
-serde = { version = "^1", features = ["derive"] }
-ulid = { version = "^0.4", features = ["serde"] }
-chrono = { version = "^0.4", features = ["serde"] }
-derivative = { version = "^2" }
+serde = { version = "1.*", features = ["derive"] }
+ulid = { version = "0.4.*", features = ["serde"] }
+chrono = { version = "0.4.*", features = ["serde"] }
+derivative = { version = "2.*" }
 
-percent-encoding = { version = "^2", optional = true }
-bincode = { version = "^1", optional = true }
-serde_json = { version = "^1", optional = true }
-actix-web = { version = "^3", features = ["rustls"], optional = true }
-actix-rt = { version = "^2", optional = true }
-futures = { version = "^0.3", optional = true }
-regex = { version = "^1", optional = true }
-rand = { version = "^0.8", optional = true }
-hmac-sha512 = { version = "^0.1", optional = true }
-zeroize = { version = "^1", optional = true }
-toml = { version = "^0.5", optional = true }
-rpassword = { version = "^5", optional = true }
-rustls = { version = "^0.18", optional = true }
-actix = { version = "^0.12", optional = true }
-charlie_buffalo = { version = "^1", optional = true }
-rmp-serde = { version = "^0.15", optional = true }
-web-sys = { version = "^0.3", features = ["Window", "Storage"], optional = true }
-wasm-bindgen = { version = "^0.2", optional = true }
-base64 = { version = "^0.13", optional = true }
+percent-encoding = { version = "2.*", optional = true }
+bincode = { version = "1.*", optional = true }
+serde_json = { version = "1.*", optional = true }
+actix-web = { version = "3.*", features = ["rustls"], optional = true }
+actix-rt = { version = "2.*", optional = true }
+futures = { version = "0.3.*", optional = true }
+regex = { version = "1.*", optional = true }
+rand = { version = "0.8.*", optional = true }
+hmac-sha512 = { version = "0.1.*", optional = true }
+zeroize = { version = "1.*", optional = true }
+toml = { version = "0.5.*", optional = true }
+rpassword = { version = "5.*", optional = true }
+rustls = { version = "0.18.*", optional = true }
+actix = { version = "0.12.*", optional = true }
+charlie_buffalo = { version = "1.*", optional = true }
+rmp-serde = { version = "0.15.*", optional = true }
+web-sys = { version = "0.3.*", features = ["Window", "Storage"], optional = true }
+wasm-bindgen = { version = "0.2.*", optional = true }
+base64 = { version = "0.13.*", optional = true }
+reqwest = { version = "0.11.*", features = ["json"], optional = true }
 
 [dev-dependencies]
-tempfile = "^3"
-fs_extra = "^1"
+tempfile = "3.*"
+fs_extra = "1.*"
 
 [[bin]]
 name = "pontus_onyx"

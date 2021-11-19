@@ -1,3 +1,5 @@
+use rand::Rng;
+
 pub fn load_or_create_settings(
 	settings_path: std::path::PathBuf,
 	logger: &mut charlie_buffalo::Logger,
@@ -115,14 +117,18 @@ pub struct Settings {
 	pub force_https: Option<bool>,
 	pub domain: Option<String>,
 	pub domain_suffix: Option<String>,
+	#[serde(default = "Settings::random_port_generation")]
 	pub port: usize,
 	// TODO : pub admin_email: String,
-	pub token_lifetime_seconds: u64,
+	pub token_lifetime_seconds: Option<u64>,
+	pub oauth_wait_seconds: Option<u64>,
+	#[serde(default = "Settings::default_logfile_path")]
 	pub logfile_path: String,
+	#[serde(default = "Settings::default_userfile_path")]
 	pub userfile_path: String,
+	#[serde(default = "Settings::default_data_path")]
 	pub data_path: String,
 	pub https: Option<SettingsHTTPS>,
-	pub oauth_wait_seconds: u64,
 }
 impl Default for Settings {
 	fn default() -> Self {
@@ -130,20 +136,39 @@ impl Default for Settings {
 			force_https: None,
 			domain: Some(String::new()),
 			domain_suffix: Some(String::new()),
-			port: 7541,
+			port: Self::random_port_generation(),
 			// admin_email: String::new(),
-			token_lifetime_seconds: 60 * 60,
-			logfile_path: String::from("database/logs.msgpack"),
-			userfile_path: String::from("database/users.bin"),
-			data_path: String::from("database/data"),
+			token_lifetime_seconds: Some(60 * 60),
+			logfile_path: Self::default_logfile_path(),
+			userfile_path: Self::default_userfile_path(),
+			data_path: Self::default_data_path(),
 			https: Some(SettingsHTTPS::default()),
-			oauth_wait_seconds: 2,
+			oauth_wait_seconds: Some(2),
 		}
+	}
+}
+impl Settings {
+	fn default_logfile_path() -> String {
+		String::from("database/logs.msgpack")
+	}
+	fn default_userfile_path() -> String {
+		String::from("database/users.bin")
+	}
+	fn default_data_path() -> String {
+		String::from("database/data")
+	}
+	fn random_port_generation() -> usize {
+		let mut rng = rand::thread_rng();
+
+		let port = rng.gen_range(1024..65535);
+
+		port as usize
 	}
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct SettingsHTTPS {
+	#[serde(default = "Settings::random_port_generation")]
 	pub port: usize,
 	pub keyfile_path: String,
 	pub certfile_path: String,

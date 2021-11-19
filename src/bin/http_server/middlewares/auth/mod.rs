@@ -107,8 +107,13 @@ where
 						// TODO : test token expiration
 
 						if (std::time::Instant::now() - *token.get_emit_time())
-							< std::time::Duration::from_secs(settings.token_lifetime_seconds)
-						{
+							< std::time::Duration::from_secs(
+								settings.token_lifetime_seconds.unwrap_or_else(|| {
+									crate::http_server::Settings::default()
+										.token_lifetime_seconds
+										.unwrap()
+								}),
+							) {
 							match token.get_scopes().iter().find(|scope| {
 								if scope
 									.allowed_methods()
