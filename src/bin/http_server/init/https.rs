@@ -17,9 +17,9 @@ pub fn setup_and_run_https_server(
 				Ok(cert_content) => {
 					let key_file = &mut std::io::BufReader::new(keyfile_content);
 					let cert_file = &mut std::io::BufReader::new(cert_content);
-					match rustls::internal::pemfile::certs(cert_file) {
+					match rustls_pemfile::certs(cert_file) {
 						Ok(cert_chain) => {
-							match rustls::internal::pemfile::pkcs8_private_keys(key_file) {
+							match rustls_pemfile::pkcs8_private_keys(key_file) {
 								Ok(keys) => {
 									let mut server_config =
 										rustls::ServerConfig::new(rustls::NoClientAuth::new());
@@ -27,7 +27,10 @@ pub fn setup_and_run_https_server(
 									match keys.get(0) {
 										Some(key) => {
 											match server_config
-												.set_single_cert(cert_chain, key.clone())
+												.set_single_cert(
+													vec![rustls::Certificate(cert_chain.get(0).unwrap().clone())], 
+													rustls::PrivateKey(key.clone())
+												)
 											{
 												Ok(_) => {
 													let enable_hsts = settings_https.enable_hsts;
@@ -127,26 +130,26 @@ pub fn setup_and_run_https_server(
 										}
 									}
 								}
-								Err(()) => {
+								Err(e) => {
 									logger.lock().unwrap().push(
 										vec![
 											(String::from("event"), String::from("setup")),
 											(String::from("module"), String::from("https")),
 											(String::from("level"), String::from("ERROR")),
 										],
-										Some("can not read PKCS8 private key"),
+										Some(&format!("can not read PKCS8 private key : {}", e)),
 									);
 								}
 							}
 						}
-						Err(()) => {
+						Err(e) => {
 							logger.lock().unwrap().push(
 								vec![
 									(String::from("event"), String::from("setup")),
 									(String::from("module"), String::from("https")),
 									(String::from("level"), String::from("ERROR")),
 								],
-								Some("can not read SSL certificate"),
+								Some(&format!("can not read SSL certificate : {}", e)),
 							);
 						}
 					}
