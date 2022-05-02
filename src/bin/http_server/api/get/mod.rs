@@ -15,6 +15,7 @@ pub async fn get_item(
 		.to_str()
 		.unwrap();
 
+	// TODO : If-Match does not works with GET ?
 	match database.lock().unwrap().get(
 		&pontus_onyx::item::ItemPath::from(path.as_str()),
 		super::convert_actix_if_match(&request)

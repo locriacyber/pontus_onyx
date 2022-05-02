@@ -21,9 +21,9 @@ pub async fn get_oauth(
 	// TODO : sanitize user data before printing it ?
 	// TODO : do not panic if input data is incorrect (especially scopes)
 
-	let scopes = percent_encoding::percent_decode(query.scope.as_bytes())
-		.decode_utf8()
+	let scopes = pct_str::PctString::new(&query.scope)
 		.unwrap()
+		.decode()
 		.split(' ')
 		.map(|scope_string| {
 			(std::convert::TryFrom::try_from(scope_string.trim())
@@ -101,38 +101,38 @@ pub async fn get_oauth(
 		query.client_id,
 		scopes,
 		query.client_id,
-		percent_encoding::percent_encode(
-			percent_encoding::percent_decode(query.redirect_uri.as_bytes())
-				.decode_utf8()
+		pct_str::PctString::encode(
+			pct_str::PctString::new(&query.redirect_uri)
 				.unwrap()
-				.as_bytes(),
-			percent_encoding::NON_ALPHANUMERIC
+				.decode()
+				.chars(),
+			pct_str::URIReserved
 		),
 		query.response_type,
-		percent_encoding::percent_encode(
-			percent_encoding::percent_decode(query.scope.as_bytes())
-				.decode_utf8()
+		pct_str::PctString::encode(
+			pct_str::PctString::new(&query.scope)
 				.unwrap()
-				.as_bytes(),
-			percent_encoding::NON_ALPHANUMERIC
+				.decode()
+				.chars(),
+			pct_str::URIReserved
 		),
-		percent_encoding::percent_encode(
-			percent_encoding::percent_decode(username.as_bytes())
-				.decode_utf8()
+		pct_str::PctString::encode(
+			pct_str::PctString::new(&username)
 				.unwrap()
-				.as_bytes(),
-			percent_encoding::NON_ALPHANUMERIC
+				.decode()
+				.chars(),
+			pct_str::URIReserved
 		),
-		percent_encoding::percent_encode(
-			new_token.get_value().as_bytes(),
-			percent_encoding::NON_ALPHANUMERIC
+		pct_str::PctString::encode(
+			new_token.get_value().chars(),
+			pct_str::URIReserved
 		),
-		percent_encoding::percent_encode(
-			percent_encoding::percent_decode(username.as_bytes())
-				.decode_utf8()
+		pct_str::PctString::encode(
+			pct_str::PctString::new(&username)
 				.unwrap()
-				.as_bytes(),
-			percent_encoding::NON_ALPHANUMERIC
+				.decode()
+				.chars(),
+			pct_str::URIReserved
 		),
 		match &query.auth_result {
 			Some(code) if code == "wrong_credentials" =>

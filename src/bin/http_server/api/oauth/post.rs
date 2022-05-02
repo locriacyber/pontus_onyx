@@ -81,14 +81,14 @@ pub async fn post_oauth(
 						format!(
 							"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
 							form.username,
-							percent_encoding::percent_encode(
-								percent_encoding::percent_decode(
-									form.redirect_uri.as_bytes()
+							pct_str::PctString::encode(
+								pct_str::PctString::new(
+									&form.redirect_uri
 								)
-									.decode_utf8()
 									.unwrap()
-									.as_bytes(),
-								percent_encoding::NON_ALPHANUMERIC
+									.decode()
+									.chars(),
+								pct_str::URIReserved
 							),
 							form.scope,
 							form.client_id,
@@ -114,14 +114,14 @@ pub async fn post_oauth(
 					format!(
 						"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
 						form.username,
-						percent_encoding::percent_encode(
-							percent_encoding::percent_decode(
-								form.redirect_uri.as_bytes()
+						pct_str::PctString::encode(
+							pct_str::PctString::new(
+								&form.redirect_uri
 							)
-								.decode_utf8()
 								.unwrap()
-								.as_bytes(),
-							percent_encoding::NON_ALPHANUMERIC
+								.decode()
+								.chars(),
+							pct_str::URIReserved
 						),
 						form.scope,
 						form.client_id,
@@ -133,9 +133,9 @@ pub async fn post_oauth(
 		}
 	}
 
-	let token = percent_encoding::percent_decode(form.token.as_bytes())
-		.decode_utf8()
-		.unwrap();
+	let token = pct_str::PctString::new(&form.token)
+		.unwrap()
+		.decode();
 
 	let form_tokens = form_tokens.lock().unwrap();
 	let token_search = form_tokens.iter().find(|e| e.get_value() == token);
@@ -156,14 +156,14 @@ pub async fn post_oauth(
 						format!(
 							"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
 							form.username,
-							percent_encoding::percent_encode(
-								percent_encoding::percent_decode(
-									form.redirect_uri.as_bytes()
+							pct_str::PctString::encode(
+								pct_str::PctString::new(
+									&form.redirect_uri
 								)
-									.decode_utf8()
 									.unwrap()
-									.as_bytes(),
-								percent_encoding::NON_ALPHANUMERIC
+									.decode()
+									.chars(),
+								pct_str::URIReserved
 							),
 							form.scope,
 							form.client_id,
@@ -189,14 +189,14 @@ pub async fn post_oauth(
 					format!(
 						"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
 						form.username,
-						percent_encoding::percent_encode(
-							percent_encoding::percent_decode(
-								form.redirect_uri.as_bytes()
+						pct_str::PctString::encode(
+							pct_str::PctString::new(
+								&form.redirect_uri
 							)
-								.decode_utf8()
 								.unwrap()
-								.as_bytes(),
-							percent_encoding::NON_ALPHANUMERIC
+								.decode()
+								.chars(),
+							pct_str::URIReserved
 						),
 						form.scope,
 						form.client_id,
@@ -227,32 +227,32 @@ pub async fn post_oauth(
 		{
 			// TODO : what if form.redirect_uri already contains fragment `#something` ?
 
-			let scopes = percent_encoding::percent_decode(form.scope.as_bytes())
-				.decode_utf8()
+			let scopes = pct_str::PctString::new(&form.scope)
 				.unwrap()
+				.decode()
 				.split(' ')
 				.map(|e| crate::http_server::Scope::try_from(e.trim()).unwrap())
 				.collect();
 
 			let new_token = crate::http_server::AccessBearer::new(
 				scopes,
-				&percent_encoding::percent_decode(form.client_id.as_bytes())
-					.decode_utf8()
-					.unwrap(),
-				&percent_encoding::percent_decode(form.username.as_bytes())
-					.decode_utf8()
-					.unwrap(),
+				&pct_str::PctString::new(&form.client_id)
+					.unwrap()
+					.decode(),
+				&pct_str::PctString::new(&form.username)
+					.unwrap()
+					.decode(),
 			);
 			access_tokens.lock().unwrap().push(new_token.clone());
 
 			let redirect = format!(
 				"{}#access_token={}&token_type={}",
-				percent_encoding::percent_decode(form.redirect_uri.as_bytes())
-					.decode_utf8()
-					.unwrap(),
-				percent_encoding::percent_encode(
-					new_token.get_name().as_bytes(),
-					percent_encoding::NON_ALPHANUMERIC
+				pct_str::PctString::new(&form.redirect_uri)
+					.unwrap()
+					.decode(),
+				pct_str::PctString::encode(
+					new_token.get_name().chars(),
+					pct_str::URIReserved
 				),
 				"bearer"
 			);
@@ -275,14 +275,14 @@ pub async fn post_oauth(
 					format!(
 						"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
 						form.username,
-						percent_encoding::percent_encode(
-							percent_encoding::percent_decode(
-								form.redirect_uri.as_bytes()
+						pct_str::PctString::encode(
+							pct_str::PctString::new(
+								&form.redirect_uri
 							)
-								.decode_utf8()
 								.unwrap()
-								.as_bytes(),
-							percent_encoding::NON_ALPHANUMERIC
+								.decode()
+								.chars(),
+							pct_str::URIReserved
 						),
 						form.scope,
 						form.client_id,
@@ -307,14 +307,14 @@ pub async fn post_oauth(
 				format!(
 					"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
 					form.username,
-					percent_encoding::percent_encode(
-						percent_encoding::percent_decode(
-							form.redirect_uri.as_bytes()
+					pct_str::PctString::encode(
+						pct_str::PctString::new(
+							&form.redirect_uri
 						)
-							.decode_utf8()
 							.unwrap()
-							.as_bytes(),
-						percent_encoding::NON_ALPHANUMERIC
+							.decode()
+							.chars(),
+						pct_str::URIReserved
 					),
 					form.scope,
 					form.client_id,
