@@ -55,7 +55,7 @@ async fn basics() {
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
-			.data(database)
+			.app_data(actix_web::web::Data::new(database))
 			.service(super::get_item),
 	)
 	.await;
@@ -176,7 +176,7 @@ async fn if_none_match() {
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
-			.data(database)
+			.app_data(actix_web::web::Data::new(database))
 			.service(super::get_item),
 	)
 	.await;
@@ -223,7 +223,7 @@ async fn if_none_match() {
 
 		let request = actix_web::test::TestRequest::get()
 			.uri("/storage/user/a/b/c")
-			.set(actix_web::http::header::IfNoneMatch::Items(test.1.clone()))
+			.insert_header(actix_web::http::header::IfNoneMatch::Items(test.1.clone()))
 			.to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
 

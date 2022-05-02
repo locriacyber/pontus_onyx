@@ -34,13 +34,13 @@ pub fn configure_server(
 ) -> impl FnOnce(&mut actix_web::web::ServiceConfig) {
 	return move |config: &mut actix_web::web::ServiceConfig| {
 		config
-			.data(database.clone())
-			.data(oauth_form_tokens.clone())
-			.data(access_tokens.clone())
-			.data(users.clone())
-			.data(settings.clone())
-			.data(program_state.clone())
-			.data(logger)
+			.app_data(actix_web::web::Data::new(database.clone()))
+			.app_data(actix_web::web::Data::new(oauth_form_tokens.clone()))
+			.app_data(actix_web::web::Data::new(access_tokens.clone()))
+			.app_data(actix_web::web::Data::new(users.clone()))
+			.app_data(actix_web::web::Data::new(settings.clone()))
+			.app_data(actix_web::web::Data::new(program_state.clone()))
+			.app_data(actix_web::web::Data::new(logger))
 			.service(options_favicon)
 			.service(get_favicon)
 			.service(get_oauth)
@@ -59,8 +59,8 @@ pub fn configure_server(
 #[actix_web::options("/favicon.ico")]
 pub async fn options_favicon() -> impl actix_web::Responder {
 	let mut res = actix_web::HttpResponse::Ok();
-	res.set_header(actix_web::http::header::ALLOW, "OPTIONS, GET");
-	res.set_header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+	res.insert_header((actix_web::http::header::ALLOW, "OPTIONS, GET"));
+	res.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
 
 	return res;
 }
@@ -68,7 +68,7 @@ pub async fn options_favicon() -> impl actix_web::Responder {
 #[actix_web::get("/favicon.ico")]
 pub async fn get_favicon() -> impl actix_web::Responder {
 	let mut res = actix_web::HttpResponse::Ok();
-	res.set_header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+	res.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
 
 	return res.body(actix_web::web::Bytes::from_static(include_bytes!(
 		"static/favicon.ico"

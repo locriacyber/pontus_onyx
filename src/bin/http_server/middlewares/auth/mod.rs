@@ -10,17 +10,16 @@ pub struct Auth {
 	pub logger: Arc<Mutex<charlie_buffalo::Logger>>,
 }
 
-impl<S> actix_web::dev::Transform<S> for Auth
+impl<S> actix_web::dev::Transform<S, actix_web::dev::ServiceRequest> for Auth
 where
 	S: actix_web::dev::Service<
-		Request = actix_web::dev::ServiceRequest,
-		Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>,
+		actix_web::dev::ServiceRequest,
+		Response = actix_web::dev::ServiceResponse<actix_web::body::BoxBody>,
 		Error = actix_web::Error,
 	>,
 	S::Future: 'static,
 {
-	type Request = actix_web::dev::ServiceRequest;
-	type Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>;
+	type Response = actix_web::dev::ServiceResponse<actix_web::body::BoxBody>;
 	type Error = actix_web::Error;
 	type InitError = ();
 	type Transform = AuthMiddleware<S>;
@@ -39,39 +38,23 @@ pub struct AuthMiddleware<S> {
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
 }
 
-type OutputFuture = std::pin::Pin<
-	Box<
-		dyn futures::Future<
-			Output = Result<
-				actix_web::dev::ServiceResponse<actix_web::dev::Body>,
-				actix_web::Error,
-			>,
-		>,
-	>,
->;
-
-impl<S> actix_web::dev::Service for AuthMiddleware<S>
+impl<S> actix_web::dev::Service<actix_web::dev::ServiceRequest> for AuthMiddleware<S>
 where
 	S: actix_web::dev::Service<
-		Request = actix_web::dev::ServiceRequest,
-		Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>,
+		actix_web::dev::ServiceRequest,
+		Response = actix_web::dev::ServiceResponse<actix_web::body::BoxBody>,
 		Error = actix_web::Error,
 	>,
 	S::Future: 'static,
 {
-	type Request = actix_web::dev::ServiceRequest;
-	type Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>;
+	type Response = actix_web::dev::ServiceResponse<actix_web::body::BoxBody>;
 	type Error = actix_web::Error;
-	type Future = OutputFuture;
+	type Future =
+		futures_util::future::LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-	fn poll_ready(
-		&mut self,
-		ctx: &mut std::task::Context<'_>,
-	) -> std::task::Poll<Result<(), Self::Error>> {
-		self.service.poll_ready(ctx)
-	}
+	actix_web::dev::forward_ready!(service);
 
-	fn call(&mut self, service_request: Self::Request) -> Self::Future {
+	fn call(&self, service_request: actix_web::dev::ServiceRequest) -> Self::Future {
 		let request_method = service_request.method().clone();
 
 		match service_request.head().headers().get("Authorization") {
@@ -154,7 +137,8 @@ where
 									Box::pin(async move {
 										// TODO : check security issue about this ?
 										let all_origins =
-											actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+											actix_web::http::header::HeaderValue::from_bytes(b"*")
+												.unwrap();
 										let headers = service_request.headers().clone();
 										let origin = headers
 											.get(actix_web::http::header::ORIGIN)
@@ -189,7 +173,7 @@ where
 							Box::pin(async move {
 								// TODO : check security issue about this ?
 								let all_origins =
-									actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+									actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
 								let headers = service_request.headers().clone();
 								let origin = headers
 									.get(actix_web::http::header::ORIGIN)
@@ -215,7 +199,7 @@ where
 						Box::pin(async move {
 							// TODO : check security issue about this ?
 							let all_origins =
-								actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+								actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
 							let headers = service_request.headers().clone();
 							let origin = headers
 								.get(actix_web::http::header::ORIGIN)
@@ -286,7 +270,8 @@ where
 				} else {
 					Box::pin(async move {
 						// TODO : check security issue about this ?
-						let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+						let all_origins =
+							actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
 						let headers = service_request.headers().clone();
 						let origin = headers
 							.get(actix_web::http::header::ORIGIN)

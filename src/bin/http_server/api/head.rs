@@ -1,13 +1,13 @@
 #[actix_web::head("/storage/{requested_item:.*}")]
 pub async fn head_item(
 	path: actix_web::web::Path<String>,
-	request: actix_web::web::HttpRequest,
+	request: actix_web::HttpRequest,
 	database: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
 	>,
 ) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
-	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+	let all_origins = actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
 	let origin = request
 		.headers()
 		.get(actix_web::http::header::ORIGIN)
@@ -16,7 +16,7 @@ pub async fn head_item(
 		.unwrap();
 
 	match database.lock().unwrap().get(
-		&pontus_onyx::item::ItemPath::from(path.as_str()),
+		&pontus_onyx::item::ItemPath::from(path.into_inner().as_str()),
 		super::convert_actix_if_match(&request)
 			.first()
 			.unwrap_or(&pontus_onyx::item::Etag::from("")),
@@ -29,12 +29,12 @@ pub async fn head_item(
 		}) => {
 			let etag: String = etag.into();
 			let mut response = actix_web::HttpResponse::Ok();
-			response.header(actix_web::http::header::ETAG, etag);
-			response.header(actix_web::http::header::CACHE_CONTROL, "no-cache");
-			response.header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+			response.insert_header((actix_web::http::header::ETAG, etag));
+			response.insert_header((actix_web::http::header::CACHE_CONTROL, "no-cache"));
+			response.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin));
 
 			if origin != "*" {
-				response.header(actix_web::http::header::VARY, "Origin");
+				response.insert_header((actix_web::http::header::VARY, "Origin"));
 			}
 
 			let content_type: String = content_type.into();
@@ -91,12 +91,12 @@ pub async fn head_item(
 			let folder_etag: String = folder_etag.into();
 			let mut response = actix_web::HttpResponse::Ok();
 			response.content_type("application/ld+json");
-			response.header(actix_web::http::header::ETAG, folder_etag);
-			response.header(actix_web::http::header::CACHE_CONTROL, "no-cache");
-			response.header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+			response.insert_header((actix_web::http::header::ETAG, folder_etag));
+			response.insert_header((actix_web::http::header::CACHE_CONTROL, "no-cache"));
+			response.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin));
 
 			if origin != "*" {
-				response.header(actix_web::http::header::VARY, "Origin");
+				response.insert_header((actix_web::http::header::VARY, "Origin"));
 			}
 
 			return response.finish();

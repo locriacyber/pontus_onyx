@@ -12,7 +12,7 @@ pub use oauth::*;
 pub use options::options_item;
 pub use put::put_item;
 
-fn convert_actix_if_match(request: &actix_web::web::HttpRequest) -> Vec<pontus_onyx::item::Etag> {
+fn convert_actix_if_match(request: &actix_web::HttpRequest) -> Vec<pontus_onyx::item::Etag> {
 	let res: Result<actix_web::http::header::IfMatch, actix_web::error::ParseError> =
 		actix_web::http::header::Header::parse(request);
 
@@ -28,9 +28,7 @@ fn convert_actix_if_match(request: &actix_web::web::HttpRequest) -> Vec<pontus_o
 	}
 }
 
-fn convert_actix_if_none_match(
-	request: &actix_web::web::HttpRequest,
-) -> Vec<pontus_onyx::item::Etag> {
+fn convert_actix_if_none_match(request: &actix_web::HttpRequest) -> Vec<pontus_onyx::item::Etag> {
 	let res: Result<actix_web::http::header::IfNoneMatch, actix_web::error::ParseError> =
 		actix_web::http::header::Header::parse(request);
 

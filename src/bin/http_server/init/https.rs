@@ -12,27 +12,29 @@ pub fn setup_and_run_https_server(
 	let settings_for_setup = settings.lock().unwrap().clone();
 
 	match settings_for_setup.https {
-		Some(settings_https) => match std::fs::File::open(&settings_https.keyfile_path) {
-			Ok(keyfile_content) => match std::fs::File::open(&settings_https.certfile_path) {
-				Ok(cert_content) => {
-					let key_file = &mut std::io::BufReader::new(keyfile_content);
-					let cert_file = &mut std::io::BufReader::new(cert_content);
-					match rustls_pemfile::certs(cert_file) {
-						Ok(cert_chain) => {
-							match rustls_pemfile::pkcs8_private_keys(key_file) {
+		Some(settings_https) => {
+			match std::fs::File::open(&settings_https.keyfile_path) {
+				Ok(keyfile_content) => match std::fs::File::open(&settings_https.certfile_path) {
+					Ok(cert_content) => {
+						let key_file = &mut std::io::BufReader::new(keyfile_content);
+						let cert_file = &mut std::io::BufReader::new(cert_content);
+						match rustls_pemfile::certs(cert_file) {
+							Ok(cert_chain) => match rustls_pemfile::pkcs8_private_keys(key_file) {
 								Ok(keys) => {
-									let mut server_config =
-										rustls::ServerConfig::new(rustls::NoClientAuth::new());
-
 									match keys.get(0) {
 										Some(key) => {
-											match server_config
-												.set_single_cert(
-													vec![rustls::Certificate(cert_chain.get(0).unwrap().clone())], 
-													rustls::PrivateKey(key.clone())
-												)
-											{
-												Ok(_) => {
+											let server_config = rustls::ServerConfig::builder()
+												.with_safe_defaults()
+												.with_no_client_auth()
+												.with_single_cert(
+													vec![rustls::Certificate(
+														cert_chain.get(0).unwrap().clone(),
+													)],
+													rustls::PrivateKey(key.clone()),
+												);
+
+											match server_config {
+												Ok(server_config) => {
 													let enable_hsts = settings_https.enable_hsts;
 													let https_port = settings_https.port;
 
@@ -85,10 +87,8 @@ pub fn setup_and_run_https_server(
 															let https_server = server_bind.run();
 
 															std::thread::spawn(move || {
-																let mut sys =
-																	actix_web::rt::System::new(
-																		"https",
-																	);
+																let sys =
+																	actix_web::rt::System::new();
 																sys.block_on(https_server)
 															});
 														}
@@ -140,20 +140,33 @@ pub fn setup_and_run_https_server(
 										Some(&format!("can not read PKCS8 private key : {}", e)),
 									);
 								}
+							},
+							Err(e) => {
+								logger.lock().unwrap().push(
+									vec![
+										(String::from("event"), String::from("setup")),
+										(String::from("module"), String::from("https")),
+										(String::from("level"), String::from("ERROR")),
+									],
+									Some(&format!("can not read SSL certificate : {}", e)),
+								);
 							}
 						}
-						Err(e) => {
-							logger.lock().unwrap().push(
-								vec![
-									(String::from("event"), String::from("setup")),
-									(String::from("module"), String::from("https")),
-									(String::from("level"), String::from("ERROR")),
-								],
-								Some(&format!("can not read SSL certificate : {}", e)),
-							);
-						}
 					}
-				}
+					Err(e) => {
+						logger.lock().unwrap().push(
+							vec![
+								(String::from("event"), String::from("setup")),
+								(String::from("module"), String::from("https")),
+								(String::from("level"), String::from("ERROR")),
+							],
+							Some(&format!(
+								"can not open cert file `{}` : {}",
+								settings_https.certfile_path, e
+							)),
+						);
+					}
+				},
 				Err(e) => {
 					logger.lock().unwrap().push(
 						vec![
@@ -162,26 +175,13 @@ pub fn setup_and_run_https_server(
 							(String::from("level"), String::from("ERROR")),
 						],
 						Some(&format!(
-							"can not open cert file `{}` : {}",
-							settings_https.certfile_path, e
+							"can not open key file `{}` : {}",
+							settings_https.keyfile_path, e
 						)),
 					);
 				}
-			},
-			Err(e) => {
-				logger.lock().unwrap().push(
-					vec![
-						(String::from("event"), String::from("setup")),
-						(String::from("module"), String::from("https")),
-						(String::from("level"), String::from("ERROR")),
-					],
-					Some(&format!(
-						"can not open key file `{}` : {}",
-						settings_https.keyfile_path, e
-					)),
-				);
 			}
-		},
+		}
 		None => {
 			logger.lock().unwrap().push(
 				vec![

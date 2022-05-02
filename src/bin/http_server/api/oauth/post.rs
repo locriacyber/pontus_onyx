@@ -15,7 +15,7 @@ pub struct OauthPostQuery {
 
 #[actix_web::post("/oauth")]
 pub async fn post_oauth(
-	request: actix_web::web::HttpRequest,
+	request: actix_web::HttpRequest,
 	form: actix_web::web::Form<OauthPostQuery>,
 	form_tokens: actix_web::web::Data<
 		Arc<Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
@@ -25,7 +25,7 @@ pub async fn post_oauth(
 	settings: actix_web::web::Data<Arc<Mutex<crate::http_server::Settings>>>,
 	program_state: actix_web::web::Data<Arc<Mutex<crate::ProgramState>>>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
-) -> actix_web::Result<actix_web::web::HttpResponse> {
+) -> actix_web::Result<actix_web::HttpResponse> {
 	let _host = request.headers().get("host");
 	let origin = request.headers().get("origin");
 	let _referer = request.headers().get("referer");
@@ -76,7 +76,7 @@ pub async fn post_oauth(
 				);
 
 				return Ok(actix_web::HttpResponse::Found()
-					.header(
+					.insert_header((
 						actix_web::http::header::LOCATION,
 						format!(
 							"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
@@ -95,7 +95,7 @@ pub async fn post_oauth(
 							form.response_type,
 							"security_issue"
 						),
-					)
+					))
 					.finish());
 			}
 		}
@@ -109,7 +109,7 @@ pub async fn post_oauth(
 			);
 
 			return Ok(actix_web::HttpResponse::Found()
-				.header(
+				.insert_header((
 					actix_web::http::header::LOCATION,
 					format!(
 						"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
@@ -128,14 +128,12 @@ pub async fn post_oauth(
 						form.response_type,
 						"security_issue"
 					),
-				)
+				))
 				.finish());
 		}
 	}
 
-	let token = pct_str::PctString::new(&form.token)
-		.unwrap()
-		.decode();
+	let token = pct_str::PctString::new(&form.token).unwrap().decode();
 
 	let form_tokens = form_tokens.lock().unwrap();
 	let token_search = form_tokens.iter().find(|e| e.get_value() == token);
@@ -151,7 +149,7 @@ pub async fn post_oauth(
 				);
 
 				return Ok(actix_web::HttpResponse::Found()
-					.header(
+					.insert_header((
 						actix_web::http::header::LOCATION,
 						format!(
 							"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
@@ -170,7 +168,7 @@ pub async fn post_oauth(
 							form.response_type,
 							"security_issue"
 						),
-					)
+					))
 					.finish());
 			}
 		}
@@ -184,7 +182,7 @@ pub async fn post_oauth(
 			);
 
 			return Ok(actix_web::HttpResponse::Found()
-				.header(
+				.insert_header((
 					actix_web::http::header::LOCATION,
 					format!(
 						"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
@@ -203,7 +201,7 @@ pub async fn post_oauth(
 						form.response_type,
 						"security_issue"
 					),
-				)
+				))
 				.finish());
 		}
 	}
@@ -236,12 +234,8 @@ pub async fn post_oauth(
 
 			let new_token = crate::http_server::AccessBearer::new(
 				scopes,
-				&pct_str::PctString::new(&form.client_id)
-					.unwrap()
-					.decode(),
-				&pct_str::PctString::new(&form.username)
-					.unwrap()
-					.decode(),
+				&pct_str::PctString::new(&form.client_id).unwrap().decode(),
+				&pct_str::PctString::new(&form.username).unwrap().decode(),
 			);
 			access_tokens.lock().unwrap().push(new_token.clone());
 
@@ -250,15 +244,12 @@ pub async fn post_oauth(
 				pct_str::PctString::new(&form.redirect_uri)
 					.unwrap()
 					.decode(),
-				pct_str::PctString::encode(
-					new_token.get_name().chars(),
-					pct_str::URIReserved
-				),
+				pct_str::PctString::encode(new_token.get_name().chars(), pct_str::URIReserved),
 				"bearer"
 			);
 
 			Ok(actix_web::HttpResponse::Found()
-				.header(actix_web::http::header::LOCATION, redirect)
+				.insert_header((actix_web::http::header::LOCATION, redirect))
 				.finish()) // todo : some text for users ?
 		} else {
 			logger.lock().unwrap().push(
@@ -270,7 +261,7 @@ pub async fn post_oauth(
 			);
 
 			Ok(actix_web::HttpResponse::Found()
-				.header(
+				.insert_header((
 					actix_web::http::header::LOCATION,
 					format!(
 						"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
@@ -289,7 +280,7 @@ pub async fn post_oauth(
 						form.response_type,
 						"wrong_credentials"
 					),
-				)
+				))
 				.finish()) // todo : some text for users ?
 		}
 	} else {
@@ -302,7 +293,7 @@ pub async fn post_oauth(
 		);
 
 		Ok(actix_web::HttpResponse::Found()
-			.header(
+			.insert_header((
 				actix_web::http::header::LOCATION,
 				format!(
 					"/oauth/{}?redirect_uri={}&scope={}&client_id={}&response_type={}&auth_result={}",
@@ -321,7 +312,7 @@ pub async fn post_oauth(
 					form.response_type,
 					"security_issue"
 				),
-			)
+			))
 			.finish()) // todo : some text for users ?
 	}
 }

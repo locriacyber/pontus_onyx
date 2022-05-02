@@ -1,13 +1,13 @@
 #[actix_web::delete("/storage/{requested_item:.*}")]
 pub async fn delete_item(
 	path: actix_web::web::Path<String>,
-	request: actix_web::web::HttpRequest,
+	request: actix_web::HttpRequest,
 	database: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
 	>,
 ) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
-	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+	let all_origins = actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
 	let origin = request
 		.headers()
 		.get(actix_web::http::header::ORIGIN)
@@ -16,7 +16,7 @@ pub async fn delete_item(
 		.unwrap();
 
 	match database.lock().unwrap().delete(
-		&pontus_onyx::item::ItemPath::from(path.as_str()),
+		&pontus_onyx::item::ItemPath::from(path.into_inner().as_str()),
 		super::convert_actix_if_match(&request)
 			.first()
 			.unwrap_or(&pontus_onyx::item::Etag::from("")),

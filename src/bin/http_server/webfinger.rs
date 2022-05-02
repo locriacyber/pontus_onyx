@@ -1,6 +1,6 @@
 #[actix_web::get("/.well-known/webfinger")]
 pub async fn webfinger_handle(
-	request: actix_web::web::HttpRequest,
+	request: actix_web::HttpRequest,
 	query: actix_web::web::Query<WebfingerQuery>,
 	settings: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<super::Settings>>>,
 	program_state: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::ProgramState>>>,
@@ -33,7 +33,7 @@ pub async fn webfinger_handle(
 				);
 
 				// TODO : check security issue about this ?
-				let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+				let all_origins = actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
 				let origin = request
 					.headers()
 					.get(actix_web::http::header::ORIGIN)
@@ -42,10 +42,11 @@ pub async fn webfinger_handle(
 					.unwrap();
 
 				let mut response = actix_web::HttpResponse::Ok();
-				response.header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+				response
+					.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin));
 
 				if origin != "*" {
-					response.header(actix_web::http::header::VARY, "Origin");
+					response.insert_header((actix_web::http::header::VARY, "Origin"));
 				}
 
 				response

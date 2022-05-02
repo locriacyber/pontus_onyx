@@ -14,7 +14,7 @@ async fn hsv5femo2qgu80gbad0ov5() {
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
-			.data(settings.clone())
+			.app_data(actix_web::web::Data::new(settings.clone()))
 			.wrap(super::Auth { logger })
 			.service(crate::http_server::get_favicon)
 			.service(crate::http_server::options_favicon)
@@ -156,9 +156,9 @@ async fn kp6m20xdwvw6v4t3yxq() {
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
-			.data(database.clone())
-			.data(access_tokens.clone())
-			.data(settings.clone())
+			.app_data(actix_web::web::Data::new(database.clone()))
+			.app_data(actix_web::web::Data::new(access_tokens.clone()))
+			.app_data(actix_web::web::Data::new(settings.clone()))
 			.wrap(super::Auth { logger })
 			.service(crate::http_server::api::get_item)
 			.service(crate::http_server::api::put_item),
@@ -189,110 +189,110 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			040,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/folder_read/")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				),
+				)),
 			actix_web::http::StatusCode::OK,
 		),
 		(
 			050,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/other_user/folder_read/")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				),
+				)),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
 		(
 			055,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/should_not_be_accessed_by_this_token/")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				),
+				)),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
 		(
 			056,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/should_not_be_accessed_by_this_token")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				),
+				)),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
 		(
 			060,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/folder_write/")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				),
+				)),
 			actix_web::http::StatusCode::OK,
 		),
 		(
 			070,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/should_not_be_accessed_by_this_token/")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				),
+				)),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
 		(
 			075,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/should_not_be_accessed_by_this_token")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				),
+				)),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
 		(
 			080,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/folder_read/")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", "RANDOM_BEARER"),
-				),
+				)),
 			actix_web::http::StatusCode::UNAUTHORIZED,
 		),
 		(
 			090,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/folder_write/")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", "RANDOM_BEARER"),
-				),
+				)),
 			actix_web::http::StatusCode::UNAUTHORIZED,
 		),
 		(
 			100,
 			actix_web::test::TestRequest::get()
 				.uri("/storage/user/other/")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", "RANDOM_BEARER"),
-				),
+				)),
 			actix_web::http::StatusCode::UNAUTHORIZED,
 		),
 		(
 			110,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/user/folder_read/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
@@ -300,10 +300,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			120,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/user/folder_write/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::CREATED,
 		),
@@ -311,10 +311,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			130,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/other_user/folder_write/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
@@ -322,10 +322,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			140,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/user/other/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
@@ -333,10 +333,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			150,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/public/user/folder_read/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
@@ -344,10 +344,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			160,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/public/user/folder_write/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::CREATED,
 		),
@@ -355,10 +355,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			170,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/public/user/other/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", token.get_name()),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::FORBIDDEN,
 		),
@@ -366,10 +366,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			180,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/user/folder_read/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", "RANDOM_BEARER"),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::UNAUTHORIZED,
 		),
@@ -377,10 +377,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			190,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/user/folder_write/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", "RANDOM_BEARER"),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::UNAUTHORIZED,
 		),
@@ -388,10 +388,10 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			200,
 			actix_web::test::TestRequest::put()
 				.uri("/storage/user/other/b")
-				.header(
+				.insert_header((
 					actix_web::http::header::AUTHORIZATION,
 					format!("Bearer {}", "RANDOM_BEARER"),
-				)
+				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
 			actix_web::http::StatusCode::UNAUTHORIZED,
 		),

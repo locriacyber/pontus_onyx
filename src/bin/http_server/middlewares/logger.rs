@@ -4,27 +4,27 @@ pub struct Logger {
 	pub logger: Arc<Mutex<charlie_buffalo::Logger>>,
 }
 
-impl<S> actix_web::dev::Transform<S> for Logger
+impl<S, B> actix_web::dev::Transform<S, actix_web::dev::ServiceRequest> for Logger
 where
 	S: actix_web::dev::Service<
-		Request = actix_web::dev::ServiceRequest,
-		Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>,
+		actix_web::dev::ServiceRequest,
+		Response = actix_web::dev::ServiceResponse<B>,
 		Error = actix_web::Error,
 	>,
 	S::Future: 'static,
+	B: 'static,
 {
-	type Request = actix_web::dev::ServiceRequest;
-	type Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>;
+	type Response = actix_web::dev::ServiceResponse<B>;
 	type Error = actix_web::Error;
 	type InitError = ();
 	type Transform = LoggerMiddleware<S>;
 	type Future = futures::future::Ready<Result<Self::Transform, Self::InitError>>;
 
 	fn new_transform(&self, service: S) -> Self::Future {
-		futures::future::ok(Self::Transform {
+		futures::future::ready(Ok(Self::Transform {
 			service,
 			logger: self.logger.clone(),
-		})
+		}))
 	}
 }
 
@@ -33,39 +33,24 @@ pub struct LoggerMiddleware<S> {
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
 }
 
-type OutputFuture = std::pin::Pin<
-	Box<
-		dyn futures::Future<
-			Output = Result<
-				actix_web::dev::ServiceResponse<actix_web::dev::Body>,
-				actix_web::Error,
-			>,
-		>,
-	>,
->;
-
-impl<S> actix_web::dev::Service for LoggerMiddleware<S>
+impl<S, B> actix_web::dev::Service<actix_web::dev::ServiceRequest> for LoggerMiddleware<S>
 where
 	S: actix_web::dev::Service<
-		Request = actix_web::dev::ServiceRequest,
-		Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>,
+		actix_web::dev::ServiceRequest,
+		Response = actix_web::dev::ServiceResponse<B>,
 		Error = actix_web::Error,
 	>,
 	S::Future: 'static,
+	B: 'static,
 {
-	type Request = actix_web::dev::ServiceRequest;
-	type Response = actix_web::dev::ServiceResponse<actix_web::dev::Body>;
+	type Response = actix_web::dev::ServiceResponse<B>;
 	type Error = actix_web::Error;
-	type Future = OutputFuture;
+	type Future =
+		futures_util::future::LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-	fn poll_ready(
-		&mut self,
-		ctx: &mut std::task::Context<'_>,
-	) -> std::task::Poll<Result<(), Self::Error>> {
-		self.service.poll_ready(ctx)
-	}
+	actix_web::dev::forward_ready!(service);
 
-	fn call(&mut self, service_request: Self::Request) -> Self::Future {
+	fn call(&self, service_request: actix_web::dev::ServiceRequest) -> Self::Future {
 		let mut attributes = vec![
 			(String::from("event"), String::from("http_access")),
 			(

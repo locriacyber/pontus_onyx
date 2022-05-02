@@ -57,7 +57,7 @@ pub fn load_or_create_users(
 				let mut admin_username = String::new();
 				let mut input_is_correct = false;
 				while !input_is_correct {
-					print!("\tPlease type new admin username (or abort all with Ctrl + C) : ");
+					print!("\t✏️ Please type new admin username (or abort all with Ctrl + C) : ");
 					std::io::stdout().flush().ok();
 					if let Err(e) = std::io::stdin().lock().read_line(&mut admin_username) {
 						println!("\t\t❌ Can not read your input : {}", e);
@@ -78,15 +78,26 @@ pub fn load_or_create_users(
 				while !input_is_correct {
 					admin_password = String::new();
 
-					match rpassword::read_password_from_tty(Some(&format!("\tPlease type new password for `{}` (it do not shows for security purposes) : ", admin_username))) {
+					print!("\t✏️ Please type new password for `{}` (it do not shows for security purposes) : ", admin_username);
+					std::io::stdout().flush().ok();
+
+					match rpassword::read_password() {
 						Ok(password1) => {
-							match rpassword::read_password_from_tty(Some("\tPlease type again this password to confirm it : ")) {
+							print!("\t✏️ Please type again this password to confirm it : ");
+							std::io::stdout().flush().ok();
+
+							match rpassword::read_password() {
 								Ok(password2) => {
 									if password1 == password2 {
 										if password2.trim().chars().count() < 6 {
-											println!("\t❌ This password need at least 6 characters");
+											println!(
+												"\t❌ This password need at least 6 characters"
+											);
 										} else {
-											if EASY_TO_GUESS_PASSWORDS.lines().any(|line| line == password2) {
+											if EASY_TO_GUESS_PASSWORDS
+												.lines()
+												.any(|line| line == password2)
+											{
 												println!("\t❌ This password is too easy to guess");
 												admin_password = String::new();
 											} else {
@@ -97,10 +108,10 @@ pub fn load_or_create_users(
 									} else {
 										println!("\t❌ Passwords does not match, please try again");
 									}
-								},
+								}
 								Err(e) => println!("\t\t❌ Can not read your input : {}", e),
 							}
-						},
+						}
 						Err(e) => println!("\t\t❌ Can not read your input : {}", e),
 					}
 				}

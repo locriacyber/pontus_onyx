@@ -8,7 +8,7 @@ TODO :
 #[actix_web::put("/storage/{requested_item:.*}")]
 pub async fn put_item(
 	mut request_payload: actix_web::web::Payload,
-	request: actix_web::web::HttpRequest,
+	request: actix_web::HttpRequest,
 	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
@@ -24,7 +24,7 @@ pub async fn put_item(
 	let content_type = request.headers().get("content-type");
 
 	// TODO : check security issue about this ?
-	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+	let all_origins = actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
 	let origin = request
 		.headers()
 		.get(actix_web::http::header::ORIGIN)
@@ -44,7 +44,7 @@ pub async fn put_item(
 	}
 
 	match database.lock().unwrap().put(
-		&pontus_onyx::item::ItemPath::from(path.as_str()),
+		&pontus_onyx::item::ItemPath::from(path.into_inner().as_str()),
 		pontus_onyx::item::Item::Document {
 			etag: pontus_onyx::item::Etag::from(""),
 			content: Some(content.to_vec()),

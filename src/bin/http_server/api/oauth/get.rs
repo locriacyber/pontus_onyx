@@ -9,13 +9,15 @@ pub struct OauthGetQuery {
 
 #[actix_web::get("/oauth/{username}")]
 pub async fn get_oauth(
-	actix_web::web::Path(username): actix_web::web::Path<String>,
+	path: actix_web::web::Path<String>,
 	query: actix_web::web::Query<OauthGetQuery>,
-	request: actix_web::web::HttpRequest,
+	request: actix_web::HttpRequest,
 	form_tokens: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	>,
 ) -> impl actix_web::Responder {
+	let username = path.into_inner();
+
 	let mut response = actix_web::HttpResponse::build(actix_web::http::StatusCode::OK);
 
 	// TODO : sanitize user data before printing it ?
@@ -117,21 +119,12 @@ pub async fn get_oauth(
 			pct_str::URIReserved
 		),
 		pct_str::PctString::encode(
-			pct_str::PctString::new(&username)
-				.unwrap()
-				.decode()
-				.chars(),
+			pct_str::PctString::new(&username).unwrap().decode().chars(),
 			pct_str::URIReserved
 		),
+		pct_str::PctString::encode(new_token.get_value().chars(), pct_str::URIReserved),
 		pct_str::PctString::encode(
-			new_token.get_value().chars(),
-			pct_str::URIReserved
-		),
-		pct_str::PctString::encode(
-			pct_str::PctString::new(&username)
-				.unwrap()
-				.decode()
-				.chars(),
+			pct_str::PctString::new(&username).unwrap().decode().chars(),
 			pct_str::URIReserved
 		),
 		match &query.auth_result {

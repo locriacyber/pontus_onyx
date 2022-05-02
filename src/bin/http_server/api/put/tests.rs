@@ -11,7 +11,7 @@ async fn basics() {
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
-			.data(database)
+			.app_data(actix_web::web::Data::new(database))
 			.service(crate::http_server::api::get_item)
 			.service(super::put_item),
 	)
@@ -29,7 +29,7 @@ async fn basics() {
 	{
 		let request = actix_web::test::TestRequest::put()
 			.uri("/storage/user/a/b/c")
-			.set(actix_web::http::header::ContentType::plaintext())
+			.insert_header(actix_web::http::header::ContentType::plaintext())
 			.set_payload(b"EVERYONE".to_vec())
 			.to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
@@ -49,7 +49,7 @@ async fn basics() {
 	{
 		let request = actix_web::test::TestRequest::put()
 			.uri("/storage/user/a/b/c")
-			.set(actix_web::http::header::ContentType::plaintext())
+			.insert_header(actix_web::http::header::ContentType::plaintext())
 			.set_payload(b"SOMEONE HERE ?".to_vec())
 			.to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
@@ -69,7 +69,7 @@ async fn basics() {
 	{
 		let request = actix_web::test::TestRequest::put()
 			.uri("/storage/user/a/b/c")
-			.set(actix_web::http::header::ContentType::plaintext())
+			.insert_header(actix_web::http::header::ContentType::plaintext())
 			.set_payload(b"SOMEONE HERE ?".to_vec())
 			.to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
@@ -121,7 +121,7 @@ async fn if_none_match() {
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
-			.data(database.clone())
+			.app_data(actix_web::web::Data::new(database.clone()))
 			.service(super::put_item),
 	)
 	.await;
@@ -185,7 +185,7 @@ async fn if_none_match() {
 
 		let request = actix_web::test::TestRequest::put()
 			.uri(test.1)
-			.set(actix_web::http::header::IfNoneMatch::Items(test.2.clone()))
+			.insert_header(actix_web::http::header::IfNoneMatch::Items(test.2.clone()))
 			.set_json(&serde_json::json!({"value": "C"}))
 			.to_request();
 		let response = actix_web::test::call_service(&mut app, request).await;
@@ -224,7 +224,7 @@ async fn if_match() {
 
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
-			.data(database)
+			.app_data(actix_web::web::Data::new(database))
 			.service(crate::http_server::api::get_item)
 			.service(super::put_item),
 	)
@@ -242,7 +242,7 @@ async fn if_match() {
 	{
 		let request = actix_web::test::TestRequest::put()
 			.uri("/storage/user/a/b/c")
-			.set(actix_web::http::header::IfMatch::Items(vec![
+			.insert_header(actix_web::http::header::IfMatch::Items(vec![
 				EntityTag::new(false, "ANOTHER_ETAG".into()),
 			]))
 			.set_json(&serde_json::json!({"value": "C"}))
@@ -255,7 +255,7 @@ async fn if_match() {
 	{
 		let request = actix_web::test::TestRequest::put()
 			.uri("/storage/user/a/b/c")
-			.set(actix_web::http::header::IfMatch::Items(vec![
+			.insert_header(actix_web::http::header::IfMatch::Items(vec![
 				EntityTag::new(false, "A".into()),
 			]))
 			.set_json(&serde_json::json!({"value": "C"}))

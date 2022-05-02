@@ -11,10 +11,10 @@ TODO :
 #[actix_web::options("/storage/{requested_item:.*}")]
 pub async fn options_item(
 	_path: actix_web::web::Path<String>,
-	request: actix_web::web::HttpRequest,
+	request: actix_web::HttpRequest,
 ) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
-	let all_origins = actix_web::http::HeaderValue::from_bytes(b"*").unwrap();
+	let all_origins = actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
 	let origin = request
 		.headers()
 		.get(actix_web::http::header::ORIGIN)
@@ -24,25 +24,25 @@ pub async fn options_item(
 
 	// TODO ; build at the end of the implementation.
 	let mut response = actix_web::HttpResponse::Ok();
-	response.header(actix_web::http::header::CACHE_CONTROL, "no-cache");
-	response.header(actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+	response.insert_header((actix_web::http::header::CACHE_CONTROL, "no-cache"));
+	response.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin));
 
 	if origin != "*" {
-		response.header(actix_web::http::header::VARY, "Origin");
+		response.insert_header((actix_web::http::header::VARY, "Origin"));
 	}
 
-	response.header(
+	response.insert_header((
 		actix_web::http::header::ACCESS_CONTROL_ALLOW_METHODS,
 		"OPTIONS, GET, HEAD, PUT, DELETE",
-	);
-	response.header(
+	));
+	response.insert_header((
 		actix_web::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
 		"Content-Length, Content-Type, Etag",
-	);
-	response.header(
+	));
+	response.insert_header((
 		actix_web::http::header::ACCESS_CONTROL_ALLOW_HEADERS,
 		"Authorization, Content-Length, Content-Type, Origin, If-Match, If-None-Match",
-	);
+	));
 
 	return response.finish();
 }

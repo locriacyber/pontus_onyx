@@ -7,9 +7,13 @@ A [remoteStorage](https://remotestorage.io/) server and client implemented in Ru
 So 0.x.0 versions are breaking changes until then.
 ```
 
-Based on [IETF Draft of the 14 June 2021](https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-17).
+Based on [IETF Draft of the 01 June 2022](https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-18).
 
-This crate should contain client library, server library (for embeddable projects), and server binary.
+This crate contains :
+
+- a client library (to use with webassembly),
+- a server library (for embeddable projects),
+- a server binary (to use the library directly).
 
 ## Development
 
