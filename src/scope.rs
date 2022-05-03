@@ -36,3 +36,78 @@ pub enum ScopeParsingError {
 	IncorrectModule(String),
 	IncorrectRight(String),
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Scope {
+	pub right_type: ScopeRightType,
+	pub module: String,
+}
+#[cfg(feature = "server_bin")]
+impl Scope {
+	pub fn allowed_methods(&self) -> Vec<actix_web::http::Method> {
+		match self.right_type {
+			ScopeRightType::Read => vec![
+				actix_web::http::Method::GET,
+				actix_web::http::Method::HEAD,
+				actix_web::http::Method::OPTIONS,
+			],
+			ScopeRightType::ReadWrite => vec![
+				actix_web::http::Method::GET,
+				actix_web::http::Method::HEAD,
+				actix_web::http::Method::PUT,
+				actix_web::http::Method::DELETE,
+				actix_web::http::Method::OPTIONS,
+			],
+		}
+	}
+}
+impl std::convert::TryFrom<&str> for Scope {
+	type Error = ScopeParsingError;
+
+	fn try_from(input: &str) -> Result<Self, Self::Error> {
+		let mut temp = input.split(':');
+
+		let module = temp.next();
+		let right = temp.next();
+		let remaining = temp.next();
+
+		match remaining {
+			None => match module {
+				Some(module) => match right {
+					Some(right) => {
+						if module == "public" {
+							return Err(ScopeParsingError::IncorrectModule(String::from(module)));
+						}
+
+						let regex = regex::Regex::new("^[a-z0-9_]+$").unwrap();
+						if module == "*" || regex.is_match(module) {
+							let right_type = ScopeRightType::try_from(right)?;
+							let module = String::from(module);
+
+							Ok(Self { right_type, module })
+						} else {
+							Err(ScopeParsingError::IncorrectModule(String::from(module)))
+						}
+					}
+					None => Err(ScopeParsingError::IncorrectFormat(String::from(input))),
+				},
+				None => Err(ScopeParsingError::IncorrectFormat(String::from(input))),
+			},
+			Some(_) => {
+				return Err(ScopeParsingError::IncorrectFormat(String::from(input)));
+			}
+		}
+	}
+}
+impl std::fmt::Display for Scope {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+		f.write_fmt(format_args!(
+			"{}:{}",
+			self.module,
+			match self.right_type {
+				ScopeRightType::Read => "r",
+				ScopeRightType::ReadWrite => "rw",
+			}
+		))
+	}
+}

@@ -229,7 +229,7 @@ pub async fn post_oauth(
 				.unwrap()
 				.decode()
 				.split(' ')
-				.map(|e| crate::http_server::Scope::try_from(e.trim()).unwrap())
+				.map(|e| pontus_onyx::scope::Scope::try_from(e.trim()).unwrap())
 				.collect();
 
 			let new_token = crate::http_server::AccessBearer::new(

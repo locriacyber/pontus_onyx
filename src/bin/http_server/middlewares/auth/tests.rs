@@ -63,13 +63,13 @@ async fn kp6m20xdwvw6v4t3yxq() {
 
 	let token = crate::http_server::AccessBearer::new(
 		vec![
-			crate::http_server::Scope {
+			pontus_onyx::scope::Scope {
 				module: String::from("folder_write"),
-				right_type: pontus_onyx::ScopeRightType::ReadWrite,
+				right_type: pontus_onyx::scope::ScopeRightType::ReadWrite,
 			},
-			crate::http_server::Scope {
+			pontus_onyx::scope::Scope {
 				module: String::from("folder_read"),
-				right_type: pontus_onyx::ScopeRightType::Read,
+				right_type: pontus_onyx::scope::ScopeRightType::Read,
 			},
 		],
 		"test",

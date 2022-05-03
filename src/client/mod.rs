@@ -10,7 +10,7 @@ const OAUTH_KEY: &str = "http://tools.ietf.org/html/rfc6749#section-4.2";
 pub struct ClientRemote {
 	webfinger_root_uri: String,
 	username: String,
-	scope: String,
+	scope: crate::scope::Scope,
 	client_id: String,
 	pub debug: bool,
 	client: Option<Client>,
@@ -19,13 +19,12 @@ impl ClientRemote {
 	pub async fn new(
 		webfinger_root_uri: impl Into<String>,
 		username: impl Into<String>,
-		scope: impl Into<String>,
+		scope: crate::scope::Scope,
 		client_id: impl Into<String>,
 		debug: bool,
 	) -> Result<Self, JsValue> {
 		let webfinger_root_uri = webfinger_root_uri.into();
 		let username = username.into();
-		let scope = scope.into();
 		let client_id = client_id.into();
 
 		////////////////////////
@@ -45,23 +44,23 @@ impl ClientRemote {
 	}
 }
 impl ClientRemote {
-	pub fn get_document(
+	pub fn get(
 		&self,
-		path: impl Into<String>,
+		path: &crate::item::ItemPath,
 		etag: Option<String>,
 	) -> Result<Promise, JsValue> {
 		match &self.client {
-			Some(client) => client.get_document(path, etag),
+			Some(client) => client.get(path, etag),
 			None => Err(JsValue::from_str("client is not connected")),
 		}
 	}
-	pub fn put_document(
+	pub fn put(
 		&self,
-		path: impl Into<String>,
-		document: &Document,
+		path: &crate::item::ItemPath,
+		document: &crate::item::Item,
 	) -> Result<Promise, JsValue> {
 		match &self.client {
-			Some(client) => client.put_document(path, document),
+			Some(client) => client.put(path, document),
 			None => Err(JsValue::from_str("client is not connected")),
 		}
 	}
@@ -242,6 +241,12 @@ impl ClientRemote {
 
 				match server_path {
 					Some(server_path) => {
+						let server_path = if !server_path.ends_with('/') {
+							format!("{server_path}/")
+						} else {
+							server_path
+						};
+
 						if self.debug {
 							web_sys::console::log_1(&format!("pontus-onyx-client-debug: found server path in webfinger response : {server_path}").into());
 						}
@@ -250,9 +255,7 @@ impl ClientRemote {
 						opts.method("HEAD");
 						opts.mode(web_sys::RequestMode::Cors);
 
-						let subfolder = self.scope.split(':').next().unwrap(); // TODO
-
-						let full_path = format!("{}/{}/", server_path, subfolder);
+						let full_path = format!("{}{}/", server_path, self.scope.module);
 
 						if self.debug {
 							web_sys::console::log_1(
@@ -357,7 +360,10 @@ impl ClientRemote {
 						format!("{}", window.location().to_string()).chars(),
 						pct_str::URIReserved
 					), // TODO : change to base url (no page name, or its arguments)
-					pct_str::PctString::encode(self.scope.chars(), pct_str::URIReserved),
+					pct_str::PctString::encode(
+						format!("{}", self.scope).chars(),
+						pct_str::URIReserved
+					),
 					pct_str::PctString::encode(self.client_id.chars(), pct_str::URIReserved),
 					pct_str::PctString::encode("token".chars(), pct_str::URIReserved),
 				);
@@ -474,13 +480,11 @@ pub struct Client {
 	pub debug: bool,
 }
 impl Client {
-	pub fn get_document(
+	pub fn get(
 		&self,
-		path: impl Into<String>,
+		path: &crate::item::ItemPath,
 		etag: Option<String>,
 	) -> Result<Promise, JsValue> {
-		let path = path.into();
-
 		let mut opts = web_sys::RequestInit::new();
 		opts.method("GET");
 		opts.mode(web_sys::RequestMode::Cors);
@@ -503,6 +507,8 @@ impl Client {
 					.into(),
 			);
 		}
+
+		let is_folder = path.is_folder();
 
 		Ok(Promise::new(&mut |resolve, reject| {
 			let reject = std::sync::Arc::new(reject);
@@ -558,26 +564,34 @@ impl Client {
 					let content_type = content_type.unwrap();
 
 					let body_process = Closure::once(Box::new(move |body: JsValue| {
-						let body = js_sys::ArrayBuffer::from(body);
-						let body =
-							js_sys::DataView::new(&body, 0, body.byte_length().try_into().unwrap());
+						if is_folder {
+							todo!()
+						} else {
+							let body = js_sys::ArrayBuffer::from(body);
+							let body = js_sys::DataView::new(
+								&body,
+								0,
+								body.byte_length().try_into().unwrap(),
+							);
 
-						let mut buffer = vec![];
-						for i in 0..body.byte_length() {
-							buffer.push(body.get_uint8(i));
+							let mut buffer = vec![];
+							for i in 0..body.byte_length() {
+								buffer.push(body.get_uint8(i));
+							}
+
+							resolve
+								.call1(
+									&JsValue::NULL,
+									&JsValue::from_serde(&crate::item::Item::Document {
+										etag: etag.unwrap_or_default().into(),
+										content: Some(buffer),
+										content_type: content_type.into(),
+										last_modified: chrono::Utc::now(), // TODO
+									})
+									.unwrap(),
+								)
+								.unwrap();
 						}
-
-						resolve
-							.call1(
-								&JsValue::NULL,
-								&JsValue::from_serde(&Document {
-									etag,
-									content: buffer,
-									content_type,
-								})
-								.unwrap(),
-							)
-							.unwrap();
 					}) as Box<dyn FnOnce(JsValue)>);
 
 					let body_err = Closure::wrap(Box::new(move |err: JsValue| {
@@ -628,72 +642,58 @@ impl Client {
 			err_callback.forget();
 		}))
 	}
-	pub fn put_document(
+	pub fn put(
 		&self,
-		path: impl Into<String>,
-		document: &Document,
+		path: &crate::item::ItemPath,
+		document: &crate::item::Item,
 	) -> Result<Promise, JsValue> {
-		let path = path.into();
+		if let crate::item::Item::Document {
+			etag,
+			content_type,
+			content,
+			last_modified: _,
+		} = document
+		{
+			if let Some(content) = content {
+				let mut opts = web_sys::RequestInit::new();
+				opts.method("PUT");
+				opts.body(Some(&js_sys::Uint8Array::from(content.as_slice())));
+				opts.mode(web_sys::RequestMode::Cors);
 
-		let mut opts = web_sys::RequestInit::new();
-		opts.method("PUT");
-		opts.body(Some(&js_sys::Uint8Array::from(document.content.as_slice())));
-		opts.mode(web_sys::RequestMode::Cors);
+				let full_path = format!("{}{}", self.server_path, path);
 
-		let full_path = format!("{}{}", self.server_path, path);
+				let request = web_sys::Request::new_with_str_and_init(&full_path, &opts).unwrap();
+				request
+					.headers()
+					.set("Authorization", &format!("Bearer {}", self.access_token))
+					.unwrap();
+				request
+					.headers()
+					.set("Content-Type", &format!("{}", content_type))
+					.unwrap();
 
-		let request = web_sys::Request::new_with_str_and_init(&full_path, &opts).unwrap();
-		request
-			.headers()
-			.set("Authorization", &format!("Bearer {}", self.access_token))
-			.unwrap();
-		request
-			.headers()
-			.set("Content-Type", &document.content_type)
-			.unwrap();
-		if let Some(etag) = &document.etag {
-			request.headers().set("If-Match", etag).unwrap();
+				if !etag.is_empty() {
+					request
+						.headers()
+						.set("If-Match", &format!("{}", etag))
+						.unwrap();
+				}
+
+				let window = web_sys::window().ok_or("window not found")?;
+
+				if self.debug {
+					web_sys::console::log_1(
+						&format!("pontus-onyx-client-debug: trying to PUT to {full_path}").into(),
+					);
+				}
+
+				Ok(window.fetch_with_request(&request))
+			} else {
+				Err(JsValue::from("content of document is empty"))
+			}
+		} else {
+			Err(JsValue::from("we can only put Item::Document to servers"))
 		}
-
-		let window = web_sys::window().ok_or("window not found")?;
-
-		if self.debug {
-			web_sys::console::log_1(
-				&format!("pontus-onyx-client-debug: trying to PUT to {full_path}").into(),
-			);
-		}
-
-		Ok(window.fetch_with_request(&request))
-	}
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct Document {
-	pub etag: Option<String>,
-	content: Vec<u8>,
-	content_type: String,
-}
-impl From<isize> for Document {
-	fn from(input: isize) -> Self {
-		Self {
-			etag: None,
-			content: input.to_be_bytes().to_vec(),
-			content_type: String::from("text/plain"),
-		}
-	}
-}
-impl From<i32> for Document {
-	fn from(input: i32) -> Self {
-		Self {
-			etag: None,
-			content: input.to_be_bytes().to_vec(),
-			content_type: String::from("text/plain"),
-		}
-	}
-}
-impl Document {
-	pub fn get_content(&self) -> &[u8] {
-		self.content.as_slice()
 	}
 }
 

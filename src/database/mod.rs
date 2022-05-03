@@ -128,6 +128,8 @@ pub fn build_http_json_response(
 		response.insert_header((actix_web::http::header::ETAG, etag));
 	}
 
+	// TODO : response.insert_header((actix_web::http::header::LAST_MODIFIED, last_modified));
+
 	return if should_have_body || request_method != actix_web::http::Method::HEAD {
 		response.body(
 			serde_json::to_string(&JsonResponse {

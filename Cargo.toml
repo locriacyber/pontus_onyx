@@ -1,9 +1,8 @@
 [package]
 name = "pontus_onyx"
-version = "0.13.4"
+version = "0.13.5"
 authors = ["Jimskapt <rami.programmer@gmail.com>"]
 edition = "2021"
-resolver = "2"
 
 [features]
 default = []
@@ -18,7 +17,9 @@ client_lib = [
     "regex",
     "pct-str"
 ]
-client_lib_cookies = []
+client_lib_cookies = [
+    "client_lib"
+]
 server_lib = [
     "bincode",
     "toml"

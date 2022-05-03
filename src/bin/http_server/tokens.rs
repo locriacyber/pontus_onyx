@@ -1,77 +1,7 @@
 use rand::seq::IteratorRandom;
 use rand::Rng;
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Scope {
-	pub right_type: pontus_onyx::ScopeRightType,
-	pub module: String,
-}
-impl Scope {
-	pub fn allowed_methods(&self) -> Vec<actix_web::http::Method> {
-		match self.right_type {
-			pontus_onyx::ScopeRightType::Read => vec![
-				actix_web::http::Method::GET,
-				actix_web::http::Method::HEAD,
-				actix_web::http::Method::OPTIONS,
-			],
-			pontus_onyx::ScopeRightType::ReadWrite => vec![
-				actix_web::http::Method::GET,
-				actix_web::http::Method::HEAD,
-				actix_web::http::Method::PUT,
-				actix_web::http::Method::DELETE,
-				actix_web::http::Method::OPTIONS,
-			],
-		}
-	}
-}
-impl std::convert::TryFrom<&str> for Scope {
-	type Error = pontus_onyx::ScopeParsingError;
-
-	fn try_from(input: &str) -> Result<Self, Self::Error> {
-		let mut temp = input.split(':');
-
-		let module = temp.next();
-		let right = temp.next();
-		let remaining = temp.next();
-
-		match remaining {
-			None => match module {
-				Some(module) => match right {
-					Some(right) => {
-						if module == "public" {
-							return Err(pontus_onyx::ScopeParsingError::IncorrectModule(
-								String::from(module),
-							));
-						}
-
-						let regex = regex::Regex::new("^[a-z0-9_]+$").unwrap();
-						if module == "*" || regex.is_match(module) {
-							let right_type = pontus_onyx::ScopeRightType::try_from(right)?;
-							let module = String::from(module);
-
-							Ok(Self { right_type, module })
-						} else {
-							Err(pontus_onyx::ScopeParsingError::IncorrectModule(
-								String::from(module),
-							))
-						}
-					}
-					None => Err(pontus_onyx::ScopeParsingError::IncorrectFormat(
-						String::from(input),
-					)),
-				},
-				None => Err(pontus_onyx::ScopeParsingError::IncorrectFormat(
-					String::from(input),
-				)),
-			},
-			Some(_) => {
-				return Err(pontus_onyx::ScopeParsingError::IncorrectFormat(
-					String::from(input),
-				));
-			}
-		}
-	}
-}
+use pontus_onyx::scope::Scope;
 
 #[derive(Debug, Clone)]
 pub struct AccessBearer {
@@ -127,14 +57,14 @@ impl AccessBearer {
 
 #[cfg(test)]
 mod tests {
-	use std::convert::TryFrom;
+	use pontus_onyx::scope::{ScopeParsingError, ScopeRightType};
 
 	#[test]
 	fn c0ok0eil7m3() {
 		assert_eq!(
 			super::Scope::try_from("*:rw"),
 			Ok(super::Scope {
-				right_type: pontus_onyx::ScopeRightType::ReadWrite,
+				right_type: ScopeRightType::ReadWrite,
 				module: String::from("*")
 			})
 		);
@@ -145,7 +75,7 @@ mod tests {
 		assert_eq!(
 			super::Scope::try_from("random:r"),
 			Ok(super::Scope {
-				right_type: pontus_onyx::ScopeRightType::Read,
+				right_type: ScopeRightType::Read,
 				module: String::from("random")
 			})
 		);
@@ -155,9 +85,7 @@ mod tests {
 	fn sllj3xshcq266faixwpa() {
 		assert_eq!(
 			super::Scope::try_from("public:rw"),
-			Err(pontus_onyx::ScopeParsingError::IncorrectModule(
-				String::from("public")
-			))
+			Err(ScopeParsingError::IncorrectModule(String::from("public")))
 		);
 	}
 
@@ -165,9 +93,9 @@ mod tests {
 	fn mt1ns651q04kfc() {
 		assert_eq!(
 			super::Scope::try_from("wrong_char@:rw"),
-			Err(pontus_onyx::ScopeParsingError::IncorrectModule(
-				String::from("wrong_char@")
-			))
+			Err(ScopeParsingError::IncorrectModule(String::from(
+				"wrong_char@"
+			)))
 		);
 	}
 
@@ -175,9 +103,9 @@ mod tests {
 	fn gy8bajrpald87() {
 		assert_eq!(
 			super::Scope::try_from("wrong:char:rw"),
-			Err(pontus_onyx::ScopeParsingError::IncorrectFormat(
-				String::from("wrong:char:rw")
-			))
+			Err(ScopeParsingError::IncorrectFormat(String::from(
+				"wrong:char:rw"
+			)))
 		);
 	}
 
@@ -185,9 +113,9 @@ mod tests {
 	fn jrx3s6biaha6ztxvollgn() {
 		assert_eq!(
 			super::Scope::try_from("random:wrong_right"),
-			Err(pontus_onyx::ScopeParsingError::IncorrectRight(
-				String::from("wrong_right")
-			))
+			Err(ScopeParsingError::IncorrectRight(String::from(
+				"wrong_right"
+			)))
 		);
 	}
 }

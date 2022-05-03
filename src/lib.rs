@@ -3,17 +3,17 @@
 
 /*! pontus_onyx is a [remoteStorage](https://remotestorage.io/) server and client implemented in Rust.
 
-Features :
+Cargo features :
 
 - `server_bin`
 - `server_lib`
   - `server_file_storage`
   - `server_local_storage`
 - `client_lib`
+  - `client_lib_cookies`
 */
 
-mod scope;
-pub use scope::*;
+pub mod scope;
 
 pub mod item;
 
