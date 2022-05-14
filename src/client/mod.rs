@@ -44,10 +44,20 @@ impl ClientRemote {
 	}
 }
 impl ClientRemote {
+	pub fn head(
+		&self,
+		path: &crate::item::ItemPath,
+		etag: Option<crate::item::Etag>,
+	) -> Result<Promise, JsValue> {
+		match &self.client {
+			Some(client) => client.head(path, etag),
+			None => Err(JsValue::from_str("client is not connected")),
+		}
+	}
 	pub fn get(
 		&self,
 		path: &crate::item::ItemPath,
-		etag: Option<String>,
+		etag: Option<crate::item::Etag>,
 	) -> Result<Promise, JsValue> {
 		match &self.client {
 			Some(client) => client.get(path, etag),
@@ -342,7 +352,11 @@ impl ClientRemote {
 	}
 }
 impl ClientRemote {
-	pub async fn show_connect_overlay(&self) -> Result<(), JsValue> {
+	pub async fn show_connect_overlay(
+		&self,
+		absolute_uri_handle: impl AsRef<str>,
+	) -> Result<(), JsValue> {
+		let absolute_uri_handle = absolute_uri_handle.as_ref();
 		let webfinger = self.try_get_webfinger_data().await?;
 
 		match webfinger.links.get(0) {
@@ -353,11 +367,18 @@ impl ClientRemote {
 					.document()
 					.ok_or_else(|| JsValue::from_str("document not found"))?;
 
+				let location = window.location();
 				let oauth_origin = link.properties.get(OAUTH_KEY).unwrap().as_ref().unwrap();
 				let oauth_path = format!(
 					"{oauth_origin}?redirect_uri={}&scope={}&client_id={}&response_type={}",
 					pct_str::PctString::encode(
-						format!("{}", window.location().to_string()).chars(),
+						format!(
+							"{}//{}{}",
+							location.protocol()?,
+							location.host()?,
+							absolute_uri_handle
+						)
+						.chars(),
 						pct_str::URIReserved
 					), // TODO : change to base url (no page name, or its arguments)
 					pct_str::PctString::encode(
@@ -368,7 +389,7 @@ impl ClientRemote {
 					pct_str::PctString::encode("token".chars(), pct_str::URIReserved),
 				);
 
-				// window.location().set_href(&oauth_path).unwrap();
+				// location.set_href(&oauth_path).unwrap();
 
 				let next_window = document.create_element("div")?;
 				next_window.set_attribute("id", "pontus_onyx_oauth_next_window")?;
@@ -480,10 +501,142 @@ pub struct Client {
 	pub debug: bool,
 }
 impl Client {
+	pub fn head(
+		&self,
+		path: &crate::item::ItemPath,
+		etag: Option<crate::item::Etag>,
+	) -> Result<Promise, JsValue> {
+		let mut opts = web_sys::RequestInit::new();
+		opts.method("HEAD");
+		opts.mode(web_sys::RequestMode::Cors);
+
+		let full_path = format!("{}{}", self.server_path, path);
+
+		let request = web_sys::Request::new_with_str_and_init(&full_path, &opts).unwrap();
+		request
+			.headers()
+			.set("Authorization", &format!("Bearer {}", self.access_token))?;
+		if let Some(etag) = etag {
+			request.headers().set("If-Match", &etag.to_string())?;
+		}
+
+		let window = web_sys::window().ok_or("window not found")?;
+
+		if self.debug {
+			web_sys::console::log_1(
+				&format!("pontus-onyx-client-debug: trying to fetch HEAD {full_path} response")
+					.into(),
+			);
+		}
+
+		let is_folder = path.is_folder(); // TODO
+
+		Ok(Promise::new(&mut |resolve, reject| {
+			let reject = std::sync::Arc::new(reject);
+
+			let debug = self.debug;
+			let full_path_for_main = full_path.clone();
+			let reject_for_main = reject.clone();
+			let process_callback = Closure::once(Box::new(move |resp: JsValue| {
+				let resp: web_sys::Response = resp.dyn_into().unwrap();
+
+				if resp.ok() {
+					let headers = resp.headers();
+
+					if debug {
+						web_sys::console::log_1(&format!("pontus-onyx-client-debug: server response for HEAD {full_path_for_main} is OK").into());
+					}
+
+					let etag = headers.get("etag");
+					if etag.is_err() {
+						reject_for_main
+							.call1(
+								&JsValue::NULL,
+								&JsValue::from_str(
+									"can not get `Etag` header from server response",
+								),
+							)
+							.unwrap();
+					}
+					let etag = etag.unwrap();
+					if etag.is_none() {
+						reject_for_main
+							.call1(
+								&JsValue::NULL,
+								&JsValue::from_str("missing `Etag` header from server response"),
+							)
+							.unwrap();
+					}
+					let etag = etag.unwrap();
+
+					let content_type = headers.get("content-type");
+					if content_type.is_err() {
+						reject_for_main
+							.call1(
+								&JsValue::NULL,
+								&JsValue::from_str(
+									"can not get `Content-Type` header from server response",
+								),
+							)
+							.unwrap();
+					}
+					let content_type = content_type.unwrap();
+					if content_type.is_none() {
+						reject_for_main
+							.call1(
+								&JsValue::NULL,
+								&JsValue::from_str(
+									"missing `Content-Type` header from server response",
+								),
+							)
+							.unwrap();
+					}
+					let content_type = content_type.unwrap();
+
+					resolve
+						.call1(
+							&JsValue::NULL,
+							&JsValue::from_serde(&crate::item::Item::Document {
+								etag: etag.into(),
+								content: None,
+								content_type: content_type.into(),
+								last_modified: chrono::Utc::now(), // TODO
+							})
+							.unwrap(),
+						)
+						.unwrap();
+				} else {
+					reject_for_main
+						.call1(
+							&JsValue::NULL,
+							&JsValue::from_str(&format!(
+								"error {} when access to database",
+								resp.status()
+							)),
+						)
+						.unwrap();
+				}
+			}) as Box<dyn FnOnce(JsValue)>);
+
+			let err_callback = Closure::wrap(Box::new(move |err: JsValue| {
+				reject
+					.call1(&JsValue::NULL, &format!("{:?}", err).into())
+					.unwrap();
+			}) as Box<dyn FnMut(JsValue)>);
+
+			window
+				.fetch_with_request(&request)
+				.then(&process_callback)
+				.catch(&err_callback);
+
+			process_callback.forget();
+			err_callback.forget();
+		}))
+	}
 	pub fn get(
 		&self,
 		path: &crate::item::ItemPath,
-		etag: Option<String>,
+		etag: Option<crate::item::Etag>,
 	) -> Result<Promise, JsValue> {
 		let mut opts = web_sys::RequestInit::new();
 		opts.method("GET");
@@ -496,7 +649,7 @@ impl Client {
 			.headers()
 			.set("Authorization", &format!("Bearer {}", self.access_token))?;
 		if let Some(etag) = etag {
-			request.headers().set("If-Match", &etag)?;
+			request.headers().set("If-Match", &etag.to_string())?;
 		}
 
 		let window = web_sys::window().ok_or("window not found")?;
@@ -534,6 +687,15 @@ impl Client {
 								&JsValue::from_str(
 									"can not get `Etag` header from server response",
 								),
+							)
+							.unwrap();
+					}
+					let etag = etag.unwrap();
+					if etag.is_none() {
+						reject_for_main
+							.call1(
+								&JsValue::NULL,
+								&JsValue::from_str("missing `Etag` header from server response"),
 							)
 							.unwrap();
 					}
@@ -583,7 +745,7 @@ impl Client {
 								.call1(
 									&JsValue::NULL,
 									&JsValue::from_serde(&crate::item::Item::Document {
-										etag: etag.unwrap_or_default().into(),
+										etag: etag.into(),
 										content: Some(buffer),
 										content_type: content_type.into(),
 										last_modified: chrono::Utc::now(), // TODO
@@ -687,7 +849,96 @@ impl Client {
 					);
 				}
 
-				Ok(window.fetch_with_request(&request))
+				Ok(Promise::new(&mut |resolve, reject| {
+					let debug = self.debug;
+					let full_path_for_main = full_path.clone();
+					let reject_for_main = reject.clone();
+					let process_callback = Closure::once(Box::new(move |resp: JsValue| {
+						let resp: web_sys::Response = resp.dyn_into().unwrap();
+
+						if resp.ok() {
+							let headers = resp.headers();
+
+							if debug {
+								web_sys::console::log_1(&format!("pontus-onyx-client-debug: server response for PUT {full_path_for_main} is OK").into());
+							}
+
+							let etag = headers.get("etag");
+							if etag.is_err() {
+								reject_for_main
+									.call1(
+										&JsValue::NULL,
+										&JsValue::from_str(
+											"can not get `Etag` header from server response",
+										),
+									)
+									.unwrap();
+							}
+							let etag = etag.unwrap();
+
+							let content_type = headers.get("content-type");
+							if content_type.is_err() {
+								reject_for_main
+									.call1(
+										&JsValue::NULL,
+										&JsValue::from_str(
+											"can not get `Content-Type` header from server response",
+										),
+									)
+									.unwrap();
+							}
+							let content_type = content_type.unwrap();
+							if content_type.is_none() {
+								reject_for_main
+									.call1(
+										&JsValue::NULL,
+										&JsValue::from_str(
+											"missing `Content-Type` header from server response",
+										),
+									)
+									.unwrap();
+							}
+							let content_type = content_type.unwrap();
+
+							resolve
+								.call1(
+									&JsValue::NULL,
+									&JsValue::from_serde(&crate::item::Item::Document {
+										etag: etag.unwrap_or_default().into(),
+										content: None,
+										content_type: content_type.into(),
+										last_modified: chrono::Utc::now(), // TODO
+									})
+									.unwrap(),
+								)
+								.unwrap();
+						} else {
+							reject_for_main
+								.call1(
+									&JsValue::NULL,
+									&JsValue::from_str(&format!(
+										"error {} when access to database",
+										resp.status()
+									)),
+								)
+								.unwrap();
+						}
+					}) as Box<dyn FnOnce(JsValue)>);
+
+					let err_callback = Closure::wrap(Box::new(move |err: JsValue| {
+						reject
+							.call1(&JsValue::NULL, &format!("{:?}", err).into())
+							.unwrap();
+					}) as Box<dyn FnMut(JsValue)>);
+
+					window
+						.fetch_with_request(&request)
+						.then(&process_callback)
+						.catch(&err_callback);
+
+					process_callback.forget();
+					err_callback.forget();
+				}))
 			} else {
 				Err(JsValue::from("content of document is empty"))
 			}

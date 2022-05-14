@@ -117,7 +117,7 @@ pub struct Settings {
 	pub force_https: Option<bool>,
 	pub domain: Option<String>,
 	pub domain_suffix: Option<String>,
-	#[serde(default = "Settings::random_port_generation")]
+	#[serde(default = "random_port_generation")]
 	pub port: usize,
 	// TODO : pub admin_email: String,
 	pub token_lifetime_seconds: Option<u64>,
@@ -136,7 +136,7 @@ impl Default for Settings {
 			force_https: None,
 			domain: Some(String::new()),
 			domain_suffix: Some(String::new()),
-			port: Self::random_port_generation(),
+			port: random_port_generation(),
 			// admin_email: String::new(),
 			token_lifetime_seconds: Some(60 * 60),
 			logfile_path: Self::default_logfile_path(),
@@ -157,18 +157,11 @@ impl Settings {
 	fn default_data_path() -> String {
 		String::from("database/data")
 	}
-	fn random_port_generation() -> usize {
-		let mut rng = rand::thread_rng();
-
-		let port = rng.gen_range(1024..65535);
-
-		port as usize
-	}
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct SettingsHTTPS {
-	#[serde(default = "Settings::random_port_generation")]
+	#[serde(default = "random_port_generation")]
 	pub port: usize,
 	pub keyfile_path: String,
 	pub certfile_path: String,
@@ -177,10 +170,18 @@ pub struct SettingsHTTPS {
 impl Default for SettingsHTTPS {
 	fn default() -> Self {
 		Self {
-			port: 7542,
+			port: random_port_generation(),
 			keyfile_path: String::new(),
 			certfile_path: String::new(),
 			enable_hsts: true,
 		}
 	}
+}
+
+fn random_port_generation() -> usize {
+	let mut rng = rand::thread_rng();
+
+	let port = rng.gen_range(1024..65535);
+
+	port as usize
 }

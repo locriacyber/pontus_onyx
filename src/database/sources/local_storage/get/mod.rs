@@ -165,10 +165,10 @@ pub fn get(
 				.unwrap_or_else(|| crate::item::ItemPath::from(""));
 			let filedata_path = crate::item::ItemPath::from(
 				format!(
-					"{}/{}{}",
+					"{}/{}.{}.itemdata.json",
 					prefix,
 					target_parent,
-					format!(".{}.itemdata.json", path.file_name())
+					path.file_name()
 				)
 				.as_str(),
 			);

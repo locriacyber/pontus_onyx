@@ -32,6 +32,10 @@ pub async fn head_item(
 			response.insert_header((actix_web::http::header::ETAG, etag));
 			response.insert_header((actix_web::http::header::CACHE_CONTROL, "no-cache"));
 			response.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin));
+			response.insert_header((
+				actix_web::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
+				"Content-Length, Content-Type, Etag",
+			));
 
 			if origin != "*" {
 				response.insert_header((actix_web::http::header::VARY, "Origin"));
@@ -94,6 +98,10 @@ pub async fn head_item(
 			response.insert_header((actix_web::http::header::ETAG, folder_etag));
 			response.insert_header((actix_web::http::header::CACHE_CONTROL, "no-cache"));
 			response.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin));
+			response.insert_header((
+				actix_web::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
+				"Content-Length, Content-Type, Etag",
+			));
 
 			if origin != "*" {
 				response.insert_header((actix_web::http::header::VARY, "Origin"));

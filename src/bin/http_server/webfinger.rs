@@ -52,13 +52,13 @@ pub async fn webfinger_handle(
 				response
 					.content_type("application/ld+json")
 					.body(format!(
-						r#"{{"links":[{{"href":"{}","rel":"{}","properties":{{"{}":"{}","{}":"{}","{}":{},"{}":{},"{}":{}}}}}]}}"#,
-						format!("{}storage/{}", server_addr, user),
+						r#"{{"links":[{{"href":"{}storage/{}","rel":"{}","properties":{{"{}":"{}","{}":"{}oauth/{}","{}":{},"{}":{},"{}":{}}}}}]}}"#,
+						server_addr, user,
 						"http://tools.ietf.org/id/draft-dejong-remotestorage",
 						"http://remotestorage.io/spec/version",
 						"draft-dejong-remotestorage-17",
 						"http://tools.ietf.org/html/rfc6749#section-4.2",
-						format!("{}oauth/{}", server_addr, user),
+						server_addr, user,
 						"http://tools.ietf.org/html/rfc6750#section-2.3", "null",
 						"http://tools.ietf.org/html/rfc7233", "null",
 						"http://remotestorage.io/spec/web-authoring", "null"

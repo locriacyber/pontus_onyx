@@ -93,17 +93,15 @@ pub fn load_or_create_users(
 											println!(
 												"\t❌ This password need at least 6 characters"
 											);
+										} else if EASY_TO_GUESS_PASSWORDS
+											.lines()
+											.any(|line| line == password2)
+										{
+											println!("\t❌ This password is too easy to guess");
+											admin_password = String::new();
 										} else {
-											if EASY_TO_GUESS_PASSWORDS
-												.lines()
-												.any(|line| line == password2)
-											{
-												println!("\t❌ This password is too easy to guess");
-												admin_password = String::new();
-											} else {
-												admin_password = String::from(password2.trim());
-												input_is_correct = true;
-											}
+											admin_password = String::from(password2.trim());
+											input_is_correct = true;
 										}
 									} else {
 										println!("\t❌ Passwords does not match, please try again");
