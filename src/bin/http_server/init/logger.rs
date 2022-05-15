@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 pub fn load_or_create_logger(
@@ -87,18 +88,15 @@ pub fn load_or_create_logger(
 					);
 				}
 
-				let mut result: Vec<charlie_buffalo::Log> = rmp_serde::decode::from_slice(
-					std::fs::read((*logfile_path_for_dispatch).clone())
-						.unwrap_or_default()
-						.as_slice(),
-				)
-				.unwrap_or_default();
-				result.push(new_log);
-				std::fs::write(
-					(*logfile_path_for_dispatch).clone(),
-					rmp_serde::encode::to_vec(&result).unwrap(),
-				)
-				.ok();
+				let mut result: Vec<u8> = vec![00u8, 30u8]; // 0x001D in Unicode : RECORD SEPARATOR
+				result.append(&mut rmp_serde::encode::to_vec(&new_log).unwrap());
+				let mut file = std::fs::File::options()
+					.create(true)
+					.append(true)
+					.open((*logfile_path_for_dispatch).clone())
+					.unwrap();
+				file.write_all(&result).unwrap();
+				file.flush().unwrap();
 			} else {
 				println!();
 			}
