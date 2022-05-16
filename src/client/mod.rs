@@ -367,121 +367,142 @@ impl ClientRemote {
 					.document()
 					.ok_or_else(|| JsValue::from_str("document not found"))?;
 
-				let location = window.location();
-				let oauth_origin = link.properties.get(OAUTH_KEY).unwrap().as_ref().unwrap();
-				let oauth_path = format!(
-					"{oauth_origin}?redirect_uri={}&scope={}&client_id={}&response_type={}",
-					pct_str::PctString::encode(
-						format!(
-							"{}//{}{}",
-							location.protocol()?,
-							location.host()?,
-							absolute_uri_handle
-						)
-						.chars(),
-						pct_str::URIReserved
-					), // TODO : change to base url (no page name, or its arguments)
-					pct_str::PctString::encode(
-						format!("{}", self.scope).chars(),
-						pct_str::URIReserved
-					),
-					pct_str::PctString::encode(self.client_id.chars(), pct_str::URIReserved),
-					pct_str::PctString::encode("token".chars(), pct_str::URIReserved),
-				);
+				let res = if document.get_element_by_id("pontus_onyx_oauth_next_window").is_none() {
 
-				// location.set_href(&oauth_path).unwrap();
+					let location = window.location();
+					let oauth_origin = link.properties.get(OAUTH_KEY).unwrap().as_ref().unwrap();
+					let oauth_path = format!(
+						"{oauth_origin}?redirect_uri={}&scope={}&client_id={}&response_type={}",
+						pct_str::PctString::encode(
+							format!(
+								"{}//{}{}",
+								location.protocol()?,
+								location.host()?,
+								absolute_uri_handle
+							)
+							.chars(),
+							pct_str::URIReserved
+						), // TODO : change to base url (no page name, or its arguments)
+						pct_str::PctString::encode(
+							format!("{}", self.scope).chars(),
+							pct_str::URIReserved
+						),
+						pct_str::PctString::encode(self.client_id.chars(), pct_str::URIReserved),
+						pct_str::PctString::encode("token".chars(), pct_str::URIReserved),
+					);
 
-				let next_window = document.create_element("div")?;
-				next_window.set_attribute("id", "pontus_onyx_oauth_next_window")?;
-				let next_window = next_window.dyn_ref::<web_sys::HtmlElement>().unwrap();
+					// location.set_href(&oauth_path).unwrap();
 
-				next_window
-					.style()
-					.set_property("border", "5px solid #FF4B03")?;
-				next_window.style().set_property("background", "white")?;
-				next_window.style().set_property("padding", "1em")?;
-				next_window.style().set_property("text-align", "center")?;
-				next_window.style().set_property("position", "absolute")?;
-				next_window.style().set_property("width", "50%")?;
-				next_window.style().set_property("height", "50%")?;
-				next_window.style().set_property("left", "25%")?;
-				next_window.style().set_property("top", "25%")?;
-				next_window.style().set_property("opacity", "0.8")?;
+					let next_window = document.create_element("div")?;
+					next_window.set_attribute("id", "pontus_onyx_oauth_next_window")?;
+					let next_window = next_window.dyn_ref::<web_sys::HtmlElement>().unwrap();
 
-				let svg = document.create_element("svg")?;
-				svg.set_inner_html(include_str!("../../static/remoteStorage.svg"));
-				let svg = svg.dyn_ref::<web_sys::HtmlElement>().unwrap();
-				svg.set_attribute("width", "50")?;
-				svg.set_attribute("height", "50")?;
-				next_window.append_child(svg)?;
+					next_window
+						.style()
+						.set_property("border", "5px solid #FF4B03")?;
+					next_window.style().set_property("background", "white")?;
+					next_window.style().set_property("color", "black")?;
+					next_window.style().set_property("padding", "1em")?;
+					next_window.style().set_property("position", "absolute")?;
+					next_window.style().set_property("width", "66%")?;
+					next_window.style().set_property("left", "17%")?;
+					next_window.style().set_property("top", "30px")?;
+					next_window.style().set_property("opacity", "0.8")?;
+					next_window.style().set_property("display", "flex")?;
+					next_window.style().set_property("flex-direction", "column")?;
+					next_window.style().set_property("align-items", "stretch")?;
+					next_window.style().set_property("align-content", "stretch")?;
+					next_window.style().set_property("gap", "1em")?;
 
-				let explain = document.create_element("p")?;
-				explain.set_inner_html(
-					&format!(
-						r#"You will be temporary redirected to<br><a href="{}">{}</a><br>in order to authenticate on the requested remoteStorage server,<br>then bring back to this page."#,
-						oauth_path,
-						oauth_origin
-					)
-				);
-
-				next_window.append_child(&explain)?;
-
-				let p_buttons = document.create_element("p")?;
-
-				let abort = document.create_element("button")?;
-				let abort = abort.dyn_ref::<web_sys::HtmlElement>().unwrap();
-				abort.style().set_property("width", "40%")?;
-				abort.style().set_property("height", "5em")?;
-				abort.style().set_property("border", "2px solid #FF4B03")?;
-				abort.style().set_property("background", "white")?;
-				abort.style().set_property("cursor", "pointer")?;
-				abort.style().set_property("font-weight", "bold")?;
-				abort.set_inner_html("❌ Abort");
-				let close_next_window = wasm_bindgen::closure::Closure::wrap(Box::new(move || {
-					if let Some(window) = web_sys::window() {
-						if let Some(document) = window.document() {
-							if let Some(body) = document.body() {
-								if let Some(node) =
-									document.get_element_by_id("pontus_onyx_oauth_next_window")
-								{
-									body.remove_child(&node).ok();
+					let abort = document.create_element("button")?;
+					let abort = abort.dyn_ref::<web_sys::HtmlElement>().unwrap();
+					abort.style().set_property("border", "2px solid #FF4B03")?;
+					abort.style().set_property("background", "white")?;
+					abort.style().set_property("cursor", "pointer")?;
+					abort.style().set_property("font-weight", "bold")?;
+					abort.style().set_property("padding", "1em 0em")?;
+					abort.style().set_property("color", "black")?;
+					abort.set_inner_html("❌ Abort");
+					let close_next_window = wasm_bindgen::closure::Closure::wrap(Box::new(move || {
+						if let Some(window) = web_sys::window() {
+							if let Some(document) = window.document() {
+								if let Some(body) = document.body() {
+									if let Some(node) =
+										document.get_element_by_id("pontus_onyx_oauth_next_window")
+									{
+										body.remove_child(&node).ok();
+									}
 								}
 							}
 						}
+					})
+						as Box<dyn FnMut()>);
+					abort.set_onclick(Some(close_next_window.as_ref().unchecked_ref()));
+					close_next_window.forget();
+
+					next_window.append_child(abort)?;
+
+					let dummy = document.create_element("div")?;
+					dummy.set_inner_html(include_str!("../../static/remoteStorage.svg"));
+					let dummy = dummy.dyn_ref::<web_sys::HtmlElement>().unwrap();
+
+					let svg = dummy.first_element_child();
+					if let Some(svg) = svg {
+						svg.set_attribute("width", "100%")?;
+						svg.set_attribute("height", "75")?;
+						next_window.append_child(&svg)?;
 					}
-				})
-					as Box<dyn FnMut()>);
-				abort.set_onclick(Some(close_next_window.as_ref().unchecked_ref()));
-				close_next_window.forget();
 
-				p_buttons.append_child(abort)?;
+					let mut html = String::from("You will be temporary redirected to<br>\n");
+					html += &format!(r#"<a href="{}">{}</a><br>"#, oauth_path, oauth_origin);
+					html += "\nin order to authenticate<br>\n";
+					html += "on the requested server,<br>\n";
+					html += "and then bring back to this app<br>\n";
+					html += "with some credentials";
 
-				let a_next = document.create_element("a")?;
-				a_next.set_attribute("href", &oauth_path)?;
+					let explain = document.create_element("p")?;
+					let explain = explain.dyn_ref::<web_sys::HtmlElement>().unwrap();
+					explain.style().set_property("text-align", "center")?;
+					explain.style().set_property("color", "black")?;
+					explain.set_inner_html(&html);
 
-				let button_next = document.create_element("button")?;
-				let button_next = button_next.dyn_ref::<web_sys::HtmlElement>().unwrap();
-				button_next.set_inner_html("Next &gt;");
-				button_next.style().set_property("width", "40%")?;
-				button_next.style().set_property("height", "5em")?;
-				button_next.style().set_property("margin-left", "10%")?;
-				button_next
-					.style()
-					.set_property("border", "2px solid black")?;
-				button_next.style().set_property("background", "#FF4B03")?;
-				button_next.style().set_property("cursor", "pointer")?;
-				button_next.style().set_property("font-weight", "bold")?;
-				a_next.append_child(button_next)?;
+					next_window.append_child(&explain)?;
 
-				p_buttons.append_child(&a_next)?;
+					let a_next = document.create_element("a")?;
+					let a_next = a_next.dyn_ref::<web_sys::HtmlElement>().unwrap();
+					a_next.set_attribute("href", &oauth_path)?;
+					a_next.style().set_property("display", "block")?;
 
-				next_window.append_child(&p_buttons)?;
+					let button_next = document.create_element("button")?;
+					let button_next = button_next.dyn_ref::<web_sys::HtmlElement>().unwrap();
+					button_next.set_inner_html("Next ➡️");
+					button_next
+						.style()
+						.set_property("border", "2px solid black")?;
+					button_next.style().set_property("background", "#FF4B03")?;
+					button_next.style().set_property("color", "black")?;
+					button_next.style().set_property("cursor", "pointer")?;
+					button_next.style().set_property("font-weight", "bold")?;
+					button_next.style().set_property("width", "100%")?;
+					button_next.style().set_property("padding", "1em 0em")?;
+					a_next.append_child(button_next)?;
 
-				document.body().unwrap().append_child(next_window)?;
+					next_window.append_child(&a_next)?;
 
-				// TODO : automatic redirection ?
+					document.body().unwrap().append_child(next_window)?;
 
-				Ok(())
+					// TODO : automatic redirection ?
+
+					Ok(())
+				} else {
+					Err(JsValue::from_str(
+						"the id `pontus_onyx_oauth_next_window` already exists in the window so the overlay should be probably already displayed",
+					))
+				};
+
+				window.scroll_to_with_x_and_y(0.0, 0.0);
+
+				res
 			}
 			None => Err(JsValue::from_str(
 				"can not find `links` content in webfinger response of the server",
