@@ -23,9 +23,35 @@ impl ClientRemote {
 		client_id: impl Into<String>,
 		debug: bool,
 	) -> Result<Self, JsValue> {
-		let webfinger_root_uri = webfinger_root_uri.into();
+		let webfinger_root_uri: String = webfinger_root_uri.into();
 		let username = username.into();
 		let client_id = client_id.into();
+
+		let webfinger_root_uri = if !webfinger_root_uri.starts_with("https://")
+			&& !webfinger_root_uri.starts_with("http://")
+		{
+			let mut opts = web_sys::RequestInit::new();
+			opts.method("HEAD");
+			opts.mode(web_sys::RequestMode::Cors);
+
+			let request = web_sys::Request::new_with_str_and_init(
+				&format!("https://{webfinger_root_uri}"),
+				&opts,
+			)?;
+
+			let window = web_sys::window().ok_or("window not found")?;
+
+			let resp_value =
+				wasm_bindgen_futures::JsFuture::from(window.fetch_with_request(&request)).await;
+
+			if resp_value.is_ok() {
+				format!("https://{webfinger_root_uri}")
+			} else {
+				format!("http://{webfinger_root_uri}")
+			}
+		} else {
+			webfinger_root_uri
+		};
 
 		////////////////////////
 
