@@ -72,7 +72,7 @@ impl ClientRemote {
 impl ClientRemote {
 	pub fn head(
 		&self,
-		path: &crate::item::ItemPath,
+		path: &crate::item::ItemPath, // TODO : replace with `impl AsRef<crate::item::ItemPath>` ?
 		etag: Option<crate::item::Etag>,
 	) -> Result<Promise, JsValue> {
 		match &self.client {
@@ -82,7 +82,7 @@ impl ClientRemote {
 	}
 	pub fn get(
 		&self,
-		path: &crate::item::ItemPath,
+		path: &crate::item::ItemPath, // TODO : replace with `impl AsRef<crate::item::ItemPath>` ?
 		etag: Option<crate::item::Etag>,
 	) -> Result<Promise, JsValue> {
 		match &self.client {
@@ -92,7 +92,7 @@ impl ClientRemote {
 	}
 	pub fn put(
 		&self,
-		path: &crate::item::ItemPath,
+		path: &crate::item::ItemPath, // TODO : replace with `impl AsRef<crate::item::ItemPath>` ?
 		document: &crate::item::Item,
 	) -> Result<Promise, JsValue> {
 		match &self.client {
@@ -393,8 +393,10 @@ impl ClientRemote {
 					.document()
 					.ok_or_else(|| JsValue::from_str("document not found"))?;
 
-				let res = if document.get_element_by_id("pontus_onyx_oauth_next_window").is_none() {
-
+				let res = if document
+					.get_element_by_id("pontus_onyx_oauth_next_window")
+					.is_none()
+				{
 					let location = window.location();
 					let oauth_origin = link.properties.get(OAUTH_KEY).unwrap().as_ref().unwrap();
 					let oauth_path = format!(
@@ -435,9 +437,13 @@ impl ClientRemote {
 					next_window.style().set_property("top", "30px")?;
 					next_window.style().set_property("opacity", "0.8")?;
 					next_window.style().set_property("display", "flex")?;
-					next_window.style().set_property("flex-direction", "column")?;
+					next_window
+						.style()
+						.set_property("flex-direction", "column")?;
 					next_window.style().set_property("align-items", "stretch")?;
-					next_window.style().set_property("align-content", "stretch")?;
+					next_window
+						.style()
+						.set_property("align-content", "stretch")?;
 					next_window.style().set_property("gap", "1em")?;
 
 					let abort = document.create_element("button")?;
@@ -449,20 +455,20 @@ impl ClientRemote {
 					abort.style().set_property("padding", "1em 0em")?;
 					abort.style().set_property("color", "black")?;
 					abort.set_inner_html("❌ Abort");
-					let close_next_window = wasm_bindgen::closure::Closure::wrap(Box::new(move || {
-						if let Some(window) = web_sys::window() {
-							if let Some(document) = window.document() {
-								if let Some(body) = document.body() {
-									if let Some(node) =
-										document.get_element_by_id("pontus_onyx_oauth_next_window")
-									{
-										body.remove_child(&node).ok();
+					let close_next_window =
+						wasm_bindgen::closure::Closure::wrap(Box::new(move || {
+							if let Some(window) = web_sys::window() {
+								if let Some(document) = window.document() {
+									if let Some(body) = document.body() {
+										if let Some(node) = document
+											.get_element_by_id("pontus_onyx_oauth_next_window")
+										{
+											body.remove_child(&node).ok();
+										}
 									}
 								}
 							}
-						}
-					})
-						as Box<dyn FnMut()>);
+						}) as Box<dyn FnMut()>);
 					abort.set_onclick(Some(close_next_window.as_ref().unchecked_ref()));
 					close_next_window.forget();
 
@@ -1009,11 +1015,11 @@ impl Client {
 	}
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct WebfingerResponse {
 	links: Vec<Link>,
 }
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+#[derive(Debug, serde::Deserialize, Clone)]
 struct Link {
 	href: String,
 	properties: std::collections::HashMap<String, Option<String>>,
