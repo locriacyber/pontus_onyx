@@ -747,21 +747,35 @@ impl Client {
 					let content_type = content_type.unwrap();
 
 					let body_process = Closure::once(Box::new(move |body: JsValue| {
+						let body = js_sys::ArrayBuffer::from(body);
+						let body =
+							js_sys::DataView::new(&body, 0, body.byte_length().try_into().unwrap());
+
+						let mut buffer = vec![];
+						for i in 0..body.byte_length() {
+							buffer.push(body.get_uint8(i));
+						}
+
 						if is_folder {
-							todo!()
+							let content = match serde_json::from_slice::<FolderResponse>(&buffer) {
+								Ok(content) => Some(content.into()),
+								Err(err) => {
+									web_sys::console::error_1(&format!("{}", err).into());
+									None
+								}
+							};
+
+							resolve
+								.call1(
+									&JsValue::NULL,
+									&JsValue::from_serde(&crate::item::Item::Folder {
+										etag: etag.into(),
+										content,
+									})
+									.unwrap(),
+								)
+								.unwrap();
 						} else {
-							let body = js_sys::ArrayBuffer::from(body);
-							let body = js_sys::DataView::new(
-								&body,
-								0,
-								body.byte_length().try_into().unwrap(),
-							);
-
-							let mut buffer = vec![];
-							for i in 0..body.byte_length() {
-								buffer.push(body.get_uint8(i));
-							}
-
 							resolve
 								.call1(
 									&JsValue::NULL,
@@ -977,4 +991,54 @@ struct WebfingerResponse {
 struct Link {
 	href: String,
 	properties: std::collections::HashMap<String, Option<String>>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct FolderResponse {
+	items: std::collections::HashMap<String, FolderResponseItem>,
+}
+impl From<FolderResponse> for std::collections::HashMap<String, Box<crate::item::Item>> {
+	fn from(input: FolderResponse) -> Self {
+		input
+			.items
+			.into_iter()
+			.map(|(name, value)| (name, Box::new(value.into())))
+			.collect()
+	}
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct FolderResponseItem {
+	#[serde(rename = "ETag")]
+	etag: String,
+	#[serde(rename = "Content-Type")]
+	content_type: Option<String>,
+	/*
+	#[serde(rename="Content-Length")]
+	content_length: Option<usize>,
+	*/
+	#[serde(rename = "Last-Modified")]
+	last_modified: Option<String>,
+}
+impl From<FolderResponseItem> for crate::item::Item {
+	fn from(input: FolderResponseItem) -> Self {
+		if let Some(content_type) = input.content_type {
+			if let Some(last_modified) = input.last_modified {
+				return Self::Document {
+					etag: crate::item::Etag::from(input.etag),
+					content: None,
+					content_type: crate::item::ContentType::from(content_type),
+					last_modified: chrono::DateTime::from(
+						chrono::DateTime::parse_from_rfc2822(&last_modified.replace("UTC", "GMT"))
+							.unwrap(),
+					),
+				};
+			}
+		}
+
+		return Self::Folder {
+			etag: crate::item::Etag::from(input.etag),
+			content: None,
+		};
+	}
 }
