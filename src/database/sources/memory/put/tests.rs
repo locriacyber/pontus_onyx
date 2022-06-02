@@ -49,7 +49,7 @@ fn simple_put_on_not_existing() {
 	let mut root = Item::new_folder(vec![]);
 	let root_etag = root.get_etag().clone();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&mut root,
 		&ItemPath::from("AA"),
 		&Etag::from(""),
@@ -86,7 +86,7 @@ fn simple_put_on_not_existing() {
 fn simple_put_on_existing() {
 	let (mut root, root_etag, A_etag, old_AA_etag) = build_test_db();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&mut root,
 		&ItemPath::from("A/AA"),
 		&Etag::from(""),
@@ -224,7 +224,7 @@ fn put_with_if_none_match_all_on_not_existing() {
 	let mut root = Item::new_folder(vec![]);
 	let root_etag = root.get_etag().clone();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&mut root,
 		&ItemPath::from("A/AA"),
 		&Etag::from(""),
@@ -391,7 +391,7 @@ fn put_with_if_match_not_found() {
 fn put_with_if_match_found() {
 	let (mut root, root_etag, A_etag, mut AA_etag) = build_test_db();
 
-	AA_etag = put(
+	(AA_etag, _) = put(
 		&mut root,
 		&ItemPath::from("A/AA"),
 		&AA_etag,
@@ -441,7 +441,7 @@ fn put_with_if_match_found() {
 fn put_with_if_match_all() {
 	let (mut root, root_etag, A_etag, old_AA_etag) = build_test_db();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&mut root,
 		&ItemPath::from("A/AA"),
 		&Etag::from("*"),
@@ -608,7 +608,7 @@ fn put_in_public() {
 	let mut root = Item::new_folder(vec![]);
 	let root_etag = root.get_etag().clone();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&mut root,
 		&ItemPath::from("public/A/AA"),
 		&Etag::from(""),

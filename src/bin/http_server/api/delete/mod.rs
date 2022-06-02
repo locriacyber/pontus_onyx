@@ -28,6 +28,7 @@ pub async fn delete_item(
 				actix_web::http::StatusCode::OK,
 				Some(etag),
 				None,
+				None,
 				true,
 			);
 		}
@@ -51,6 +52,7 @@ pub async fn delete_item(
 					origin,
 					request.method(),
 					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+					None,
 					None,
 					None,
 					true,

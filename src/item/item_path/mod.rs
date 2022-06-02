@@ -116,7 +116,7 @@ impl ItemPath {
 		return result;
 	}
 }
- // TODO : `impl AsRef<ItemPath> for &str` ?
+// TODO : `impl AsRef<ItemPath> for &str` ?
 
 impl From<&str> for ItemPath {
 	fn from(input: &str) -> Self {

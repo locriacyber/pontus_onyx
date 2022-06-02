@@ -36,6 +36,7 @@ pub fn put(
 			if let crate::item::Item::Document {
 				content: new_content,
 				content_type: new_content_type,
+				last_modified: new_last_modified,
 				..
 			} = new_item
 			{
@@ -119,7 +120,7 @@ pub fn put(
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: new_etag.clone(),
 						content_type: new_content_type,
-						last_modified: chrono::Utc::now(),
+						last_modified: Some(chrono::Utc::now()),
 					}) {
 						Ok(datadoc) => {
 							if let Err(error) = std::fs::write(&target_data_path, &datadoc) {
@@ -141,7 +142,10 @@ pub fn put(
 						}
 					}
 
-					return crate::database::PutResult::Updated(new_etag);
+					return crate::database::PutResult::Updated(
+						new_etag,
+						new_last_modified.unwrap_or_else(|| chrono::Utc::now()),
+					);
 				} else {
 					return crate::database::PutResult::Err(Box::new(PutError::ContentNotChanged));
 				}
@@ -161,6 +165,7 @@ pub fn put(
 				if let crate::item::Item::Document {
 					content: new_content,
 					content_type: new_content_type,
+					last_modified: new_last_modified,
 					..
 				} = new_item
 				{
@@ -227,7 +232,7 @@ pub fn put(
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: new_etag.clone(),
 						content_type: new_content_type,
-						last_modified: chrono::Utc::now(),
+						last_modified: Some(chrono::Utc::now()),
 					}) {
 						Ok(datafile) => {
 							if let Err(error) = std::fs::write(&target_data_path, &datafile) {
@@ -249,7 +254,10 @@ pub fn put(
 						}
 					}
 
-					return crate::database::PutResult::Updated(new_etag);
+					return crate::database::PutResult::Updated(
+						new_etag,
+						new_last_modified.unwrap_or_else(|| chrono::Utc::now()),
+					);
 				} else {
 					return crate::database::PutResult::Err(Box::new(
 						PutError::DoesNotWorksForFolders,

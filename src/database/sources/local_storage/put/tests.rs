@@ -83,7 +83,7 @@ fn simple_put_on_not_existing() {
 	let storage = LocalStorageMock::new();
 	let prefix = String::from("pontus_onyx_put_test");
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&storage,
 		&prefix,
 		&ItemPath::from("AA"),
@@ -122,7 +122,7 @@ fn simple_put_on_not_existing() {
 fn simple_put_on_existing() {
 	let (storage, prefix, root_etag, A_etag, old_AA_etag) = build_test_db();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&storage,
 		&prefix,
 		&ItemPath::from("A/AA"),
@@ -287,7 +287,7 @@ fn put_with_if_none_match_all_on_not_existing() {
 	let storage = LocalStorageMock::new();
 	let prefix = String::from("pontus_onyx_put_test");
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&storage,
 		&prefix,
 		&ItemPath::from("A/AA"),
@@ -498,7 +498,7 @@ fn put_with_if_match_not_found() {
 fn put_with_if_match_found() {
 	let (storage, prefix, root_etag, A_etag, mut AA_etag) = build_test_db();
 
-	AA_etag = put(
+	(AA_etag, _) = put(
 		&storage,
 		&prefix,
 		&ItemPath::from("A/AA"),
@@ -565,7 +565,7 @@ fn put_with_if_match_found() {
 fn put_with_if_match_all() {
 	let (storage, prefix, root_etag, A_etag, old_AA_etag) = build_test_db();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&storage,
 		&prefix,
 		&ItemPath::from("A/AA"),
@@ -783,7 +783,7 @@ fn put_in_public() {
 	let storage = LocalStorageMock::new();
 	let prefix = String::from("pontus_onyx_put_test");
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&storage,
 		&prefix,
 		&ItemPath::from("public/A/AA"),

@@ -154,6 +154,7 @@ where
 												actix_web::http::StatusCode::FORBIDDEN,
 												None,
 												None,
+												None,
 												true,
 											),
 										))
@@ -189,6 +190,7 @@ where
 										actix_web::http::StatusCode::FORBIDDEN,
 										None,
 										None,
+										None,
 										true,
 									),
 								))
@@ -213,6 +215,7 @@ where
 									origin,
 									&request_method,
 									actix_web::http::StatusCode::UNAUTHORIZED,
+									None,
 									None,
 									None,
 									true,
@@ -285,6 +288,7 @@ where
 								origin,
 								&request_method,
 								actix_web::http::StatusCode::UNAUTHORIZED,
+								None,
 								None,
 								None,
 								true,

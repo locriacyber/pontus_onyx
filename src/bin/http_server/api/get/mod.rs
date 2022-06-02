@@ -29,6 +29,7 @@ pub async fn get_item(
 			etag,
 			content: Some(content),
 			content_type,
+			last_modified,
 			..
 		}) => {
 			let etag: String = etag.into();
@@ -36,6 +37,12 @@ pub async fn get_item(
 
 			let mut response = actix_web::HttpResponse::Ok();
 			response.insert_header((actix_web::http::header::ETAG, etag));
+			if let Some(last_modified) = last_modified {
+				response.insert_header((
+					actix_web::http::header::LAST_MODIFIED,
+					last_modified.to_rfc2822(),
+				));
+			}
 			response.insert_header((actix_web::http::header::CACHE_CONTROL, "no-cache"));
 			response.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, origin));
 
@@ -45,7 +52,7 @@ pub async fn get_item(
 
 			response.insert_header((
 				actix_web::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
-				"Content-Length, Content-Type, Etag",
+				"Content-Length, Content-Type, Etag, Last-Modified",
 			));
 			response.content_type(content_type);
 
@@ -81,7 +88,11 @@ pub async fn get_item(
 							"ETag": etag,
 							"Content-Type": content_type,
 							"Content-Length": document_content.len(),
-							"Last-Modified": last_modified.format(crate::http_server::RFC5322).to_string(),
+							"Last-Modified": if let Some(last_modified) = last_modified {
+								serde_json::Value::from(last_modified.format(crate::http_server::RFC5322).to_string())
+							} else {
+								serde_json::Value::Null
+							},
 						});
 					}
 					pontus_onyx::item::Item::Document { content: None, .. } => {
@@ -89,6 +100,7 @@ pub async fn get_item(
 							origin,
 							request.method(),
 							actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+							None,
 							None,
 							None,
 							true,
@@ -111,7 +123,7 @@ pub async fn get_item(
 
 			response.insert_header((
 				actix_web::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
-				"Content-Length, Content-Type, Etag",
+				"Content-Length, Content-Type, Etag, Last-Modified",
 			));
 
 			return response.body(
@@ -129,6 +141,7 @@ pub async fn get_item(
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
 				None,
 				None,
+				None,
 				true,
 			);
 		}
@@ -137,6 +150,7 @@ pub async fn get_item(
 				origin,
 				request.method(),
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+				None,
 				None,
 				None,
 				true,
@@ -162,6 +176,7 @@ pub async fn get_item(
 					origin,
 					request.method(),
 					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+					None,
 					None,
 					None,
 					true,

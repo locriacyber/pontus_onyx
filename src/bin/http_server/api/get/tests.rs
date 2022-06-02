@@ -19,7 +19,7 @@ async fn basics() {
 									content_type: pontus_onyx::item::ContentType::from(
 										"text/plain",
 									),
-									last_modified: chrono::Utc::now(),
+									last_modified: Some(chrono::Utc::now()),
 								},
 							)]),
 						)]),
@@ -41,7 +41,7 @@ async fn basics() {
 										content_type: pontus_onyx::item::ContentType::from(
 											"text/plain",
 										),
-										last_modified: chrono::Utc::now(),
+										last_modified: Some(chrono::Utc::now()),
 									},
 								)]),
 							)]),
@@ -164,7 +164,7 @@ async fn if_none_match() {
 								etag: pontus_onyx::item::Etag::from("A"),
 								content: Some(b"HELLO".to_vec()),
 								content_type: pontus_onyx::item::ContentType::from("text/plain"),
-								last_modified: chrono::Utc::now(),
+								last_modified: Some(chrono::Utc::now()),
 							},
 						)]),
 					)]),

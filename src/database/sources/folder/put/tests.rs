@@ -95,7 +95,7 @@ fn simple_put_on_not_existing() {
 	let tmp_folder = tempfile::tempdir().unwrap();
 	let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&tmp_folder_path,
 		&ItemPath::from("AA"),
 		&Etag::from(""),
@@ -125,7 +125,7 @@ fn simple_put_on_existing() {
 
 	let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&tmp_folder_path,
 		&ItemPath::from("A/AA"),
 		&Etag::from(""),
@@ -243,7 +243,7 @@ fn put_with_if_none_match_all_on_not_existing() {
 	let tmp_folder = tempfile::tempdir().unwrap();
 	let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&tmp_folder_path,
 		&ItemPath::from("A/AA"),
 		&Etag::from(""),
@@ -380,7 +380,7 @@ fn put_with_if_match_found() {
 
 	let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-	AA_etag = put(
+	(AA_etag, _) = put(
 		&tmp_folder_path,
 		&ItemPath::from("A/AA"),
 		&AA_etag,
@@ -424,7 +424,7 @@ fn put_with_if_match_all() {
 
 	let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&tmp_folder_path,
 		&ItemPath::from("A/AA"),
 		&Etag::from("*"),
@@ -577,7 +577,7 @@ fn put_in_public() {
 	let tmp_folder = tempfile::tempdir().unwrap();
 	let tmp_folder_path = tmp_folder.path().to_path_buf();
 
-	let AA_etag = put(
+	let (AA_etag, _) = put(
 		&tmp_folder_path,
 		&ItemPath::from("public/A/AA"),
 		&Etag::from(""),

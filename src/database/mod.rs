@@ -61,22 +61,22 @@ impl Database {
 #[derive(Debug)]
 #[must_use = "this `PutResult` may be an `Err` variant, which should be handled"]
 pub enum PutResult {
-	Created(crate::item::Etag),
-	Updated(crate::item::Etag),
+	Created(crate::item::Etag, chrono::DateTime<chrono::Utc>),
+	Updated(crate::item::Etag, chrono::DateTime<chrono::Utc>),
 	Err(Box<dyn std::error::Error>),
 }
 impl PutResult {
-	pub fn unwrap(self) -> crate::item::Etag {
+	pub fn unwrap(self) -> (crate::item::Etag, chrono::DateTime<chrono::Utc>) {
 		match self {
-			Self::Created(etag) => etag,
-			Self::Updated(etag) => etag,
+			Self::Created(etag, last_modified) => (etag, last_modified),
+			Self::Updated(etag, last_modified) => (etag, last_modified),
 			Self::Err(e) => panic!("{}", e),
 		}
 	}
 	pub fn unwrap_err(self) -> Box<dyn std::error::Error> {
 		match self {
-			Self::Created(etag) => panic!("found Created({})", etag),
-			Self::Updated(etag) => panic!("found Updated({})", etag),
+			Self::Created(etag, last_modified) => panic!("found Created({etag}, {last_modified})"),
+			Self::Updated(etag, last_modified) => panic!("found Updated({etag}, {last_modified})"),
 			Self::Err(e) => e,
 		}
 	}
@@ -100,6 +100,7 @@ pub fn build_http_json_response(
 	request_method: &actix_web::http::Method,
 	code: actix_web::http::StatusCode,
 	etag: Option<crate::item::Etag>,
+	last_modified: Option<chrono::DateTime<chrono::Utc>>,
 	hint: Option<String>,
 	should_have_body: bool,
 ) -> actix_web::HttpResponse {
@@ -114,13 +115,9 @@ pub fn build_http_json_response(
 		response.insert_header((actix_web::http::header::VARY, "Origin"));
 	}
 
-	let mut expose_headers = String::from("Content-Length, Content-Type");
-	if etag.is_some() {
-		expose_headers += ", ETag";
-	}
 	response.insert_header((
 		actix_web::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
-		expose_headers,
+		"Content-Length, Content-Type, ETag, Last-Modified",
 	));
 
 	if let Some(etag) = &etag {
@@ -128,7 +125,12 @@ pub fn build_http_json_response(
 		response.insert_header((actix_web::http::header::ETAG, etag));
 	}
 
-	// TODO : response.insert_header((actix_web::http::header::LAST_MODIFIED, last_modified));
+	if let Some(last_modified) = last_modified {
+		response.insert_header((
+			actix_web::http::header::LAST_MODIFIED,
+			last_modified.to_rfc2822(),
+		));
+	}
 
 	return if should_have_body || request_method != actix_web::http::Method::HEAD {
 		response.body(

@@ -37,7 +37,7 @@ pub async fn options_item(
 	));
 	response.insert_header((
 		actix_web::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
-		"Content-Length, Content-Type, Etag",
+		"Content-Length, Content-Type, Etag, Last-Modified",
 	));
 	response.insert_header((
 		actix_web::http::header::ACCESS_CONTROL_ALLOW_HEADERS,

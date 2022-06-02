@@ -5,8 +5,6 @@ lazy_static::lazy_static! {
 	static ref ACCESS_TOKEN_REGEX: regex::Regex = regex::Regex::new("^#.*access_token=([^&]+).+$").unwrap();
 }
 
-const OAUTH_KEY: &str = "http://tools.ietf.org/html/rfc6749#section-4.2";
-
 pub struct ClientRemote {
 	webfinger_root_uri: String,
 	username: String,
@@ -398,7 +396,7 @@ impl ClientRemote {
 					.is_none()
 				{
 					let location = window.location();
-					let oauth_origin = link.properties.get(OAUTH_KEY).unwrap().as_ref().unwrap();
+					let oauth_origin = link.properties.target.clone();
 					let oauth_path = format!(
 						"{oauth_origin}?redirect_uri={}&scope={}&client_id={}&response_type={}",
 						pct_str::PctString::encode(
@@ -582,8 +580,6 @@ impl Client {
 			);
 		}
 
-		let is_folder = path.is_folder(); // TODO
-
 		Ok(Promise::new(&mut |resolve, reject| {
 			let reject = std::sync::Arc::new(reject);
 
@@ -610,6 +606,7 @@ impl Client {
 								),
 							)
 							.unwrap();
+						return;
 					}
 					let etag = etag.unwrap();
 					if etag.is_none() {
@@ -619,8 +616,23 @@ impl Client {
 								&JsValue::from_str("missing `Etag` header from server response"),
 							)
 							.unwrap();
+						return;
 					}
 					let etag = etag.unwrap();
+
+					let last_modified = headers
+						.get("last-modified")
+						.map(|last_modified_some| {
+							last_modified_some.map(|last_modified_string| {
+								chrono::DateTime::from(
+									chrono::DateTime::parse_from_rfc2822(
+										&last_modified_string.replace("UTC", "GMT"),
+									)
+									.unwrap(),
+								)
+							})
+						})
+						.unwrap_or_default();
 
 					let content_type = headers.get("content-type");
 					if content_type.is_err() {
@@ -632,6 +644,7 @@ impl Client {
 								),
 							)
 							.unwrap();
+						return;
 					}
 					let content_type = content_type.unwrap();
 					if content_type.is_none() {
@@ -643,6 +656,7 @@ impl Client {
 								),
 							)
 							.unwrap();
+						return;
 					}
 					let content_type = content_type.unwrap();
 
@@ -653,7 +667,7 @@ impl Client {
 								etag: etag.into(),
 								content: None,
 								content_type: content_type.into(),
-								last_modified: chrono::Utc::now(), // TODO
+								last_modified,
 							})
 							.unwrap(),
 						)
@@ -742,6 +756,7 @@ impl Client {
 								),
 							)
 							.unwrap();
+						return;
 					}
 					let etag = etag.unwrap();
 					if etag.is_none() {
@@ -751,6 +766,7 @@ impl Client {
 								&JsValue::from_str("missing `Etag` header from server response"),
 							)
 							.unwrap();
+						return;
 					}
 					let etag = etag.unwrap();
 
@@ -764,6 +780,7 @@ impl Client {
 								),
 							)
 							.unwrap();
+						return;
 					}
 					let content_type = content_type.unwrap();
 					if content_type.is_none() {
@@ -775,9 +792,11 @@ impl Client {
 								),
 							)
 							.unwrap();
+						return;
 					}
 					let content_type = content_type.unwrap();
 
+					let reject_for_body = reject_for_main.clone();
 					let body_process = Closure::once(Box::new(move |body: JsValue| {
 						let body = js_sys::ArrayBuffer::from(body);
 						let body =
@@ -808,6 +827,20 @@ impl Client {
 								)
 								.unwrap();
 						} else {
+							let last_modified = headers
+								.get("last-modified")
+								.map(|last_modified_some| {
+									last_modified_some.map(|last_modified_string| {
+										chrono::DateTime::from(
+											chrono::DateTime::parse_from_rfc2822(
+												&last_modified_string.replace("UTC", "GMT"),
+											)
+											.unwrap(),
+										)
+									})
+								})
+								.unwrap_or_default();
+
 							resolve
 								.call1(
 									&JsValue::NULL,
@@ -815,7 +848,7 @@ impl Client {
 										etag: etag.into(),
 										content: Some(buffer),
 										content_type: content_type.into(),
-										last_modified: chrono::Utc::now(), // TODO
+										last_modified,
 									})
 									.unwrap(),
 								)
@@ -823,8 +856,9 @@ impl Client {
 						}
 					}) as Box<dyn FnOnce(JsValue)>);
 
+					let reject_for_err = reject_for_main.clone();
 					let body_err = Closure::wrap(Box::new(move |err: JsValue| {
-						reject_for_main
+						reject_for_err
 							.call1(&JsValue::NULL, &format!("{:?}", err).into())
 							.unwrap();
 					}) as Box<dyn FnMut(JsValue)>);
@@ -843,6 +877,7 @@ impl Client {
 							&JsValue::from_str("document does not exists yet in database"),
 						)
 						.unwrap();
+					return;
 				} else {
 					reject_for_main
 						.call1(
@@ -853,9 +888,11 @@ impl Client {
 							)),
 						)
 						.unwrap();
+					return;
 				}
 			}) as Box<dyn FnOnce(JsValue)>);
 
+			let reject_for_err = reject.clone();
 			let err_callback = Closure::wrap(Box::new(move |err: JsValue| {
 				reject
 					.call1(&JsValue::NULL, &format!("{:?}", err).into())
@@ -940,8 +977,23 @@ impl Client {
 										),
 									)
 									.unwrap();
+								return;
 							}
 							let etag = etag.unwrap();
+
+							let last_modified = headers
+								.get("last-modified")
+								.map(|last_modified_some| {
+									last_modified_some.map(|last_modified_string| {
+										chrono::DateTime::from(
+											chrono::DateTime::parse_from_rfc2822(
+												&last_modified_string.replace("UTC", "GMT"),
+											)
+											.unwrap(),
+										)
+									})
+								})
+								.unwrap_or_default();
 
 							let content_type = headers.get("content-type");
 							if content_type.is_err() {
@@ -953,6 +1005,7 @@ impl Client {
 										),
 									)
 									.unwrap();
+								return;
 							}
 							let content_type = content_type.unwrap();
 							if content_type.is_none() {
@@ -964,6 +1017,7 @@ impl Client {
 										),
 									)
 									.unwrap();
+								return;
 							}
 							let content_type = content_type.unwrap();
 
@@ -974,7 +1028,7 @@ impl Client {
 										etag: etag.unwrap_or_default().into(),
 										content: None,
 										content_type: content_type.into(),
-										last_modified: chrono::Utc::now(), // TODO
+										last_modified,
 									})
 									.unwrap(),
 								)
@@ -989,6 +1043,7 @@ impl Client {
 									)),
 								)
 								.unwrap();
+							return;
 						}
 					}) as Box<dyn FnOnce(JsValue)>);
 
@@ -1022,7 +1077,12 @@ struct WebfingerResponse {
 #[derive(Debug, serde::Deserialize, Clone)]
 struct Link {
 	href: String,
-	properties: std::collections::HashMap<String, Option<String>>,
+	properties: LinkProperties,
+}
+#[derive(Debug, serde::Deserialize, Clone)]
+struct LinkProperties {
+	#[serde(rename = "http://tools.ietf.org/html/rfc6749#section-4.2")]
+	target: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -1055,17 +1115,21 @@ struct FolderResponseItem {
 impl From<FolderResponseItem> for crate::item::Item {
 	fn from(input: FolderResponseItem) -> Self {
 		if let Some(content_type) = input.content_type {
-			if let Some(last_modified) = input.last_modified {
-				return Self::Document {
-					etag: crate::item::Etag::from(input.etag),
-					content: None,
-					content_type: crate::item::ContentType::from(content_type),
-					last_modified: chrono::DateTime::from(
-						chrono::DateTime::parse_from_rfc2822(&last_modified.replace("UTC", "GMT"))
-							.unwrap(),
-					),
-				};
-			}
+			let last_modified = input.last_modified.map(|last_modified_string| {
+				chrono::DateTime::from(
+					chrono::DateTime::parse_from_rfc2822(
+						&last_modified_string.replace("UTC", "GMT"),
+					)
+					.unwrap(),
+				)
+			});
+
+			return Self::Document {
+				etag: crate::item::Etag::from(input.etag),
+				content: None,
+				content_type: crate::item::ContentType::from(content_type),
+				last_modified,
+			};
 		}
 
 		return Self::Folder {

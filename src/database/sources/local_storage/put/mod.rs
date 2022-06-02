@@ -21,6 +21,7 @@ pub fn put(
 			if let crate::item::Item::Document {
 				content_type: new_content_type,
 				content: new_content,
+				last_modified: new_last_modified,
 				..
 			} = item
 			{
@@ -33,7 +34,7 @@ pub fn put(
 								serde_json::to_string(&crate::item::DataDocument {
 									datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 									etag: new_etag.clone(),
-									last_modified: chrono::Utc::now(),
+									last_modified: Some(chrono::Utc::now()),
 									content_type: new_content_type,
 								});
 
@@ -130,7 +131,10 @@ pub fn put(
 										}
 									}
 
-									return crate::database::PutResult::Updated(new_etag);
+									return crate::database::PutResult::Updated(
+										new_etag,
+										new_last_modified.unwrap_or_else(|| chrono::Utc::now()),
+									);
 								}
 								Err(error) => {
 									return crate::database::PutResult::Err(Box::new(
@@ -265,7 +269,12 @@ pub fn put(
 							}
 						}
 
-						crate::database::PutResult::Created(datadocument.etag)
+						crate::database::PutResult::Created(
+							datadocument.etag,
+							datadocument
+								.last_modified
+								.unwrap_or_else(|| chrono::Utc::now()),
+						)
 					}
 					crate::item::Item::Document { content: None, .. } => {
 						crate::database::PutResult::Err(Box::new(PutError::NoContentInside {
