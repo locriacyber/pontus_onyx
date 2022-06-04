@@ -52,7 +52,7 @@ pub async fn put_item(
 			content_type: pontus_onyx::item::ContentType::from(
 				content_type.unwrap().to_str().unwrap(),
 			),
-			last_modified: Some(chrono::Utc::now()),
+			last_modified: Some(time::OffsetDateTime::now_utc()),
 		},
 		super::convert_actix_if_match(&request)
 			.first()

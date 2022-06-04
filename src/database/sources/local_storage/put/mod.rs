@@ -34,7 +34,7 @@ pub fn put(
 								serde_json::to_string(&crate::item::DataDocument {
 									datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 									etag: new_etag.clone(),
-									last_modified: Some(chrono::Utc::now()),
+									last_modified: Some(time::OffsetDateTime::now_utc()),
 									content_type: new_content_type,
 								});
 
@@ -133,7 +133,7 @@ pub fn put(
 
 									return crate::database::PutResult::Updated(
 										new_etag,
-										new_last_modified.unwrap_or_else(|| chrono::Utc::now()),
+										new_last_modified.unwrap_or_else(time::OffsetDateTime::now_utc),
 									);
 								}
 								Err(error) => {
@@ -271,9 +271,7 @@ pub fn put(
 
 						crate::database::PutResult::Created(
 							datadocument.etag,
-							datadocument
-								.last_modified
-								.unwrap_or_else(|| chrono::Utc::now()),
+							datadocument.last_modified.unwrap_or_else(time::OffsetDateTime::now_utc),
 						)
 					}
 					crate::item::Item::Document { content: None, .. } => {

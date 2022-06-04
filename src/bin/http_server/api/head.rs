@@ -36,7 +36,7 @@ pub async fn head_item(
 			if let Some(last_modified) = last_modified {
 				response.insert_header((
 					actix_web::http::header::LAST_MODIFIED,
-					last_modified.to_rfc2822(),
+					last_modified.format(&time::format_description::well_known::Rfc2822).unwrap_or_default(),
 				));
 			}
 			response.insert_header((actix_web::http::header::CACHE_CONTROL, "no-cache"));
@@ -86,7 +86,7 @@ pub async fn head_item(
 							"Content-Type": content_type,
 							"Content-Length": document_content.len(),
 							"Last-Modified": if let Some(last_modified) = last_modified {
-								serde_json::Value::from(last_modified.format(crate::http_server::RFC5322).to_string())
+								serde_json::Value::from(last_modified.format(&time::format_description::well_known::Rfc2822).unwrap_or_default())
 							} else {
 								serde_json::Value::Null
 							},

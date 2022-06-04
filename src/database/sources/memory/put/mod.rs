@@ -83,7 +83,7 @@ pub fn put(
 					}
 
 					*etag = new_etag.clone();
-					let now = chrono::Utc::now();
+					let now = time::OffsetDateTime::now_utc();
 					*last_modified = Some(now.clone());
 					*content_type = new_content_type;
 					*content = new_content;
@@ -147,7 +147,7 @@ pub fn put(
 									etag: new_etag.clone(),
 									content: new_content,
 									content_type: new_content_type,
-									last_modified: Some(chrono::Utc::now()),
+									last_modified: Some(time::OffsetDateTime::now_utc()),
 								};
 								content.insert(String::from(path.file_name()), Box::new(new_item));
 
@@ -177,7 +177,7 @@ pub fn put(
 
 								return crate::database::PutResult::Created(
 									new_etag,
-									new_last_modified.unwrap_or_else(|| chrono::Utc::now()),
+									new_last_modified.unwrap_or_else(time::OffsetDateTime::now_utc),
 								);
 							} else {
 								return crate::database::PutResult::Err(Box::new(

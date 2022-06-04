@@ -40,7 +40,7 @@ pub fn load_or_create_logger(
 
 				let attributes: Vec<(String, String)> = vec![charlie_buffalo::Attr::new(
 					"time",
-					format!("{}", chrono::offset::Local::now()),
+					format!("{}", time::OffsetDateTime::now_utc())
 				)
 				.into()];
 				for attribute in attributes {

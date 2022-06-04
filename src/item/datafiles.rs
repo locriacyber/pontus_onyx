@@ -4,7 +4,7 @@ pub struct DataDocument {
 	pub datastruct_version: String,
 	pub etag: crate::item::Etag,
 	pub content_type: crate::item::ContentType,
-	pub last_modified: Option<chrono::DateTime<chrono::Utc>>,
+	pub last_modified: Option<time::OffsetDateTime>,
 }
 impl Default for DataDocument {
 	fn default() -> Self {
@@ -12,7 +12,7 @@ impl Default for DataDocument {
 			datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 			etag: crate::item::Etag::new(),
 			content_type: crate::item::ContentType::from("application/octet-stream"),
-			last_modified: Some(chrono::Utc::now()),
+			last_modified: Some(time::OffsetDateTime::now_utc()),
 		}
 	}
 }

@@ -61,12 +61,12 @@ impl Database {
 #[derive(Debug)]
 #[must_use = "this `PutResult` may be an `Err` variant, which should be handled"]
 pub enum PutResult {
-	Created(crate::item::Etag, chrono::DateTime<chrono::Utc>),
-	Updated(crate::item::Etag, chrono::DateTime<chrono::Utc>),
+	Created(crate::item::Etag, time::OffsetDateTime),
+	Updated(crate::item::Etag, time::OffsetDateTime),
 	Err(Box<dyn std::error::Error>),
 }
 impl PutResult {
-	pub fn unwrap(self) -> (crate::item::Etag, chrono::DateTime<chrono::Utc>) {
+	pub fn unwrap(self) -> (crate::item::Etag, time::OffsetDateTime) {
 		match self {
 			Self::Created(etag, last_modified) => (etag, last_modified),
 			Self::Updated(etag, last_modified) => (etag, last_modified),
@@ -100,7 +100,7 @@ pub fn build_http_json_response(
 	request_method: &actix_web::http::Method,
 	code: actix_web::http::StatusCode,
 	etag: Option<crate::item::Etag>,
-	last_modified: Option<chrono::DateTime<chrono::Utc>>,
+	last_modified: Option<time::OffsetDateTime>,
 	hint: Option<String>,
 	should_have_body: bool,
 ) -> actix_web::HttpResponse {
@@ -126,10 +126,11 @@ pub fn build_http_json_response(
 	}
 
 	if let Some(last_modified) = last_modified {
-		response.insert_header((
-			actix_web::http::header::LAST_MODIFIED,
-			last_modified.to_rfc2822(),
-		));
+		if let Ok(last_modified) =
+			last_modified.format(&time::format_description::well_known::Rfc2822)
+		{
+			response.insert_header((actix_web::http::header::LAST_MODIFIED, last_modified));
+		}
 	}
 
 	return if should_have_body || request_method != actix_web::http::Method::HEAD {

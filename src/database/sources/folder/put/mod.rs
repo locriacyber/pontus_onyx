@@ -120,7 +120,7 @@ pub fn put(
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: new_etag.clone(),
 						content_type: new_content_type,
-						last_modified: Some(chrono::Utc::now()),
+						last_modified: Some(time::OffsetDateTime::now_utc()),
 					}) {
 						Ok(datadoc) => {
 							if let Err(error) = std::fs::write(&target_data_path, &datadoc) {
@@ -144,7 +144,7 @@ pub fn put(
 
 					return crate::database::PutResult::Updated(
 						new_etag,
-						new_last_modified.unwrap_or_else(|| chrono::Utc::now()),
+						new_last_modified.unwrap_or_else(time::OffsetDateTime::now_utc),
 					);
 				} else {
 					return crate::database::PutResult::Err(Box::new(PutError::ContentNotChanged));
@@ -232,7 +232,7 @@ pub fn put(
 						datastruct_version: String::from(env!("CARGO_PKG_VERSION")),
 						etag: new_etag.clone(),
 						content_type: new_content_type,
-						last_modified: Some(chrono::Utc::now()),
+						last_modified: Some(time::OffsetDateTime::now_utc()),
 					}) {
 						Ok(datafile) => {
 							if let Err(error) = std::fs::write(&target_data_path, &datafile) {
@@ -256,7 +256,7 @@ pub fn put(
 
 					return crate::database::PutResult::Updated(
 						new_etag,
-						new_last_modified.unwrap_or_else(|| chrono::Utc::now()),
+						new_last_modified.unwrap_or_else(time::OffsetDateTime::now_utc),
 					);
 				} else {
 					return crate::database::PutResult::Err(Box::new(

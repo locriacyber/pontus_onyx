@@ -39,7 +39,7 @@ pub enum Item {
 		/// It can be [`None`][`Option::None`] if we don't need to fetch its content, for performances purposes.
 		content: Option<Vec<u8>>,
 		content_type: crate::item::ContentType,
-		last_modified: Option<chrono::DateTime<chrono::offset::Utc>>,
+		last_modified: Option<time::OffsetDateTime>,
 	},
 }
 impl Item {
@@ -62,7 +62,7 @@ impl Item {
 			etag: crate::item::Etag::new(),
 			content: Some(content.to_vec()),
 			content_type: crate::item::ContentType::from(content_type),
-			last_modified: Some(chrono::Utc::now()),
+			last_modified: Some(time::OffsetDateTime::now_utc()),
 		};
 	}
 

@@ -1,6 +1,6 @@
 [package]
 name = "pontus_onyx"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["Jimskapt <rami.programmer@gmail.com>"]
 edition = "2021"
 
@@ -53,7 +53,7 @@ server_bin = [
 [dependencies]
 serde = { version = "1.0.137", features = ["derive"] }
 ulid = { version = "0.5.0", features = ["serde"] }
-chrono = { version = "0.4.19", features = ["serde"] }
+time = { version = "0.3.9", features = ["serde", "serde-human-readable", "formatting", "parsing"] }
 derivative = { version = "2.2.0" }
 regex = { version = "1.5.5" }
 

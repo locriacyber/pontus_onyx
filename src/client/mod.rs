@@ -624,15 +624,14 @@ impl Client {
 						.get("last-modified")
 						.map(|last_modified_some| {
 							last_modified_some.map(|last_modified_string| {
-								chrono::DateTime::from(
-									chrono::DateTime::parse_from_rfc2822(
-										&last_modified_string.replace("UTC", "GMT"),
-									)
-									.unwrap(),
-								)
+								time::OffsetDateTime::parse(
+									&last_modified_string,
+									&time::format_description::well_known::Rfc2822
+								).ok()
 							})
 						})
-						.unwrap_or_default();
+						.unwrap_or_default()
+						.flatten();
 
 					let content_type = headers.get("content-type");
 					if content_type.is_err() {
@@ -831,15 +830,14 @@ impl Client {
 								.get("last-modified")
 								.map(|last_modified_some| {
 									last_modified_some.map(|last_modified_string| {
-										chrono::DateTime::from(
-											chrono::DateTime::parse_from_rfc2822(
-												&last_modified_string.replace("UTC", "GMT"),
-											)
-											.unwrap(),
-										)
+										time::OffsetDateTime::parse(
+											&last_modified_string,
+											&time::format_description::well_known::Rfc2822
+										).ok()
 									})
 								})
-								.unwrap_or_default();
+								.unwrap_or_default()
+								.flatten();
 
 							resolve
 								.call1(
@@ -985,15 +983,14 @@ impl Client {
 								.get("last-modified")
 								.map(|last_modified_some| {
 									last_modified_some.map(|last_modified_string| {
-										chrono::DateTime::from(
-											chrono::DateTime::parse_from_rfc2822(
-												&last_modified_string.replace("UTC", "GMT"),
-											)
-											.unwrap(),
-										)
+										time::OffsetDateTime::parse(
+											&last_modified_string,
+											&time::format_description::well_known::Rfc2822
+										).ok()
 									})
 								})
-								.unwrap_or_default();
+								.unwrap_or_default()
+								.flatten();
 
 							let content_type = headers.get("content-type");
 							if content_type.is_err() {
@@ -1116,13 +1113,12 @@ impl From<FolderResponseItem> for crate::item::Item {
 	fn from(input: FolderResponseItem) -> Self {
 		if let Some(content_type) = input.content_type {
 			let last_modified = input.last_modified.map(|last_modified_string| {
-				chrono::DateTime::from(
-					chrono::DateTime::parse_from_rfc2822(
-						&last_modified_string.replace("UTC", "GMT"),
-					)
-					.unwrap(),
-				)
-			});
+				time::OffsetDateTime::parse(
+					&last_modified_string,
+					&time::format_description::well_known::Rfc2822
+				).ok()
+			})
+			.flatten();
 
 			return Self::Document {
 				etag: crate::item::Etag::from(input.etag),
