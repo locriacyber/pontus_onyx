@@ -1,8 +1,15 @@
 [package]
 name = "pontus_onyx"
 version = "0.15.0"
-authors = ["Jimskapt <rami.programmer@gmail.com>"]
+authors = ["Jimskapt"]
 edition = "2021"
+description = "A remoteStorage server and client implemented in Rust"
+keywords = ["remotestorage", "database", "local-first", "http", "rest"]
+categories = ["database", "database-implementations", "web-programming", "wasm"]
+license = "MIT"
+license-file = "LICENSE.txt"
+readme = "README.md"
+repository = "https://github.com/Jimskapt/pontus_onyx"
 
 [features]
 default = []
