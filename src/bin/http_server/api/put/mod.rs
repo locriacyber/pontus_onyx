@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 /*
 TODO :
 	Unless [KERBEROS] is used (see section 10 below), all other
@@ -13,6 +15,7 @@ pub async fn put_item(
 	database: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
 	>,
+	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> impl actix_web::Responder {
 	let mut content = actix_web::web::BytesMut::new();
 	while let Some(request_body) = futures::StreamExt::next(&mut request_payload).await {
@@ -44,8 +47,10 @@ pub async fn put_item(
 		);
 	}
 
+	let local_path = pontus_onyx::item::ItemPath::from(path.into_inner().as_str());
+
 	match database.lock().unwrap().put(
-		&pontus_onyx::item::ItemPath::from(path.into_inner().as_str()),
+		&local_path,
 		pontus_onyx::item::Item::Document {
 			etag: pontus_onyx::item::Etag::from(""),
 			content: Some(content.to_vec()),
@@ -99,6 +104,16 @@ pub async fn put_item(
 					true,
 				)
 			} else {
+				logger.lock().unwrap().push(
+					vec![
+						(String::from("level"), String::from("ERROR")),
+						(String::from("module"), String::from("https?")),
+						(String::from("method"), String::from("PUT")),
+						(String::from("path"), local_path.to_string()),
+					],
+					Some(&format!("error from database : {e}")),
+				);
+
 				pontus_onyx::database::build_http_json_response(
 					origin,
 					request.method(),

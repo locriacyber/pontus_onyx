@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 #[actix_web::head("/storage/{requested_item:.*}")]
 pub async fn head_item(
 	path: actix_web::web::Path<String>,
@@ -5,6 +7,7 @@ pub async fn head_item(
 	database: actix_web::web::Data<
 		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
 	>,
+	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
 	let all_origins = actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
@@ -15,8 +18,10 @@ pub async fn head_item(
 		.to_str()
 		.unwrap();
 
+	let local_path = pontus_onyx::item::ItemPath::from(path.into_inner().as_str());
+
 	match database.lock().unwrap().get(
-		&pontus_onyx::item::ItemPath::from(path.into_inner().as_str()),
+		&local_path,
 		super::convert_actix_if_match(&request)
 			.first()
 			.unwrap_or(&pontus_onyx::item::Etag::from("")),
@@ -92,11 +97,17 @@ pub async fn head_item(
 							},
 						});
 					}
-					pontus_onyx::item::Item::Document {
-						content: None,
-						last_modified,
-						..
-					} => {
+					pontus_onyx::item::Item::Document { content: None, .. } => {
+						logger.lock().unwrap().push(
+							vec![
+								(String::from("level"), String::from("ERROR")),
+								(String::from("module"), String::from("https?")),
+								(String::from("method"), String::from("HEAD")),
+								(String::from("path"), local_path.to_string()),
+							],
+							Some("document has no content"),
+						);
+
 						return pontus_onyx::database::build_http_json_response(
 							origin,
 							request.method(),
@@ -128,6 +139,16 @@ pub async fn head_item(
 			return response.finish();
 		}
 		Ok(pontus_onyx::item::Item::Folder { content: None, .. }) => {
+			logger.lock().unwrap().push(
+				vec![
+					(String::from("level"), String::from("ERROR")),
+					(String::from("module"), String::from("https?")),
+					(String::from("method"), String::from("HEAD")),
+					(String::from("path"), local_path.to_string()),
+				],
+				Some("folder has no content"),
+			);
+
 			pontus_onyx::database::build_http_json_response(
 				origin,
 				request.method(),
@@ -154,6 +175,16 @@ pub async fn head_item(
 					true,
 				)
 			} else {
+				logger.lock().unwrap().push(
+					vec![
+						(String::from("level"), String::from("ERROR")),
+						(String::from("module"), String::from("https?")),
+						(String::from("method"), String::from("HEAD")),
+						(String::from("path"), local_path.to_string()),
+					],
+					Some(&format!("error from database : {e}")),
+				);
+
 				pontus_onyx::database::build_http_json_response(
 					origin,
 					request.method(),

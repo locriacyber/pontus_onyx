@@ -324,13 +324,21 @@ impl ClientRemote {
 											resolve
 												.call1(&JsValue::NULL, &JsValue::from_bool(true))
 												.unwrap();
+										} else if resp.status() == 401 {
+											if debug {
+												web_sys::console::log_1(&format!("pontus-onyx-client-debug: HEAD {full_path_for_main} response returns 401 UNAUTHORIZED").into());
+											}
+
+											resolve
+												.call1(&JsValue::NULL, &JsValue::from_bool(false))
+												.unwrap();
 										} else {
 											if debug {
 												web_sys::console::log_1(&format!("pontus-onyx-client-debug: HEAD {full_path_for_main} response is NOT OK").into());
 											}
 
 											resolve
-												.call1(&JsValue::NULL, &JsValue::from_bool(false))
+												.call1(&JsValue::NULL, &JsValue::from_bool(true))
 												.unwrap();
 										}
 									}) as Box<dyn FnOnce(JsValue)>);
