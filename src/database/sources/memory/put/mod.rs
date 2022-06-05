@@ -84,7 +84,7 @@ pub fn put(
 
 					*etag = new_etag.clone();
 					let now = time::OffsetDateTime::now_utc();
-					*last_modified = Some(now.clone());
+					*last_modified = Some(now);
 					*content_type = new_content_type;
 					*content = new_content;
 

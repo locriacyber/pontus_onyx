@@ -5,8 +5,6 @@ use std::convert::TryFrom;
 use super::{super::GetError, put, PutError};
 use crate::item::{DataDocument, DataFolder, Etag, Item, ItemPath};
 
-// TODO : test last_modified
-
 fn build_test_db() -> (tempfile::TempDir, Etag, Etag, Etag) {
 	let AA = Item::new_doc(b"AA", "text/plain");
 	let A = Item::new_folder(vec![("AA", AA.clone())]);

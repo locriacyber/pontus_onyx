@@ -1,3 +1,30 @@
+/*
+TODO :
+	Clients SHOULD also handle the case where a response takes too long
+	to arrive, or where no response is received at all.
+*/
+/*
+TODO :
+* <storage_root> example : 'https://example.com:8080/path/to/storage' (host, port and
+	path prefix; note there is no trailing slash)
+* <access_token> as per [OAUTH]. The token SHOULD be hard to
+	guess and SHOULD NOT be reused from one client to another. It
+	can however be reused in subsequent interactions with the same
+	client, as long as that client is still trusted. Example:
+	'ofb24f1ac3973e70j6vts19qr9v2eei'
+* <storage_api>, always 'draft-dejong-remotestorage-17' for this
+	alternative version of the specification.
+
+client request = <storage_root> with
+	'/' plus one or more <folder> '/' strings indicating a path in the
+	folder tree, followed by zero or one <document> strings
+*/
+
+/*
+TODO : disabled functionalities ?
+	- (rs.js) modules
+*/
+
 use js_sys::Promise;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 
@@ -504,7 +531,7 @@ impl ClientRemote {
 					explain.style().set_property("color", "black")?;
 					explain.set_inner_html(&html);
 
-					next_window.append_child(&explain)?;
+					next_window.append_child(explain)?;
 
 					let a_next = document.create_element("a")?;
 					let a_next = a_next.dyn_ref::<web_sys::HtmlElement>().unwrap();
@@ -525,7 +552,7 @@ impl ClientRemote {
 					button_next.style().set_property("padding", "1em 0em")?;
 					a_next.append_child(button_next)?;
 
-					next_window.append_child(&a_next)?;
+					next_window.append_child(a_next)?;
 
 					document.body().unwrap().append_child(next_window)?;
 
@@ -634,8 +661,9 @@ impl Client {
 							last_modified_some.map(|last_modified_string| {
 								time::OffsetDateTime::parse(
 									&last_modified_string,
-									&time::format_description::well_known::Rfc2822
-								).ok()
+									&time::format_description::well_known::Rfc2822,
+								)
+								.ok()
 							})
 						})
 						.unwrap_or_default()
@@ -803,7 +831,6 @@ impl Client {
 					}
 					let content_type = content_type.unwrap();
 
-					let reject_for_body = reject_for_main.clone();
 					let body_process = Closure::once(Box::new(move |body: JsValue| {
 						let body = js_sys::ArrayBuffer::from(body);
 						let body =
@@ -840,8 +867,9 @@ impl Client {
 									last_modified_some.map(|last_modified_string| {
 										time::OffsetDateTime::parse(
 											&last_modified_string,
-											&time::format_description::well_known::Rfc2822
-										).ok()
+											&time::format_description::well_known::Rfc2822,
+										)
+										.ok()
 									})
 								})
 								.unwrap_or_default()
@@ -862,9 +890,8 @@ impl Client {
 						}
 					}) as Box<dyn FnOnce(JsValue)>);
 
-					let reject_for_err = reject_for_main.clone();
 					let body_err = Closure::wrap(Box::new(move |err: JsValue| {
-						reject_for_err
+						reject_for_main
 							.call1(&JsValue::NULL, &format!("{:?}", err).into())
 							.unwrap();
 					}) as Box<dyn FnMut(JsValue)>);
@@ -898,7 +925,6 @@ impl Client {
 				}
 			}) as Box<dyn FnOnce(JsValue)>);
 
-			let reject_for_err = reject.clone();
 			let err_callback = Closure::wrap(Box::new(move |err: JsValue| {
 				reject
 					.call1(&JsValue::NULL, &format!("{:?}", err).into())
@@ -993,8 +1019,9 @@ impl Client {
 									last_modified_some.map(|last_modified_string| {
 										time::OffsetDateTime::parse(
 											&last_modified_string,
-											&time::format_description::well_known::Rfc2822
-										).ok()
+											&time::format_description::well_known::Rfc2822,
+										)
+										.ok()
 									})
 								})
 								.unwrap_or_default()
@@ -1120,13 +1147,13 @@ struct FolderResponseItem {
 impl From<FolderResponseItem> for crate::item::Item {
 	fn from(input: FolderResponseItem) -> Self {
 		if let Some(content_type) = input.content_type {
-			let last_modified = input.last_modified.map(|last_modified_string| {
+			let last_modified = input.last_modified.and_then(|last_modified_string| {
 				time::OffsetDateTime::parse(
 					&last_modified_string,
-					&time::format_description::well_known::Rfc2822
-				).ok()
-			})
-			.flatten();
+					&time::format_description::well_known::Rfc2822,
+				)
+				.ok()
+			});
 
 			return Self::Document {
 				etag: crate::item::Etag::from(input.etag),

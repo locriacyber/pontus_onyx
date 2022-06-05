@@ -10,7 +10,7 @@ mod http_server;
 
 /*
 TODO : continue to :
-	https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-17
+	https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-18
 		"12. Example wire transcripts"
 */
 

@@ -13,7 +13,7 @@ This crate contains :
 
 - a client library (to use with webassembly),
 - a server library (for embeddable projects),
-- a server binary (to use the library directly).
+- a server binary (to use the server library directly).
 
 ## Development
 

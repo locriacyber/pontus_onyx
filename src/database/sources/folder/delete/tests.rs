@@ -5,8 +5,6 @@ use std::convert::TryFrom;
 use super::{super::GetError, delete, DeleteError};
 use crate::item::{DataDocument, DataFolder, Etag, Item, ItemPath};
 
-// TODO : test last_modified
-
 fn build_test_db() -> (
 	tempfile::TempDir,
 	Etag,

@@ -133,7 +133,8 @@ pub fn put(
 
 									return crate::database::PutResult::Updated(
 										new_etag,
-										new_last_modified.unwrap_or_else(time::OffsetDateTime::now_utc),
+										new_last_modified
+											.unwrap_or_else(time::OffsetDateTime::now_utc),
 									);
 								}
 								Err(error) => {
@@ -271,7 +272,9 @@ pub fn put(
 
 						crate::database::PutResult::Created(
 							datadocument.etag,
-							datadocument.last_modified.unwrap_or_else(time::OffsetDateTime::now_utc),
+							datadocument
+								.last_modified
+								.unwrap_or_else(time::OffsetDateTime::now_utc),
 						)
 					}
 					crate::item::Item::Document { content: None, .. } => {

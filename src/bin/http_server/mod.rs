@@ -17,7 +17,6 @@ use utils::build_server_address;
 
 use std::sync::{Arc, Mutex};
 
-pub const RFC5322: &str = "%a, %d %b %Y %H:%M:%S %Z";
 const FORM_TOKEN_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
 const PASSWORD_HASH_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ?,;.:/!§*µù%$£¤=+{}[]()°à@çè|#é~&";
 const ACCESS_TOKEN_ALPHABET: &str =

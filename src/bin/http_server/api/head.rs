@@ -41,7 +41,9 @@ pub async fn head_item(
 			if let Some(last_modified) = last_modified {
 				response.insert_header((
 					actix_web::http::header::LAST_MODIFIED,
-					last_modified.format(&time::format_description::well_known::Rfc2822).unwrap_or_default(),
+					last_modified
+						.format(&time::format_description::well_known::Rfc2822)
+						.unwrap_or_default(),
 				));
 			}
 			response.insert_header((actix_web::http::header::CACHE_CONTROL, "no-cache"));

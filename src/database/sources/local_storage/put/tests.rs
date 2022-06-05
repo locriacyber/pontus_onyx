@@ -3,8 +3,6 @@
 use super::{super::LocalStorageMock, super::Storage, put, PutError};
 use crate::item::{DataDocument, DataFolder, Etag, Item, ItemPath};
 
-// TODO : test last_modified
-
 fn build_test_db() -> (LocalStorageMock, String, Etag, Etag, Etag) {
 	let AA = Item::new_doc(b"AA", "text/plain");
 	let A = Item::new_folder(vec![("AA", AA.clone())]);

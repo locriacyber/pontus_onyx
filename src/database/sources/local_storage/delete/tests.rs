@@ -3,8 +3,6 @@
 use super::{super::GetError, super::LocalStorageMock, super::Storage, delete, DeleteError};
 use crate::item::{DataDocument, DataFolder, Etag, Item, ItemPath};
 
-// TODO : test last_modified
-
 fn build_test_db() -> (
 	LocalStorageMock,
 	String,

@@ -3,8 +3,6 @@
 use super::{delete, DeleteError};
 use crate::item::{Etag, Item, ItemPath};
 
-// TODO : test last_modified
-
 fn build_test_db() -> (Item, Etag, Etag, Etag, Etag, Etag, Etag) {
 	let root = Item::new_folder(vec![
 		(

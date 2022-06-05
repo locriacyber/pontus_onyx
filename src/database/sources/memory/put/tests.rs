@@ -3,8 +3,6 @@
 use super::{put, PutError};
 use crate::item::{Etag, Item, ItemPath};
 
-// TODO : test last_modified
-
 fn build_test_db() -> (
 	Item,
 	crate::item::Etag,
