@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Pontus Onyx</title>
+		<script>
+		function greet() {
+			let name = document.querySelector('#name').value;
+
+			window.__TAURI__.invoke('greet', { name })
+				.then(function(response) {
+					console.log(response);
+					alert(response);
+				});
+		}
+		</script>
+		<style>
+		#enabling_server, #enabling_server, #setup_server {
+			border: 1px solid black;
+		}
+
+		/* #enabling_server {
+			display: none;
+		}
+
+		#disabling_server {
+			display: none;
+		}
+
+		#setup_server {
+			display: none;
+		} */
+		</style>
+	</head>
+	<body>
+		<h1>Pontus Onyx</h1>
+
+		<div id="enabling_server">
+			<h2>Server disabled</h2>
+
+			<button>Enable the server</button>
+		</div>
+
+		<div id="disabling_server">
+			<h2>Server enabled</h2>
+
+			<button>Disable the server</button>
+			<p id="server_path">user@localhost:port</p>
+		</div>
+
+		<form id="setup_server">
+			<h2>Install server</h2>
+
+			<label for="admin_username">New admin username</label>
+			<input type="text" id="admin_username" name="admin_username">
+
+			<label for="admin_password">New admin password</label>
+			<input type="password" id="admin_password" name="admin_password">
+
+			<label for="admin_password_retype">New admin password (again)</label>
+			<input type="password" id="admin_password_retype" name="admin_password_retype">
+
+			<input type="submit" value="install">
+		</form>
+
+	</body>
+</html>
