@@ -2358,7 +2358,24 @@ dependencies = [
 
 [[package]]
 name = "pontus_onyx"
-version = "0.16.0"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "298d1ba65ef11dafeb65f6d2aca2d58bd7e389157073b399a24f4d5c23769e19"
+dependencies = [
+ "actix-web",
+ "bincode",
+ "derivative",
+ "regex",
+ "serde",
+ "serde_json",
+ "time",
+ "toml",
+ "ulid",
+]
+
+[[package]]
+name = "pontus_onyx"
+version = "0.16.2"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -2407,7 +2424,7 @@ dependencies = [
  "futures-util",
  "hmac-sha512",
  "pct-str",
- "pontus_onyx",
+ "pontus_onyx 0.16.2",
  "rand 0.8.5",
  "regex",
  "rmp-serde",
@@ -2427,7 +2444,7 @@ dependencies = [
 name = "pontus_onyx_gui"
 version = "0.1.0"
 dependencies = [
- "pontus_onyx",
+ "pontus_onyx 0.16.1",
  "serde",
  "serde_json",
  "tauri",

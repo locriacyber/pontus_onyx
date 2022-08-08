@@ -69,16 +69,12 @@ pub async fn get_favicon() -> impl actix_web::Responder {
 	let mut res = actix_web::HttpResponse::Ok();
 	res.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
 
-	return res.body(actix_web::web::Bytes::from_static(include_bytes!(
-		"../../../static/icon.ico"
-	)));
+	return res.body(actix_web::web::Bytes::from_static(pontus_onyx::assets::ICON));
 }
 
 #[actix_web::get("/remotestorage.svg")]
 pub async fn remotestoragesvg() -> impl actix_web::Responder {
-	return actix_web::HttpResponse::Ok().body(actix_web::web::Bytes::from_static(include_bytes!(
-		"../../../static/remoteStorage.svg"
-	)));
+	return actix_web::HttpResponse::Ok().body(actix_web::web::Bytes::from_static(pontus_onyx::assets::REMOTE_STORAGE));
 }
 
 #[actix_web::get("/")]

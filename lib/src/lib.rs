@@ -10,3 +10,6 @@ pub mod client;
 
 #[cfg(feature = "server")]
 pub mod database;
+
+#[cfg(feature = "assets")]
+pub mod assets;

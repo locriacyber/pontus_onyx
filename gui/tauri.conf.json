@@ -23,7 +23,7 @@
       },
       "externalBin": [],
       "icon": [
-        "../static/icon.ico"
+        "./icon.ico"
       ],
       "identifier": "com.github.jimskapt.pontus-onyx",
       "longDescription": "",
