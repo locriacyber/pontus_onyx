@@ -4,11 +4,11 @@ pub fn load_or_create_database(
 	settings: &super::Settings,
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
 ) -> Arc<Mutex<crate::database::Database>> {
-	let database = Arc::new(Mutex::new(crate::database::Database::new(
-		Box::new(crate::database::sources::FolderStorage {
+	let database = Arc::new(Mutex::new(crate::database::Database::new(Box::new(
+		crate::database::sources::FolderStorage {
 			root_folder_path: std::path::PathBuf::from(settings.data_path.clone()),
-		}),
-	)));
+		},
+	))));
 
 	logger.lock().unwrap().push(
 		vec![

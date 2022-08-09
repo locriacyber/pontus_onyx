@@ -92,7 +92,7 @@ where
 						if (std::time::Instant::now() - *token.get_emit_time())
 							< std::time::Duration::from_secs(
 								settings.token_lifetime_seconds.unwrap_or_else(|| {
-									crate::http_server::Settings::default()
+									crate::http_server::Settings::new(std::path::PathBuf::from("."))
 										.token_lifetime_seconds
 										.unwrap()
 								}),

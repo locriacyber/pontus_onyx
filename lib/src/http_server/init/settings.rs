@@ -40,7 +40,7 @@ pub fn load_or_create_settings(
 					Some("falling back to default settings"),
 				);
 
-				Settings::default()
+				Settings::new(settings_path.parent().unwrap().to_path_buf())
 			}
 		},
 		Err(e) => {
@@ -53,7 +53,7 @@ pub fn load_or_create_settings(
 				Some(&format!("can not read settings file : {}", e)),
 			);
 
-			let result = Settings::default();
+			let result = Settings::new(settings_path.parent().unwrap().to_path_buf());
 
 			if e.kind() == std::io::ErrorKind::NotFound {
 				if let Some(parent) = settings_path.parent() {
@@ -117,45 +117,30 @@ pub struct Settings {
 	pub force_https: Option<bool>,
 	pub domain: Option<String>,
 	pub domain_suffix: Option<String>,
-	#[serde(default = "random_port_generation")]
 	pub port: usize,
-	// TODO : pub admin_email: String,
+	pub admin_email: String,
 	pub token_lifetime_seconds: Option<u64>,
 	pub oauth_wait_seconds: Option<u64>,
-	#[serde(default = "Settings::default_logfile_path")]
 	pub logfile_path: String,
-	#[serde(default = "Settings::default_userfile_path")]
 	pub userfile_path: String,
-	#[serde(default = "Settings::default_data_path")]
 	pub data_path: String,
 	pub https: Option<SettingsHTTPS>,
 }
-impl Default for Settings {
-	fn default() -> Self {
+impl Settings {
+	pub fn new(workspace_path: std::path::PathBuf) -> Self {
 		Self {
 			force_https: None,
 			domain: Some(String::new()),
 			domain_suffix: Some(String::new()),
 			port: random_port_generation(),
-			// admin_email: String::new(),
+			admin_email: String::new(),
 			token_lifetime_seconds: Some(60 * 60),
-			logfile_path: Self::default_logfile_path(),
-			userfile_path: Self::default_userfile_path(),
-			data_path: Self::default_data_path(),
+			logfile_path: workspace_path.join("logs.msgpack").display().to_string(),
+			userfile_path: workspace_path.join("users.bin").display().to_string(),
+			data_path: workspace_path.join("data").display().to_string(),
 			https: Some(SettingsHTTPS::default()),
 			oauth_wait_seconds: Some(2),
 		}
-	}
-}
-impl Settings {
-	fn default_logfile_path() -> String {
-		String::from("database/logs.msgpack")
-	}
-	fn default_userfile_path() -> String {
-		String::from("database/users.bin")
-	}
-	fn default_data_path() -> String {
-		String::from("database/data")
 	}
 }
 

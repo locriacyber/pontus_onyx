@@ -213,7 +213,7 @@ pub async fn post_oauth(
 				.unwrap()
 				.oauth_wait_seconds
 				.unwrap_or_else(|| {
-					crate::http_server::Settings::default()
+					crate::http_server::Settings::new(std::path::PathBuf::from("."))
 						.oauth_wait_seconds
 						.unwrap()
 				}),

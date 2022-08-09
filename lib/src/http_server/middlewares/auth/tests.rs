@@ -3,9 +3,9 @@ use std::sync::{Arc, Mutex};
 
 #[actix_rt::test]
 async fn hsv5femo2qgu80gbad0ov5() {
-	let settings = std::sync::Arc::new(std::sync::Mutex::new(
-		crate::http_server::Settings::default(),
-	));
+	let settings = std::sync::Arc::new(std::sync::Mutex::new(crate::http_server::Settings::new(
+		tempfile::tempdir().unwrap().into_path(),
+	)));
 
 	let logger = Arc::new(Mutex::new(charlie_buffalo::Logger::new(
 		charlie_buffalo::new_dispatcher(Box::new(|_| {})),
@@ -77,8 +77,8 @@ async fn kp6m20xdwvw6v4t3yxq() {
 	);
 	access_tokens.lock().unwrap().push(token.clone());
 
-	let database = crate::database::Database::new(Box::new(
-		crate::database::sources::MemoryStorage {
+	let database =
+		crate::database::Database::new(Box::new(crate::database::sources::MemoryStorage {
 			root_item: crate::item::Item::new_folder(vec![(
 				"user",
 				crate::item::Item::new_folder(vec![
@@ -89,9 +89,7 @@ async fn kp6m20xdwvw6v4t3yxq() {
 							crate::item::Item::Document {
 								etag: crate::item::Etag::new(),
 								content: Some(b"HELLO".to_vec()),
-								content_type: crate::item::ContentType::from(
-									"text/plain",
-								),
+								content_type: crate::item::ContentType::from("text/plain"),
 								last_modified: Some(time::OffsetDateTime::now_utc()),
 							},
 						)]),
@@ -103,9 +101,7 @@ async fn kp6m20xdwvw6v4t3yxq() {
 							crate::item::Item::Document {
 								etag: crate::item::Etag::new(),
 								content: Some(b"HELLO".to_vec()),
-								content_type: crate::item::ContentType::from(
-									"text/plain",
-								),
+								content_type: crate::item::ContentType::from("text/plain"),
 								last_modified: Some(time::OffsetDateTime::now_utc()),
 							},
 						)]),
@@ -120,9 +116,7 @@ async fn kp6m20xdwvw6v4t3yxq() {
 									crate::item::Item::Document {
 										etag: crate::item::Etag::new(),
 										content: Some(b"HELLO".to_vec()),
-										content_type: crate::item::ContentType::from(
-											"text/plain",
-										),
+										content_type: crate::item::ContentType::from("text/plain"),
 										last_modified: Some(time::OffsetDateTime::now_utc()),
 									},
 								)]),
@@ -134,9 +128,7 @@ async fn kp6m20xdwvw6v4t3yxq() {
 									crate::item::Item::Document {
 										etag: crate::item::Etag::new(),
 										content: Some(b"HELLO".to_vec()),
-										content_type: crate::item::ContentType::from(
-											"text/plain",
-										),
+										content_type: crate::item::ContentType::from("text/plain"),
 										last_modified: Some(time::OffsetDateTime::now_utc()),
 									},
 								)]),
@@ -145,13 +137,12 @@ async fn kp6m20xdwvw6v4t3yxq() {
 					),
 				]),
 			)]),
-		},
-	));
+		}));
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
-	let settings = std::sync::Arc::new(std::sync::Mutex::new(
-		crate::http_server::Settings::default(),
-	));
+	let settings = std::sync::Arc::new(std::sync::Mutex::new(crate::http_server::Settings::new(
+		tempfile::tempdir().unwrap().into_path(),
+	)));
 
 	let mut logger = charlie_buffalo::Logger::new(
 		charlie_buffalo::new_dispatcher(Box::from(move |log: charlie_buffalo::Log| {
@@ -167,7 +158,9 @@ async fn kp6m20xdwvw6v4t3yxq() {
 			.app_data(actix_web::web::Data::new(access_tokens.clone()))
 			.app_data(actix_web::web::Data::new(settings.clone()))
 			.app_data(actix_web::web::Data::new(logger.clone()))
-			.wrap(super::Auth { logger: logger.clone() })
+			.wrap(super::Auth {
+				logger: logger.clone(),
+			})
 			.service(crate::http_server::api::get_item)
 			.service(crate::http_server::api::put_item),
 	)

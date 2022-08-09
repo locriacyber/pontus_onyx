@@ -12,9 +12,7 @@ pub async fn put_item(
 	mut request_payload: actix_web::web::Payload,
 	request: actix_web::HttpRequest,
 	path: actix_web::web::Path<String>,
-	database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<crate::database::Database>>,
-	>,
+	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::database::Database>>>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> impl actix_web::Responder {
 	let mut content = actix_web::web::BytesMut::new();
@@ -54,9 +52,7 @@ pub async fn put_item(
 		crate::item::Item::Document {
 			etag: crate::item::Etag::from(""),
 			content: Some(content.to_vec()),
-			content_type: crate::item::ContentType::from(
-				content_type.unwrap().to_str().unwrap(),
-			),
+			content_type: crate::item::ContentType::from(content_type.unwrap().to_str().unwrap()),
 			last_modified: Some(time::OffsetDateTime::now_utc()),
 		},
 		super::convert_actix_if_match(&request)

@@ -28,9 +28,7 @@ fn convert_actix_if_match(request: &actix_web::HttpRequest) -> Vec<crate::item::
 	}
 }
 
-fn convert_actix_if_none_match(
-	request: &actix_web::HttpRequest,
-) -> Vec<crate::item::Etag> {
+fn convert_actix_if_none_match(request: &actix_web::HttpRequest) -> Vec<crate::item::Etag> {
 	let res: Result<actix_web::http::header::IfNoneMatch, actix_web::error::ParseError> =
 		actix_web::http::header::Header::parse(request);
 

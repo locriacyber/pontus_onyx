@@ -4,9 +4,7 @@ use std::sync::{Arc, Mutex};
 pub async fn head_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::HttpRequest,
-	database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<crate::database::Database>>,
-	>,
+	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::database::Database>>>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?

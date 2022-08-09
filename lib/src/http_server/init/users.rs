@@ -93,9 +93,12 @@ pub fn load_or_create_users(
 											println!(
 												"\t❌ This password need at least 6 characters"
 											);
-										} else if String::from_utf8(crate::assets::MOST_USED_PASSWORDS.to_vec()).unwrap()
-											.lines()
-											.any(|line| line == password2)
+										} else if String::from_utf8(
+											crate::assets::MOST_USED_PASSWORDS.to_vec(),
+										)
+										.unwrap()
+										.lines()
+										.any(|line| line == password2)
 										{
 											println!("\t❌ This password is too easy to guess");
 											admin_password = String::new();

@@ -14,11 +14,11 @@ So 0.x.0 versions are breaking changes until then.
 ### Run GUI server
 
 ```cmd
-cargo tauri dev
+cargo tauri dev -- -- ./database
 ```
 
 OR
 
 ```cmd
-cargo run --bin pontus_onyx_gui
+cargo run --bin pontus_onyx_gui -- ./database
 ```

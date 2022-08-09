@@ -2,8 +2,8 @@ use actix_web::http::{header::EntityTag, Method, StatusCode};
 
 #[actix_rt::test]
 async fn basics() {
-	let database = crate::database::Database::new(Box::new(
-		crate::database::sources::MemoryStorage {
+	let database =
+		crate::database::Database::new(Box::new(crate::database::sources::MemoryStorage {
 			root_item: crate::item::Item::new_folder(vec![(
 				"user",
 				crate::item::Item::new_folder(vec![(
@@ -15,17 +15,14 @@ async fn basics() {
 							crate::item::Item::Document {
 								etag: crate::item::Etag::new(),
 								content: Some(b"HELLO".to_vec()),
-								content_type: crate::item::ContentType::from(
-									"text/plain",
-								),
+								content_type: crate::item::ContentType::from("text/plain"),
 								last_modified: Some(time::OffsetDateTime::now_utc()),
 							},
 						)]),
 					)]),
 				)]),
 			)]),
-		},
-	));
+		}));
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut logger = charlie_buffalo::Logger::new(
@@ -117,8 +114,8 @@ async fn basics() {
 
 #[actix_rt::test]
 async fn if_match() {
-	let database = crate::database::Database::new(Box::new(
-		crate::database::sources::MemoryStorage {
+	let database =
+		crate::database::Database::new(Box::new(crate::database::sources::MemoryStorage {
 			root_item: crate::item::Item::new_folder(vec![(
 				"user",
 				crate::item::Item::new_folder(vec![(
@@ -130,17 +127,14 @@ async fn if_match() {
 							crate::item::Item::Document {
 								etag: crate::item::Etag::from("A"),
 								content: Some(b"HELLO".to_vec()),
-								content_type: crate::item::ContentType::from(
-									"text/plain",
-								),
+								content_type: crate::item::ContentType::from("text/plain"),
 								last_modified: Some(time::OffsetDateTime::now_utc()),
 							},
 						)]),
 					)]),
 				)]),
 			)]),
-		},
-	));
+		}));
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
 	let mut logger = charlie_buffalo::Logger::new(

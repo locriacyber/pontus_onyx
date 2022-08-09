@@ -508,7 +508,9 @@ impl ClientRemote {
 					next_window.append_child(abort)?;
 
 					let dummy = document.create_element("div")?;
-					dummy.set_inner_html(&String::from_utf8(crate::assets::REMOTE_STORAGE.to_vec()).unwrap());
+					dummy.set_inner_html(
+						&String::from_utf8(crate::assets::REMOTE_STORAGE.to_vec()).unwrap(),
+					);
 					let dummy = dummy.dyn_ref::<web_sys::HtmlElement>().unwrap();
 
 					let svg = dummy.first_element_child();

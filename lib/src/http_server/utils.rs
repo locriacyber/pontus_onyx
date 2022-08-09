@@ -70,7 +70,7 @@ pub fn build_server_address(
 
 #[test]
 fn pbw1cgzctiqe163() {
-	let settings = super::Settings::default();
+	let settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
 	let state = super::ProgramState { https_mode: false };
 
 	assert_eq!(
@@ -86,7 +86,7 @@ fn pbw1cgzctiqe163() {
 
 #[test]
 fn ykf0gcnr7z2ko4wtx8uub() {
-	let mut settings = super::Settings::default();
+	let mut settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
 	settings.domain_suffix = Some(String::from("test"));
 	let state = super::ProgramState { https_mode: false };
 
@@ -103,7 +103,7 @@ fn ykf0gcnr7z2ko4wtx8uub() {
 
 #[test]
 fn wxpy6tncuwbbavvxi() {
-	let mut settings = super::Settings::default();
+	let mut settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
 	settings.domain_suffix = Some(String::from("test/"));
 	let state = super::ProgramState { https_mode: false };
 
@@ -120,7 +120,7 @@ fn wxpy6tncuwbbavvxi() {
 
 #[test]
 fn fpfxwrixa1jz7t() {
-	let settings = super::Settings::default();
+	let settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
 	let state = super::ProgramState { https_mode: true };
 
 	assert_eq!(
@@ -137,7 +137,7 @@ fn fpfxwrixa1jz7t() {
 #[test]
 fn xtgfpc3x1zcmb() {
 	let domain = String::from("example.com");
-	let mut settings = super::Settings::default();
+	let mut settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
 	settings.domain = Some(domain.clone());
 	let state = super::ProgramState { https_mode: false };
 
@@ -155,7 +155,7 @@ fn xtgfpc3x1zcmb() {
 #[test]
 fn ekkvpuijzifxc() {
 	let domain = String::from("example.com");
-	let mut settings = super::Settings::default();
+	let mut settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
 	settings.domain = Some(domain.clone());
 	let state = super::ProgramState { https_mode: true };
 
@@ -173,7 +173,7 @@ fn ekkvpuijzifxc() {
 #[test]
 fn bj8n5zhu2oaaed55561ygk() {
 	let domain = String::from("example.com");
-	let mut settings = super::Settings::default();
+	let mut settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
 	settings.domain = Some(domain.clone());
 	settings.port = 80;
 	if let Some(https) = &mut settings.https {
@@ -190,7 +190,7 @@ fn bj8n5zhu2oaaed55561ygk() {
 #[test]
 fn d434yaaxfqcnd4j() {
 	let domain = String::from("example.com");
-	let mut settings = super::Settings::default();
+	let mut settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
 	settings.domain = Some(domain.clone());
 	settings.port = 80;
 	if let Some(https) = &mut settings.https {

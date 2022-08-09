@@ -14,5 +14,5 @@ So 0.x.0 versions are breaking changes until then.
 ### Run CLI server
 
 ```cmd
-cargo run --bin pontus_onyx_cli
+cargo run --bin pontus_onyx_cli -- ./database
 ```

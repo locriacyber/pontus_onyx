@@ -842,6 +842,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dunce"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "453440c271cf5577fd2a40e4942540cb7d0d2f85e27c8d07dd0023c925a67541"
+
+[[package]]
 name = "embed-resource"
 version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2358,7 +2364,7 @@ dependencies = [
 
 [[package]]
 name = "pontus_onyx"
-version = "0.16.7"
+version = "0.16.8"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -2394,36 +2400,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pontus_onyx"
-version = "0.16.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b04d41f127f81b7b4cf1478a94409048e1dfc2de851e57ac14a700182709f8f1"
-dependencies = [
- "actix-web",
- "bincode",
- "charlie_buffalo",
- "derivative",
- "futures",
- "futures-util",
- "hmac-sha512",
- "pct-str",
- "rand 0.8.5",
- "regex",
- "rmp-serde",
- "rpassword",
- "rustls",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "time",
- "toml",
- "ulid",
- "zeroize",
-]
-
-[[package]]
 name = "pontus_onyx_cli"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -2435,7 +2413,7 @@ dependencies = [
  "futures-util",
  "hmac-sha512",
  "pct-str",
- "pontus_onyx 0.16.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pontus_onyx",
  "rand 0.8.5",
  "regex",
  "rmp-serde",
@@ -2453,13 +2431,16 @@ dependencies = [
 
 [[package]]
 name = "pontus_onyx_gui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
- "pontus_onyx 0.16.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "charlie_buffalo",
+ "dunce",
+ "pontus_onyx",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
+ "tinyfiledialogs",
 ]
 
 [[package]]
@@ -2920,18 +2901,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.142"
+version = "1.0.143"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e590c437916fb6b221e1d00df6e3294f3fccd70ca7e92541c475d6ed6ef5fee2"
+checksum = "53e8e5d5b70924f74ff5c6d64d9a5acd91422117c60f48c4e07855238a254553"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.142"
+version = "1.0.143"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34b5b8d809babe02f538c2cfec6f2c1ed10804c0e5a6a041a049a4f5588ccc2e"
+checksum = "d3d8e8de557aee63c26b85b947f5e59b690d0454c753f3adeb5cd7835ab88391"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3541,12 +3522,11 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.12"
+version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74b7cc93fc23ba97fde84f7eea56c55d1ba183f495c6715defdfc7b9cb8c870f"
+checksum = "db76ff9fa4b1458b3c7f077f3ff9887394058460d21e634355b273aaf11eea45"
 dependencies = [
  "itoa 1.0.3",
- "js-sys",
  "libc",
  "num_threads",
  "serde",
@@ -3558,6 +3538,16 @@ name = "time-macros"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42657b1a6f4d817cda8e7a0ace261fe0cc946cf3a80314390b22cc61ae080792"
+
+[[package]]
+name = "tinyfiledialogs"
+version = "3.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e25fa0bc43a6566e2cc6d7ac96df3fa5a57beba34445bead1b368ba8fe9ca568"
+dependencies = [
+ "cc",
+ "libc",
+]
 
 [[package]]
 name = "tinyvec"

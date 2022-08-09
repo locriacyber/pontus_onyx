@@ -74,7 +74,9 @@ pub async fn get_favicon() -> impl actix_web::Responder {
 
 #[actix_web::get("/remotestorage.svg")]
 pub async fn remotestoragesvg() -> impl actix_web::Responder {
-	return actix_web::HttpResponse::Ok().body(actix_web::web::Bytes::from_static(crate::assets::REMOTE_STORAGE));
+	return actix_web::HttpResponse::Ok().body(actix_web::web::Bytes::from_static(
+		crate::assets::REMOTE_STORAGE,
+	));
 }
 
 #[actix_web::get("/")]

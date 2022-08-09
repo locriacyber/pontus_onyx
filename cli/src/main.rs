@@ -22,7 +22,19 @@ async fn main() -> std::io::Result<()> {
 	);
 	println!();
 
-	let workspace_path = std::path::PathBuf::from("database");
+	let workspace_path =
+		std::path::PathBuf::from(if let Some(workspace_dir) = std::env::args().nth(1) {
+			if let Err(err) = std::fs::create_dir_all(workspace_dir.clone()) {
+				panic!(
+					"Error : can not create workspace {} : {}",
+					workspace_dir, err
+				);
+			}
+
+			workspace_dir
+		} else {
+			String::from("database")
+		});
 
 	let temp_logs_list = Arc::new(Mutex::new(vec![]));
 	let temp_logs_list_for_dispatcher = temp_logs_list.clone();
@@ -45,11 +57,13 @@ async fn main() -> std::io::Result<()> {
 
 	let mut settings_path = workspace_path.clone();
 	settings_path.push("settings.toml");
-	let settings = pontus_onyx::http_server::load_or_create_settings(settings_path.clone(), &mut temp_logger);
+	let settings =
+		pontus_onyx::http_server::load_or_create_settings(settings_path.clone(), &mut temp_logger);
 
 	temp_logger.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
-	let logger = pontus_onyx::http_server::load_or_create_logger(&settings, temp_logger, temp_logs_list);
+	let logger =
+		pontus_onyx::http_server::load_or_create_logger(&settings, temp_logger, temp_logs_list);
 
 	logger
 		.lock()
@@ -77,7 +91,8 @@ async fn main() -> std::io::Result<()> {
 	let oauth_form_tokens: Arc<Mutex<Vec<pontus_onyx::http_server::middlewares::OauthFormToken>>> =
 		Arc::new(Mutex::new(vec![]));
 
-	let access_tokens: Arc<Mutex<Vec<pontus_onyx::http_server::AccessBearer>>> = Arc::new(Mutex::new(vec![]));
+	let access_tokens: Arc<Mutex<Vec<pontus_onyx::http_server::AccessBearer>>> =
+		Arc::new(Mutex::new(vec![]));
 
 	logger.lock().unwrap().push(
 		vec![
