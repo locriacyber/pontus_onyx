@@ -148,7 +148,7 @@ where
 
 										Ok(actix_web::dev::ServiceResponse::new(
 											service_request.into_parts().0,
-											pontus_onyx::database::build_http_json_response(
+											crate::database::build_http_json_response(
 												origin,
 												&request_method,
 												actix_web::http::StatusCode::FORBIDDEN,
@@ -184,7 +184,7 @@ where
 
 								Ok(actix_web::dev::ServiceResponse::new(
 									service_request.into_parts().0,
-									pontus_onyx::database::build_http_json_response(
+									crate::database::build_http_json_response(
 										origin,
 										&request_method,
 										actix_web::http::StatusCode::FORBIDDEN,
@@ -211,7 +211,7 @@ where
 
 							Ok(actix_web::dev::ServiceResponse::new(
 								service_request.into_parts().0,
-								pontus_onyx::database::build_http_json_response(
+								crate::database::build_http_json_response(
 									origin,
 									&request_method,
 									actix_web::http::StatusCode::UNAUTHORIZED,
@@ -284,7 +284,7 @@ where
 
 						Ok(actix_web::dev::ServiceResponse::new(
 							service_request.into_parts().0,
-							pontus_onyx::database::build_http_json_response(
+							crate::database::build_http_json_response(
 								origin,
 								&request_method,
 								actix_web::http::StatusCode::UNAUTHORIZED,

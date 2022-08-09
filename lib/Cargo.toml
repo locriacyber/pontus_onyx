@@ -1,6 +1,6 @@
 [package]
 name = "pontus_onyx"
-version = "0.16.2"
+version = "0.16.7"
 authors = ["Jimskapt"]
 edition = "2021"
 description = "A remoteStorage server and client library"
@@ -9,6 +9,7 @@ categories = ["database", "database-implementations", "web-programming", "wasm"]
 license = "MIT"
 readme = "../README.md"
 repository = "https://github.com/Jimskapt/pontus_onyx"
+documentation = "https://docs.rs/pontus_onyx/"
 
 [features]
 client = [
@@ -26,7 +27,18 @@ client_cookies = [
 ]
 actix_server = [
     "actix-web",
-    "serde_json"
+    "serde_json",
+    "charlie_buffalo",
+    "rmp-serde",
+    "rand",
+    "hmac-sha512",
+    "futures",
+    "futures-util",
+    "zeroize",
+    "pct-str",
+    "rustls",
+    "rustls-pemfile",
+    "rpassword"
 ]
 server = [
     "bincode",

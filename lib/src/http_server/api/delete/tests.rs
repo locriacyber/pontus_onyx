@@ -2,20 +2,20 @@ use actix_web::http::{header::EntityTag, Method, StatusCode};
 
 #[actix_rt::test]
 async fn basics() {
-	let database = pontus_onyx::database::Database::new(Box::new(
-		pontus_onyx::database::sources::MemoryStorage {
-			root_item: pontus_onyx::item::Item::new_folder(vec![(
+	let database = crate::database::Database::new(Box::new(
+		crate::database::sources::MemoryStorage {
+			root_item: crate::item::Item::new_folder(vec![(
 				"user",
-				pontus_onyx::item::Item::new_folder(vec![(
+				crate::item::Item::new_folder(vec![(
 					"a",
-					pontus_onyx::item::Item::new_folder(vec![(
+					crate::item::Item::new_folder(vec![(
 						"b",
-						pontus_onyx::item::Item::new_folder(vec![(
+						crate::item::Item::new_folder(vec![(
 							"c",
-							pontus_onyx::item::Item::Document {
-								etag: pontus_onyx::item::Etag::new(),
+							crate::item::Item::Document {
+								etag: crate::item::Etag::new(),
 								content: Some(b"HELLO".to_vec()),
-								content_type: pontus_onyx::item::ContentType::from(
+								content_type: crate::item::ContentType::from(
 									"text/plain",
 								),
 								last_modified: Some(time::OffsetDateTime::now_utc()),
@@ -117,20 +117,20 @@ async fn basics() {
 
 #[actix_rt::test]
 async fn if_match() {
-	let database = pontus_onyx::database::Database::new(Box::new(
-		pontus_onyx::database::sources::MemoryStorage {
-			root_item: pontus_onyx::item::Item::new_folder(vec![(
+	let database = crate::database::Database::new(Box::new(
+		crate::database::sources::MemoryStorage {
+			root_item: crate::item::Item::new_folder(vec![(
 				"user",
-				pontus_onyx::item::Item::new_folder(vec![(
+				crate::item::Item::new_folder(vec![(
 					"a",
-					pontus_onyx::item::Item::new_folder(vec![(
+					crate::item::Item::new_folder(vec![(
 						"b",
-						pontus_onyx::item::Item::new_folder(vec![(
+						crate::item::Item::new_folder(vec![(
 							"c",
-							pontus_onyx::item::Item::Document {
-								etag: pontus_onyx::item::Etag::from("A"),
+							crate::item::Item::Document {
+								etag: crate::item::Etag::from("A"),
 								content: Some(b"HELLO".to_vec()),
-								content_type: pontus_onyx::item::ContentType::from(
+								content_type: crate::item::ContentType::from(
 									"text/plain",
 								),
 								last_modified: Some(time::OffsetDateTime::now_utc()),

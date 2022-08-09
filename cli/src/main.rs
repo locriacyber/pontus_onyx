@@ -3,8 +3,6 @@
 use std::convert::From;
 use std::sync::{Arc, Mutex};
 
-mod http_server;
-
 /*
 TODO : continue to :
 	https://datatracker.ietf.org/doc/html/draft-dejong-remotestorage-19
@@ -47,25 +45,25 @@ async fn main() -> std::io::Result<()> {
 
 	let mut settings_path = workspace_path.clone();
 	settings_path.push("settings.toml");
-	let settings = http_server::load_or_create_settings(settings_path.clone(), &mut temp_logger);
+	let settings = pontus_onyx::http_server::load_or_create_settings(settings_path.clone(), &mut temp_logger);
 
 	temp_logger.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
-	let logger = http_server::load_or_create_logger(&settings, temp_logger, temp_logs_list);
+	let logger = pontus_onyx::http_server::load_or_create_logger(&settings, temp_logger, temp_logs_list);
 
 	logger
 		.lock()
 		.unwrap()
 		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
-	let users = http_server::load_or_create_users(&settings, logger.clone());
+	let users = pontus_onyx::http_server::load_or_create_users(&settings, logger.clone());
 
 	logger
 		.lock()
 		.unwrap()
 		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
-	let database = http_server::load_or_create_database(&settings, logger.clone());
+	let database = pontus_onyx::http_server::load_or_create_database(&settings, logger.clone());
 
 	logger
 		.lock()
@@ -74,12 +72,12 @@ async fn main() -> std::io::Result<()> {
 
 	let settings = Arc::new(Mutex::new(settings));
 	let users = Arc::new(Mutex::new(users));
-	let program_state = Arc::new(Mutex::new(ProgramState::default()));
+	let program_state = Arc::new(Mutex::new(pontus_onyx::http_server::ProgramState::default()));
 
-	let oauth_form_tokens: Arc<Mutex<Vec<http_server::middlewares::OauthFormToken>>> =
+	let oauth_form_tokens: Arc<Mutex<Vec<pontus_onyx::http_server::middlewares::OauthFormToken>>> =
 		Arc::new(Mutex::new(vec![]));
 
-	let access_tokens: Arc<Mutex<Vec<http_server::AccessBearer>>> = Arc::new(Mutex::new(vec![]));
+	let access_tokens: Arc<Mutex<Vec<pontus_onyx::http_server::AccessBearer>>> = Arc::new(Mutex::new(vec![]));
 
 	logger.lock().unwrap().push(
 		vec![
@@ -94,7 +92,7 @@ async fn main() -> std::io::Result<()> {
 		.unwrap()
 		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
-	http_server::setup_and_run_https_server(
+	pontus_onyx::http_server::setup_and_run_https_server(
 		settings.clone(),
 		database.clone(),
 		access_tokens.clone(),
@@ -144,16 +142,16 @@ async fn main() -> std::io::Result<()> {
 	let http_binding = actix_web::HttpServer::new(move || {
 		// same code in https module
 		actix_web::App::new()
-			.wrap(http_server::middlewares::Hsts {
+			.wrap(pontus_onyx::http_server::middlewares::Hsts {
 				enable: enable_hsts,
 			})
-			.wrap(http_server::middlewares::Auth {
+			.wrap(pontus_onyx::http_server::middlewares::Auth {
 				logger: logger_for_server.clone(),
 			})
-			.wrap(http_server::middlewares::Logger {
+			.wrap(pontus_onyx::http_server::middlewares::Logger {
 				logger: logger_for_server.clone(),
 			})
-			.configure(http_server::configure_server(
+			.configure(pontus_onyx::http_server::configure_server(
 				settings.clone(),
 				database.clone(),
 				access_tokens.clone(),
@@ -180,11 +178,6 @@ async fn main() -> std::io::Result<()> {
 			Err(e)
 		}
 	}
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ProgramState {
-	https_mode: bool,
 }
 
 /*

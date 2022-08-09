@@ -65,7 +65,7 @@ pub fn load_or_create_users(
 
 					admin_username = admin_username.trim().to_lowercase();
 
-					if pontus_onyx::assets::EASY_TO_GUESS_USERS.contains(&admin_username.as_str()) {
+					if crate::assets::EASY_TO_GUESS_USERS.contains(&admin_username.as_str()) {
 						println!("\t❌ This username is too easy to guess");
 						admin_username = String::new();
 					} else {
@@ -93,7 +93,7 @@ pub fn load_or_create_users(
 											println!(
 												"\t❌ This password need at least 6 characters"
 											);
-										} else if String::from_utf8(pontus_onyx::assets::MOST_USED_PASSWORDS.to_vec()).unwrap()
+										} else if String::from_utf8(crate::assets::MOST_USED_PASSWORDS.to_vec()).unwrap()
 											.lines()
 											.any(|line| line == password2)
 										{

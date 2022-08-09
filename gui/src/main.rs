@@ -4,19 +4,32 @@
 	windows_subsystem = "windows"
 )]
 
-use std::convert::From;
-use std::sync::{Arc, Mutex};
-
 fn main() {
 	tauri::Builder::default()
-		.invoke_handler(tauri::generate_handler![greet])
+		.invoke_handler(tauri::generate_handler![init_gui])
+		.invoke_handler(tauri::generate_handler![install_server])
+		.invoke_handler(tauri::generate_handler![start_server])
+		.invoke_handler(tauri::generate_handler![stop_server])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");
 }
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-	let result = format!("Hello, {}!", name);
+fn init_gui() -> (Vec<String>) {
+	todo!()
+}
 
-	result
+#[tauri::command]
+fn install_server(install_path: String, username: String, password: String) -> Result<String, String> {
+	todo!()
+}
+
+#[tauri::command]
+fn start_server() {
+	todo!()
+}
+
+#[tauri::command]
+fn stop_server() {
+	todo!()
 }

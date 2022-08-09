@@ -63,13 +63,13 @@ async fn kp6m20xdwvw6v4t3yxq() {
 
 	let token = crate::http_server::AccessBearer::new(
 		vec![
-			pontus_onyx::scope::Scope {
+			crate::scope::Scope {
 				module: String::from("folder_write"),
-				right_type: pontus_onyx::scope::ScopeRightType::ReadWrite,
+				right_type: crate::scope::ScopeRightType::ReadWrite,
 			},
-			pontus_onyx::scope::Scope {
+			crate::scope::Scope {
 				module: String::from("folder_read"),
-				right_type: pontus_onyx::scope::ScopeRightType::Read,
+				right_type: crate::scope::ScopeRightType::Read,
 			},
 		],
 		"test",
@@ -77,19 +77,19 @@ async fn kp6m20xdwvw6v4t3yxq() {
 	);
 	access_tokens.lock().unwrap().push(token.clone());
 
-	let database = pontus_onyx::database::Database::new(Box::new(
-		pontus_onyx::database::sources::MemoryStorage {
-			root_item: pontus_onyx::item::Item::new_folder(vec![(
+	let database = crate::database::Database::new(Box::new(
+		crate::database::sources::MemoryStorage {
+			root_item: crate::item::Item::new_folder(vec![(
 				"user",
-				pontus_onyx::item::Item::new_folder(vec![
+				crate::item::Item::new_folder(vec![
 					(
 						"folder_write",
-						pontus_onyx::item::Item::new_folder(vec![(
+						crate::item::Item::new_folder(vec![(
 							"a",
-							pontus_onyx::item::Item::Document {
-								etag: pontus_onyx::item::Etag::new(),
+							crate::item::Item::Document {
+								etag: crate::item::Etag::new(),
 								content: Some(b"HELLO".to_vec()),
-								content_type: pontus_onyx::item::ContentType::from(
+								content_type: crate::item::ContentType::from(
 									"text/plain",
 								),
 								last_modified: Some(time::OffsetDateTime::now_utc()),
@@ -98,12 +98,12 @@ async fn kp6m20xdwvw6v4t3yxq() {
 					),
 					(
 						"folder_read",
-						pontus_onyx::item::Item::new_folder(vec![(
+						crate::item::Item::new_folder(vec![(
 							"a",
-							pontus_onyx::item::Item::Document {
-								etag: pontus_onyx::item::Etag::new(),
+							crate::item::Item::Document {
+								etag: crate::item::Etag::new(),
 								content: Some(b"HELLO".to_vec()),
-								content_type: pontus_onyx::item::ContentType::from(
+								content_type: crate::item::ContentType::from(
 									"text/plain",
 								),
 								last_modified: Some(time::OffsetDateTime::now_utc()),
@@ -112,15 +112,15 @@ async fn kp6m20xdwvw6v4t3yxq() {
 					),
 					(
 						"public",
-						pontus_onyx::item::Item::new_folder(vec![
+						crate::item::Item::new_folder(vec![
 							(
 								"folder_write",
-								pontus_onyx::item::Item::new_folder(vec![(
+								crate::item::Item::new_folder(vec![(
 									"a",
-									pontus_onyx::item::Item::Document {
-										etag: pontus_onyx::item::Etag::new(),
+									crate::item::Item::Document {
+										etag: crate::item::Etag::new(),
 										content: Some(b"HELLO".to_vec()),
-										content_type: pontus_onyx::item::ContentType::from(
+										content_type: crate::item::ContentType::from(
 											"text/plain",
 										),
 										last_modified: Some(time::OffsetDateTime::now_utc()),
@@ -129,12 +129,12 @@ async fn kp6m20xdwvw6v4t3yxq() {
 							),
 							(
 								"folder_read",
-								pontus_onyx::item::Item::new_folder(vec![(
+								crate::item::Item::new_folder(vec![(
 									"a",
-									pontus_onyx::item::Item::Document {
-										etag: pontus_onyx::item::Etag::new(),
+									crate::item::Item::Document {
+										etag: crate::item::Etag::new(),
 										content: Some(b"HELLO".to_vec()),
-										content_type: pontus_onyx::item::ContentType::from(
+										content_type: crate::item::ContentType::from(
 											"text/plain",
 										),
 										last_modified: Some(time::OffsetDateTime::now_utc()),

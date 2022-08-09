@@ -13,7 +13,7 @@ pub async fn put_item(
 	request: actix_web::HttpRequest,
 	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+		std::sync::Arc<std::sync::Mutex<crate::database::Database>>,
 	>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> impl actix_web::Responder {
@@ -36,7 +36,7 @@ pub async fn put_item(
 		.unwrap();
 
 	if content_type.is_none() {
-		return pontus_onyx::database::build_http_json_response(
+		return crate::database::build_http_json_response(
 			origin,
 			request.method(),
 			actix_web::http::StatusCode::BAD_REQUEST,
@@ -47,27 +47,27 @@ pub async fn put_item(
 		);
 	}
 
-	let local_path = pontus_onyx::item::ItemPath::from(path.into_inner().as_str());
+	let local_path = crate::item::ItemPath::from(path.into_inner().as_str());
 
 	match database.lock().unwrap().put(
 		&local_path,
-		pontus_onyx::item::Item::Document {
-			etag: pontus_onyx::item::Etag::from(""),
+		crate::item::Item::Document {
+			etag: crate::item::Etag::from(""),
 			content: Some(content.to_vec()),
-			content_type: pontus_onyx::item::ContentType::from(
+			content_type: crate::item::ContentType::from(
 				content_type.unwrap().to_str().unwrap(),
 			),
 			last_modified: Some(time::OffsetDateTime::now_utc()),
 		},
 		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&pontus_onyx::item::Etag::from("")),
+			.unwrap_or(&crate::item::Etag::from("")),
 		&super::convert_actix_if_none_match(&request)
 			.iter()
-			.collect::<Vec<&pontus_onyx::item::Etag>>(),
+			.collect::<Vec<&crate::item::Etag>>(),
 	) {
-		pontus_onyx::database::PutResult::Created(new_etag, last_modified) => {
-			return pontus_onyx::database::build_http_json_response(
+		crate::database::PutResult::Created(new_etag, last_modified) => {
+			return crate::database::build_http_json_response(
 				origin,
 				request.method(),
 				actix_web::http::StatusCode::CREATED,
@@ -77,8 +77,8 @@ pub async fn put_item(
 				true,
 			);
 		}
-		pontus_onyx::database::PutResult::Updated(new_etag, last_modified) => {
-			return pontus_onyx::database::build_http_json_response(
+		crate::database::PutResult::Updated(new_etag, last_modified) => {
+			return crate::database::build_http_json_response(
 				origin,
 				request.method(),
 				actix_web::http::StatusCode::OK,
@@ -88,17 +88,17 @@ pub async fn put_item(
 				true,
 			);
 		}
-		pontus_onyx::database::PutResult::Err(e) => {
-			if e.is::<pontus_onyx::database::sources::memory::PutError>() {
-				pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::sources::memory::PutError>()
+		crate::database::PutResult::Err(e) => {
+			if e.is::<crate::database::sources::memory::PutError>() {
+				crate::database::Error::to_response(
+					&*e.downcast::<crate::database::sources::memory::PutError>()
 						.unwrap(),
 					origin,
 					true,
 				)
-			} else if e.is::<pontus_onyx::database::sources::folder::PutError>() {
-				pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::sources::folder::PutError>()
+			} else if e.is::<crate::database::sources::folder::PutError>() {
+				crate::database::Error::to_response(
+					&*e.downcast::<crate::database::sources::folder::PutError>()
 						.unwrap(),
 					origin,
 					true,
@@ -114,7 +114,7 @@ pub async fn put_item(
 					Some(&format!("error from database : {e}")),
 				);
 
-				pontus_onyx::database::build_http_json_response(
+				crate::database::build_http_json_response(
 					origin,
 					request.method(),
 					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,

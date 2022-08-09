@@ -24,11 +24,11 @@ const ACCESS_TOKEN_ALPHABET: &str =
 
 pub fn configure_server(
 	settings: Arc<Mutex<crate::http_server::Settings>>,
-	database: Arc<Mutex<pontus_onyx::database::Database>>,
+	database: Arc<Mutex<crate::database::Database>>,
 	access_tokens: Arc<Mutex<Vec<crate::http_server::AccessBearer>>>,
 	oauth_form_tokens: Arc<Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	users: Arc<Mutex<crate::http_server::Users>>,
-	program_state: Arc<Mutex<crate::ProgramState>>,
+	program_state: Arc<Mutex<ProgramState>>,
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
 ) -> impl FnOnce(&mut actix_web::web::ServiceConfig) {
 	return move |config: &mut actix_web::web::ServiceConfig| {
@@ -69,19 +69,24 @@ pub async fn get_favicon() -> impl actix_web::Responder {
 	let mut res = actix_web::HttpResponse::Ok();
 	res.insert_header((actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
 
-	return res.body(actix_web::web::Bytes::from_static(pontus_onyx::assets::ICON));
+	return res.body(actix_web::web::Bytes::from_static(crate::assets::ICON));
 }
 
 #[actix_web::get("/remotestorage.svg")]
 pub async fn remotestoragesvg() -> impl actix_web::Responder {
-	return actix_web::HttpResponse::Ok().body(actix_web::web::Bytes::from_static(pontus_onyx::assets::REMOTE_STORAGE));
+	return actix_web::HttpResponse::Ok().body(actix_web::web::Bytes::from_static(crate::assets::REMOTE_STORAGE));
 }
 
 #[actix_web::get("/")]
 pub async fn index() -> impl actix_web::Responder {
-	let template: &str = include_str!("../../static/index.html");
+	let template: &str = include_str!("./static/index.html");
 	let template = template.replace("{{app_name}}", env!("CARGO_PKG_NAME"));
 	let template = template.replace("{{app_version}}", env!("CARGO_PKG_VERSION"));
 
 	actix_web::HttpResponse::Ok().body(template)
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ProgramState {
+	pub https_mode: bool,
 }

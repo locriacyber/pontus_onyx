@@ -5,7 +5,7 @@ pub async fn get_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::HttpRequest,
 	database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+		std::sync::Arc<std::sync::Mutex<crate::database::Database>>,
 	>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> impl actix_web::Responder {
@@ -18,19 +18,19 @@ pub async fn get_item(
 		.to_str()
 		.unwrap();
 
-	let local_path = pontus_onyx::item::ItemPath::from(path.into_inner().as_str());
+	let local_path = crate::item::ItemPath::from(path.into_inner().as_str());
 
 	// TODO : If-Match does not works with GET ?
 	match database.lock().unwrap().get(
 		&local_path,
 		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&pontus_onyx::item::Etag::from("")),
+			.unwrap_or(&crate::item::Etag::from("")),
 		&super::convert_actix_if_none_match(&request)
 			.iter()
-			.collect::<Vec<&pontus_onyx::item::Etag>>(),
+			.collect::<Vec<&crate::item::Etag>>(),
 	) {
-		Ok(pontus_onyx::item::Item::Document {
+		Ok(crate::item::Item::Document {
 			etag,
 			content: Some(content),
 			content_type,
@@ -65,26 +65,26 @@ pub async fn get_item(
 
 			return response.body(content);
 		}
-		Ok(pontus_onyx::item::Item::Folder {
+		Ok(crate::item::Item::Folder {
 			etag: folder_etag,
 			content: Some(content),
 		}) => {
 			let mut items_result = serde_json::json!({});
 			for (child_name, child) in content.iter().filter(|(_, e)| match &***e {
-				pontus_onyx::item::Item::Document { .. } => true,
-				pontus_onyx::item::Item::Folder {
+				crate::item::Item::Document { .. } => true,
+				crate::item::Item::Folder {
 					content: Some(content),
 					..
 				} => !content.is_empty(),
-				pontus_onyx::item::Item::Folder { content: None, .. } => todo!(),
+				crate::item::Item::Folder { content: None, .. } => todo!(),
 			}) {
 				match &**child {
-					pontus_onyx::item::Item::Folder { etag, .. } => {
+					crate::item::Item::Folder { etag, .. } => {
 						items_result[format!("{}/", child_name)] = serde_json::json!({
 							"ETag": etag,
 						});
 					}
-					pontus_onyx::item::Item::Document {
+					crate::item::Item::Document {
 						etag,
 						content: Some(document_content),
 						content_type,
@@ -102,7 +102,7 @@ pub async fn get_item(
 							},
 						});
 					}
-					pontus_onyx::item::Item::Document { content: None, .. } => {
+					crate::item::Item::Document { content: None, .. } => {
 						logger.lock().unwrap().push(
 							vec![
 								(String::from("level"), String::from("ERROR")),
@@ -113,7 +113,7 @@ pub async fn get_item(
 							Some("document has no content"),
 						);
 
-						return pontus_onyx::database::build_http_json_response(
+						return crate::database::build_http_json_response(
 							origin,
 							request.method(),
 							actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -151,7 +151,7 @@ pub async fn get_item(
 				.to_string(),
 			);
 		}
-		Ok(pontus_onyx::item::Item::Document { content: None, .. }) => {
+		Ok(crate::item::Item::Document { content: None, .. }) => {
 			logger.lock().unwrap().push(
 				vec![
 					(String::from("level"), String::from("ERROR")),
@@ -162,7 +162,7 @@ pub async fn get_item(
 				Some("document has no content"),
 			);
 
-			return pontus_onyx::database::build_http_json_response(
+			return crate::database::build_http_json_response(
 				origin,
 				request.method(),
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -172,7 +172,7 @@ pub async fn get_item(
 				true,
 			);
 		}
-		Ok(pontus_onyx::item::Item::Folder { content: None, .. }) => {
+		Ok(crate::item::Item::Folder { content: None, .. }) => {
 			logger.lock().unwrap().push(
 				vec![
 					(String::from("level"), String::from("ERROR")),
@@ -183,7 +183,7 @@ pub async fn get_item(
 				Some("folder has no content"),
 			);
 
-			return pontus_onyx::database::build_http_json_response(
+			return crate::database::build_http_json_response(
 				origin,
 				request.method(),
 				actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -194,16 +194,16 @@ pub async fn get_item(
 			);
 		}
 		Err(e) => {
-			if e.is::<pontus_onyx::database::sources::memory::GetError>() {
-				pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::sources::memory::GetError>()
+			if e.is::<crate::database::sources::memory::GetError>() {
+				crate::database::Error::to_response(
+					&*e.downcast::<crate::database::sources::memory::GetError>()
 						.unwrap(),
 					origin,
 					true,
 				)
-			} else if e.is::<pontus_onyx::database::sources::folder::GetError>() {
-				pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::sources::folder::GetError>()
+			} else if e.is::<crate::database::sources::folder::GetError>() {
+				crate::database::Error::to_response(
+					&*e.downcast::<crate::database::sources::folder::GetError>()
 						.unwrap(),
 					origin,
 					true,
@@ -219,7 +219,7 @@ pub async fn get_item(
 					Some(&format!("error from database : {e}")),
 				);
 
-				pontus_onyx::database::build_http_json_response(
+				crate::database::build_http_json_response(
 					origin,
 					request.method(),
 					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,

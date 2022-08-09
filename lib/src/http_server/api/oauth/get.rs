@@ -29,7 +29,7 @@ pub async fn get_oauth(
 		.split(' ')
 		.map(|scope_string| {
 			(std::convert::TryFrom::try_from(scope_string.trim())
-				as Result<pontus_onyx::scope::Scope, pontus_onyx::scope::ScopeParsingError>)
+				as Result<crate::scope::Scope, crate::scope::ScopeParsingError>)
 				.unwrap()
 		})
 		.map(|scope| {

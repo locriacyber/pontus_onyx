@@ -6,10 +6,37 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>Pontus Onyx</title>
 		<script>
-		function greet() {
-			let name = document.querySelector('#name').value;
+		document.addEventListener("DOMContentLoaded", function() {
+			init_gui();
+		});
 
-			window.__TAURI__.invoke('greet', { name })
+		function init_gui() {
+			window.__TAURI__.invoke('init_gui')
+				.then(function(response) {
+					console.log(response);
+					alert(response);
+				});
+		}
+		function install_server() {
+			window.__TAURI__.invoke('install_server', {
+				install_path,
+				username,
+				password
+			})
+				.then(function(response) {
+					console.log(response);
+					alert(response);
+				});
+		}
+		function start_server() {
+			window.__TAURI__.invoke('start_server')
+				.then(function(response) {
+					console.log(response);
+					alert(response);
+				});
+		}
+		function stop_server() {
+			window.__TAURI__.invoke('stop_server')
 				.then(function(response) {
 					console.log(response);
 					alert(response);
@@ -52,6 +79,9 @@
 
 		<form id="setup_server">
 			<h2>Install server</h2>
+
+			<label for="install_path">Installation path</label>
+			<input type="text" id="install_path" name="install_path">
 
 			<label for="admin_username">New admin username</label>
 			<input type="text" id="admin_username" name="admin_username">

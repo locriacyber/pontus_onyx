@@ -12,16 +12,16 @@ pub use oauth::*;
 pub use options::options_item;
 pub use put::put_item;
 
-fn convert_actix_if_match(request: &actix_web::HttpRequest) -> Vec<pontus_onyx::item::Etag> {
+fn convert_actix_if_match(request: &actix_web::HttpRequest) -> Vec<crate::item::Etag> {
 	let res: Result<actix_web::http::header::IfMatch, actix_web::error::ParseError> =
 		actix_web::http::header::Header::parse(request);
 
 	match res {
 		Ok(res) => match res {
-			actix_web::http::header::IfMatch::Any => vec![pontus_onyx::item::Etag::from("*")],
+			actix_web::http::header::IfMatch::Any => vec![crate::item::Etag::from("*")],
 			actix_web::http::header::IfMatch::Items(items) => items
 				.into_iter()
-				.map(|etag| pontus_onyx::item::Etag::from(etag.tag().trim()))
+				.map(|etag| crate::item::Etag::from(etag.tag().trim()))
 				.collect(),
 		},
 		Err(_) => vec![],
@@ -30,19 +30,19 @@ fn convert_actix_if_match(request: &actix_web::HttpRequest) -> Vec<pontus_onyx::
 
 fn convert_actix_if_none_match(
 	request: &actix_web::HttpRequest,
-) -> Vec<pontus_onyx::item::Etag> {
+) -> Vec<crate::item::Etag> {
 	let res: Result<actix_web::http::header::IfNoneMatch, actix_web::error::ParseError> =
 		actix_web::http::header::Header::parse(request);
 
 	match res {
 		Ok(res) => match res {
 			actix_web::http::header::IfNoneMatch::Any => {
-				vec![pontus_onyx::item::Etag::from("*")]
+				vec![crate::item::Etag::from("*")]
 			}
 			actix_web::http::header::IfNoneMatch::Items(items) => items
 				.into_iter()
-				.map(|etag| pontus_onyx::item::Etag::from(etag.tag().trim()))
-				.collect::<Vec<pontus_onyx::item::Etag>>(),
+				.map(|etag| crate::item::Etag::from(etag.tag().trim()))
+				.collect::<Vec<crate::item::Etag>>(),
 		},
 		Err(_) => vec![],
 	}

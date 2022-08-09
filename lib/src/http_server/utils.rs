@@ -1,6 +1,6 @@
 pub fn build_server_address(
 	settings: &crate::http_server::Settings,
-	program_state: &crate::ProgramState,
+	program_state: &super::ProgramState,
 ) -> String {
 	let mut protocol = String::from("http");
 	if let Some(force_https) = settings.force_https {
@@ -71,7 +71,7 @@ pub fn build_server_address(
 #[test]
 fn pbw1cgzctiqe163() {
 	let settings = super::Settings::default();
-	let state = crate::ProgramState { https_mode: false };
+	let state = super::ProgramState { https_mode: false };
 
 	assert_eq!(
 		build_server_address(&settings, &state),
@@ -88,7 +88,7 @@ fn pbw1cgzctiqe163() {
 fn ykf0gcnr7z2ko4wtx8uub() {
 	let mut settings = super::Settings::default();
 	settings.domain_suffix = Some(String::from("test"));
-	let state = crate::ProgramState { https_mode: false };
+	let state = super::ProgramState { https_mode: false };
 
 	assert_eq!(
 		build_server_address(&settings, &state),
@@ -105,7 +105,7 @@ fn ykf0gcnr7z2ko4wtx8uub() {
 fn wxpy6tncuwbbavvxi() {
 	let mut settings = super::Settings::default();
 	settings.domain_suffix = Some(String::from("test/"));
-	let state = crate::ProgramState { https_mode: false };
+	let state = super::ProgramState { https_mode: false };
 
 	assert_eq!(
 		build_server_address(&settings, &state),
@@ -121,7 +121,7 @@ fn wxpy6tncuwbbavvxi() {
 #[test]
 fn fpfxwrixa1jz7t() {
 	let settings = super::Settings::default();
-	let state = crate::ProgramState { https_mode: true };
+	let state = super::ProgramState { https_mode: true };
 
 	assert_eq!(
 		build_server_address(&settings, &state),
@@ -139,7 +139,7 @@ fn xtgfpc3x1zcmb() {
 	let domain = String::from("example.com");
 	let mut settings = super::Settings::default();
 	settings.domain = Some(domain.clone());
-	let state = crate::ProgramState { https_mode: false };
+	let state = super::ProgramState { https_mode: false };
 
 	assert_eq!(
 		build_server_address(&settings, &state),
@@ -157,7 +157,7 @@ fn ekkvpuijzifxc() {
 	let domain = String::from("example.com");
 	let mut settings = super::Settings::default();
 	settings.domain = Some(domain.clone());
-	let state = crate::ProgramState { https_mode: true };
+	let state = super::ProgramState { https_mode: true };
 
 	assert_eq!(
 		build_server_address(&settings, &state),
@@ -179,7 +179,7 @@ fn bj8n5zhu2oaaed55561ygk() {
 	if let Some(https) = &mut settings.https {
 		https.port = 443;
 	}
-	let state = crate::ProgramState { https_mode: false };
+	let state = super::ProgramState { https_mode: false };
 
 	assert_eq!(
 		build_server_address(&settings, &state),
@@ -196,7 +196,7 @@ fn d434yaaxfqcnd4j() {
 	if let Some(https) = &mut settings.https {
 		https.port = 443;
 	}
-	let state = crate::ProgramState { https_mode: true };
+	let state = super::ProgramState { https_mode: true };
 
 	assert_eq!(
 		build_server_address(&settings, &state),

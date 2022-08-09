@@ -5,7 +5,7 @@ pub async fn delete_item(
 	path: actix_web::web::Path<String>,
 	request: actix_web::HttpRequest,
 	database: actix_web::web::Data<
-		std::sync::Arc<std::sync::Mutex<pontus_onyx::database::Database>>,
+		std::sync::Arc<std::sync::Mutex<crate::database::Database>>,
 	>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> impl actix_web::Responder {
@@ -18,16 +18,16 @@ pub async fn delete_item(
 		.to_str()
 		.unwrap();
 
-	let local_path = pontus_onyx::item::ItemPath::from(path.into_inner().as_str());
+	let local_path = crate::item::ItemPath::from(path.into_inner().as_str());
 
 	match database.lock().unwrap().delete(
 		&local_path,
 		super::convert_actix_if_match(&request)
 			.first()
-			.unwrap_or(&pontus_onyx::item::Etag::from("")),
+			.unwrap_or(&crate::item::Etag::from("")),
 	) {
 		Ok(etag) => {
-			return pontus_onyx::database::build_http_json_response(
+			return crate::database::build_http_json_response(
 				origin,
 				request.method(),
 				actix_web::http::StatusCode::OK,
@@ -38,16 +38,16 @@ pub async fn delete_item(
 			);
 		}
 		Err(e) => {
-			if e.is::<pontus_onyx::database::sources::memory::DeleteError>() {
-				return pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::sources::memory::DeleteError>()
+			if e.is::<crate::database::sources::memory::DeleteError>() {
+				return crate::database::Error::to_response(
+					&*e.downcast::<crate::database::sources::memory::DeleteError>()
 						.unwrap(),
 					origin,
 					true,
 				);
-			} else if e.is::<pontus_onyx::database::sources::folder::DeleteError>() {
-				return pontus_onyx::database::Error::to_response(
-					&*e.downcast::<pontus_onyx::database::sources::folder::DeleteError>()
+			} else if e.is::<crate::database::sources::folder::DeleteError>() {
+				return crate::database::Error::to_response(
+					&*e.downcast::<crate::database::sources::folder::DeleteError>()
 						.unwrap(),
 					origin,
 					true,
@@ -63,7 +63,7 @@ pub async fn delete_item(
 					Some(&format!("error from database : {e}")),
 				);
 
-				return pontus_onyx::database::build_http_json_response(
+				return crate::database::build_http_json_response(
 					origin,
 					request.method(),
 					actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,

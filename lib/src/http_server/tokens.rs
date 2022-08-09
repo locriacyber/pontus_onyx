@@ -1,18 +1,16 @@
 use rand::seq::IteratorRandom;
 use rand::Rng;
 
-use pontus_onyx::scope::Scope;
-
 #[derive(Debug, Clone)]
 pub struct AccessBearer {
 	name: String,
-	scopes: Vec<Scope>,
+	scopes: Vec<crate::scope::Scope>,
 	client_id: String,
 	username: String,
 	emit_time: std::time::Instant,
 }
 impl AccessBearer {
-	pub fn new(scopes: Vec<Scope>, client_id: &str, username: &str) -> Self {
+	pub fn new(scopes: Vec<crate::scope::Scope>, client_id: &str, username: &str) -> Self {
 		let mut name = String::new();
 
 		let mut rng_limit = rand::thread_rng();
@@ -39,7 +37,7 @@ impl AccessBearer {
 	pub fn get_name(&self) -> &str {
 		&self.name
 	}
-	pub fn get_scopes(&self) -> &[Scope] {
+	pub fn get_scopes(&self) -> &[crate::scope::Scope] {
 		&self.scopes
 	}
 	/*
@@ -57,13 +55,13 @@ impl AccessBearer {
 
 #[cfg(test)]
 mod tests {
-	use pontus_onyx::scope::{ScopeParsingError, ScopeRightType};
+	use crate::scope::{ScopeParsingError, ScopeRightType};
 
 	#[test]
 	fn c0ok0eil7m3() {
 		assert_eq!(
-			super::Scope::try_from("*:rw"),
-			Ok(super::Scope {
+			crate::scope::Scope::try_from("*:rw"),
+			Ok(crate::scope::Scope {
 				right_type: ScopeRightType::ReadWrite,
 				module: String::from("*")
 			})
@@ -73,8 +71,8 @@ mod tests {
 	#[test]
 	fn kn76nin3ppdf25t3p7zao() {
 		assert_eq!(
-			super::Scope::try_from("random:r"),
-			Ok(super::Scope {
+			crate::scope::Scope::try_from("random:r"),
+			Ok(crate::scope::Scope {
 				right_type: ScopeRightType::Read,
 				module: String::from("random")
 			})
@@ -84,7 +82,7 @@ mod tests {
 	#[test]
 	fn sllj3xshcq266faixwpa() {
 		assert_eq!(
-			super::Scope::try_from("public:rw"),
+			crate::scope::Scope::try_from("public:rw"),
 			Err(ScopeParsingError::IncorrectModule(String::from("public")))
 		);
 	}
@@ -92,7 +90,7 @@ mod tests {
 	#[test]
 	fn mt1ns651q04kfc() {
 		assert_eq!(
-			super::Scope::try_from("wrong_char@:rw"),
+			crate::scope::Scope::try_from("wrong_char@:rw"),
 			Err(ScopeParsingError::IncorrectModule(String::from(
 				"wrong_char@"
 			)))
@@ -102,7 +100,7 @@ mod tests {
 	#[test]
 	fn gy8bajrpald87() {
 		assert_eq!(
-			super::Scope::try_from("wrong:char:rw"),
+			crate::scope::Scope::try_from("wrong:char:rw"),
 			Err(ScopeParsingError::IncorrectFormat(String::from(
 				"wrong:char:rw"
 			)))
@@ -112,7 +110,7 @@ mod tests {
 	#[test]
 	fn jrx3s6biaha6ztxvollgn() {
 		assert_eq!(
-			super::Scope::try_from("random:wrong_right"),
+			crate::scope::Scope::try_from("random:wrong_right"),
 			Err(ScopeParsingError::IncorrectRight(String::from(
 				"wrong_right"
 			)))

@@ -2,11 +2,11 @@ use std::sync::{Arc, Mutex};
 
 pub fn setup_and_run_https_server(
 	settings: Arc<Mutex<super::Settings>>,
-	database: Arc<Mutex<pontus_onyx::database::Database>>,
+	database: Arc<Mutex<crate::database::Database>>,
 	access_tokens: Arc<Mutex<Vec<crate::http_server::AccessBearer>>>,
 	oauth_form_tokens: Arc<Mutex<Vec<crate::http_server::middlewares::OauthFormToken>>>,
 	users: Arc<Mutex<crate::http_server::Users>>,
-	program_state: Arc<Mutex<crate::ProgramState>>,
+	program_state: Arc<Mutex<crate::http_server::ProgramState>>,
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
 ) {
 	let settings_for_setup = settings.lock().unwrap().clone();

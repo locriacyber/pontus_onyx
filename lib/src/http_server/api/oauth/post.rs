@@ -23,7 +23,7 @@ pub async fn post_oauth(
 	access_tokens: actix_web::web::Data<Arc<Mutex<Vec<crate::http_server::AccessBearer>>>>,
 	users: actix_web::web::Data<Arc<Mutex<crate::http_server::Users>>>,
 	settings: actix_web::web::Data<Arc<Mutex<crate::http_server::Settings>>>,
-	program_state: actix_web::web::Data<Arc<Mutex<crate::ProgramState>>>,
+	program_state: actix_web::web::Data<Arc<Mutex<crate::http_server::ProgramState>>>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
 	let _host = request.headers().get("host");
@@ -229,7 +229,7 @@ pub async fn post_oauth(
 				.unwrap()
 				.decode()
 				.split(' ')
-				.map(|e| pontus_onyx::scope::Scope::try_from(e.trim()).unwrap())
+				.map(|e| crate::scope::Scope::try_from(e.trim()).unwrap())
 				.collect();
 
 			let new_token = crate::http_server::AccessBearer::new(
