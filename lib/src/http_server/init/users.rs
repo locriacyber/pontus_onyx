@@ -39,9 +39,10 @@ pub fn load_or_create_users(
 						(String::from("level"), String::from("WARNING")),
 					],
 					Some(&format!(
-						"users list not found in `{}` : {}",
-						&users_path.to_string_lossy(),
-						e
+						"users list not found in `{}` : {e}",
+						dunce::canonicalize(&users_path)
+							.unwrap_or_else(|_| users_path.clone())
+							.display()
 					)),
 				);
 

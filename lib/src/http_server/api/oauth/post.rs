@@ -30,22 +30,31 @@ pub async fn post_oauth(
 	let origin = request.headers().get("origin");
 	let _referer = request.headers().get("referer");
 
+	let localhost = String::from("localhost");
+	let current_domain = settings
+		.lock()
+		.unwrap()
+		.domain
+		.as_ref()
+		.unwrap_or_else(|| &localhost)
+		.clone();
+
 	match origin {
 		Some(path) => {
 			let settings = settings.lock().unwrap().clone();
 
 			let mut allowed_domains = vec![];
 			// TODO : probably a security issue :
-			allowed_domains.push(format!("http://localhost:{}", settings.port));
+			allowed_domains.push(format!("http://{current_domain}:{}", settings.port));
 			// TODO : probably a security issue :
 			if settings.port == 80 {
-				allowed_domains.push(String::from("http://localhost"));
+				allowed_domains.push(String::from("http://{current_domain}"));
 			}
 			if program_state.lock().unwrap().https_mode {
 				if let Some(https) = settings.https.clone() {
-					allowed_domains.push(format!("https://localhost:{}", https.port));
+					allowed_domains.push(format!("https://{current_domain}:{}", https.port));
 					if https.port != 443 {
-						allowed_domains.push(String::from("https://localhost"));
+						allowed_domains.push(String::from("https://{current_domain}"));
 					}
 				}
 			}

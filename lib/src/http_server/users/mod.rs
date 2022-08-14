@@ -43,11 +43,9 @@ impl Users {
 		}
 	}
 
-	/*
 	pub fn get_usernames(&self) -> Vec<&String> {
 		self.list.iter().map(|user| &user.name).collect()
 	}
-	*/
 
 	pub fn insert(&mut self, username: &str, password: &mut String) -> Result<(), String> {
 		let mut hasher = hmac_sha512::Hash::new();
@@ -84,7 +82,6 @@ impl Users {
 		}
 	}
 
-	/*
 	pub fn remove_right(&mut self, username: &str, right: UserRight) -> Result<(), String> {
 		match self.list.iter_mut().find(|user| user.name == username) {
 			Some(user) => match user.rights.binary_search(&right) {
@@ -97,7 +94,6 @@ impl Users {
 			None => Err(String::from("user not found")),
 		}
 	}
-	*/
 }
 
 #[test]

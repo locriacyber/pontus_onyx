@@ -81,16 +81,25 @@ fn main() {
 		pontus_onyx::http_server::load_or_create_settings(settings_path.clone(), &mut temp_logger);
 
 	let mut ports = vec![settings.port];
-	if let Some(https) = settings.https {
-		ports.push(https.port);
+	if let Some(ref https) = settings.https {
+		ports = vec![https.port, settings.port];
 	}
 
+	let logger =
+		pontus_onyx::http_server::load_or_create_logger(&settings, temp_logger, temp_logs_list);
+
+	let db_users = pontus_onyx::http_server::load_or_create_users(&settings, logger.clone());
+	let users = db_users.get_usernames().into_iter().cloned().collect();
+
+	let localhost = String::from("localhost");
+
 	tauri::Builder::default()
-		.manage(AppState{
+		.manage(AppState {
 			working_folder: format!("{}", dunce::canonicalize(workspace_path).unwrap().display()),
-			users: vec![String::from("todo")],
+			domain: settings.domain.as_ref().unwrap_or_else(|| &localhost).clone(),
+			users,
 			ports,
-			status: ServerStatus::Enabled, // TODO
+			status: ServerStatus::Disabled, // TODO
 		})
 		.invoke_handler(tauri::generate_handler![
 			init_gui,
@@ -103,15 +112,16 @@ fn main() {
 }
 
 #[derive(serde::Serialize)]
-struct AppState{
+struct AppState {
 	working_folder: String,
+	domain: String,
 	users: Vec<String>,
 	ports: Vec<usize>,
 	status: ServerStatus,
 }
 
 #[derive(serde::Serialize)]
-enum ServerStatus{
+enum ServerStatus {
 	Enabled,
 	Disabled,
 	Uninstalled,
@@ -133,7 +143,7 @@ fn install_server(
 }
 
 #[tauri::command]
-fn start_server() {
+fn start_server(state: tauri::State<AppState>) {
 	todo!()
 }
 

@@ -112,7 +112,12 @@ pub fn load_or_create_logger(
 			(String::from("module"), String::from("logger")),
 			(String::from("level"), String::from("INFO")),
 		],
-		Some(&format!("logs will now be saved in `{}`", logfile_path)),
+		Some(&format!(
+			"logs will now be saved in `{}`",
+			dunce::canonicalize(&*logfile_path)
+				.unwrap_or_default()
+				.display()
+		)),
 	);
 
 	for log in temp_logs.lock().unwrap().iter() {

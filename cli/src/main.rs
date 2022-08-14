@@ -53,6 +53,8 @@ async fn main() -> std::io::Result<()> {
 		Some("setup of the program"),
 	);
 
+	let localhost = String::from("localhost");
+
 	temp_logger.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
 	let mut settings_path = workspace_path.clone();
@@ -138,9 +140,53 @@ async fn main() -> std::io::Result<()> {
 			(String::from("level"), String::from("INFO")),
 		],
 		Some(&format!(
-			"API should now listen to http://localhost:{}/",
-			http_port
+			"API should now listen to http://{}:{http_port}/",
+			settings
+				.lock()
+				.unwrap()
+				.domain
+				.as_ref()
+				.unwrap_or_else(|| &localhost)
 		)),
+	);
+
+	logger
+		.lock()
+		.unwrap()
+		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
+
+	let handles = {
+		let mut handles = String::new();
+
+		let settings = settings.lock().unwrap();
+		let users = users.lock().unwrap();
+
+		let mut ports = vec![settings.port];
+		if let Some(ref https) = settings.https {
+			if program_state.lock().unwrap().https_mode {
+				ports = vec![https.port, settings.port];
+			}
+		}
+		let db_users: Vec<String> = users.get_usernames().into_iter().cloned().collect();
+
+		for port in ports {
+			for user in &db_users {
+				handles += &format!(
+					"\n\t- {user}@{}:{port}",
+					settings.domain.as_ref().unwrap_or_else(|| &localhost)
+				);
+			}
+		}
+
+		handles
+	};
+
+	logger.lock().unwrap().push(
+		vec![
+			(String::from("event"), String::from("startup")),
+			(String::from("level"), String::from("INFO")),
+		],
+		Some(&format!("Available handles are : {handles}",)),
 	);
 
 	logger
@@ -152,6 +198,14 @@ async fn main() -> std::io::Result<()> {
 		Some(https) => https.enable_hsts,
 		None => program_state.lock().unwrap().https_mode,
 	};
+
+	let domain = settings
+		.lock()
+		.unwrap()
+		.domain
+		.as_ref()
+		.unwrap_or_else(|| &localhost)
+		.clone();
 
 	let logger_for_server = logger.clone();
 	let http_binding = actix_web::HttpServer::new(move || {
@@ -176,7 +230,7 @@ async fn main() -> std::io::Result<()> {
 				logger_for_server.clone(),
 			))
 	})
-	.bind(format!("localhost:{}", http_port));
+	.bind(format!("{domain}:{http_port}"));
 
 	match http_binding {
 		Ok(binding) => binding.run().await,

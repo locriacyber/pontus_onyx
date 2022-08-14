@@ -38,6 +38,15 @@ pub fn setup_and_run_https_server(
 													let enable_hsts = settings_https.enable_hsts;
 													let https_port = settings_https.port;
 
+													let localhost = String::from("localhost");
+													let domain = settings
+														.lock()
+														.unwrap()
+														.domain
+														.as_ref()
+														.unwrap_or_else(|| &localhost)
+														.clone();
+
 													let program_state_for_server =
 														program_state.clone();
 													let logger_for_server = logger.clone();
@@ -65,7 +74,7 @@ pub fn setup_and_run_https_server(
 															)
 													})
 													.bind_rustls(
-														format!("localhost:{}", https_port),
+														format!("{domain}:{https_port}"),
 														server_config,
 													) {
 														Ok(serverd) => {
@@ -75,8 +84,7 @@ pub fn setup_and_run_https_server(
 																	(String::from("module"), String::from("https")),
 																	(String::from("level"), String::from("INFO")),
 																],
-																Some(&format!("API should now listen to https://localhost:{}/",
-																https_port)),
+																Some(&format!("API should now listen to https://{domain}:{https_port}/")),
 															);
 
 															program_state

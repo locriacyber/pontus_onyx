@@ -2,6 +2,8 @@ pub fn build_server_address(
 	settings: &crate::http_server::Settings,
 	program_state: &super::ProgramState,
 ) -> String {
+	let localhost = String::from("localhost");
+
 	let mut protocol = String::from("http");
 	if let Some(force_https) = settings.force_https {
 		if force_https {
@@ -11,7 +13,11 @@ pub fn build_server_address(
 		protocol += "s";
 	}
 
-	let mut domain = String::from("localhost");
+	let mut domain = settings
+		.domain
+		.as_ref()
+		.unwrap_or_else(|| &localhost)
+		.clone();
 	if let Some(force_domain) = &settings.domain {
 		if !force_domain.trim().is_empty() {
 			domain = force_domain.clone();

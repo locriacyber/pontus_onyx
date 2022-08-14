@@ -20,6 +20,7 @@
 					console.log(payload);
 
 					let users = payload.users;
+					let domain = payload.domain;
 					let ports = payload.ports;
 					if (users !== undefined && users !== null && ports !== undefined && ports !== null) {
 						let value = "";
@@ -29,7 +30,7 @@
 								if(value !== "") {
 									value += "<br>";
 								}
-								value += `${user}@localhost:${port}`;
+								value += `${user}@${domain}:${port}`;
 							});
 						});
 
