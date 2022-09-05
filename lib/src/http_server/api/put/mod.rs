@@ -14,6 +14,10 @@ pub async fn put_item(
 	path: actix_web::web::Path<String>,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::database::Database>>>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
+	dbevent_sender: actix_web::web::Data<std::sync::mpsc::Sender<crate::http_server::DbEvent>>,
+	access_tokens: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>>,
+	>,
 ) -> impl actix_web::Responder {
 	let mut content = actix_web::web::BytesMut::new();
 	while let Some(request_body) = futures::StreamExt::next(&mut request_payload).await {
@@ -47,6 +51,29 @@ pub async fn put_item(
 
 	let local_path = crate::item::ItemPath::from(path.into_inner().as_str());
 
+	let user = match request
+		.headers()
+		.get(actix_web::http::header::AUTHORIZATION)
+	{
+		Some(token) => {
+			let token = match token.to_str().unwrap_or_default().strip_prefix("Bearer ") {
+				Some(token) => token,
+				None => token.to_str().unwrap_or_default(),
+			};
+
+			match access_tokens
+				.lock()
+				.unwrap()
+				.iter()
+				.find(|bearer| bearer.get_name() == token)
+			{
+				Some(bearer) => String::from(bearer.get_username()),
+				None => String::from("Unknown"),
+			}
+		}
+		None => String::from("Unknown"),
+	};
+
 	match database.lock().unwrap().put(
 		&local_path,
 		crate::item::Item::Document {
@@ -63,6 +90,16 @@ pub async fn put_item(
 			.collect::<Vec<&crate::item::Etag>>(),
 	) {
 		crate::database::PutResult::Created(new_etag, last_modified) => {
+			dbevent_sender.send(crate::http_server::DbEvent {
+				id: ulid::Ulid::new().to_string(),
+				method: crate::http_server::DbEventMethod::Put,
+				date: last_modified,
+				path: local_path.to_string(),
+				etag: new_etag.clone(),
+				user,
+				dbversion: String::from(env!("CARGO_PKG_VERSION")),
+			});
+
 			return crate::database::build_http_json_response(
 				origin,
 				request.method(),
@@ -74,6 +111,16 @@ pub async fn put_item(
 			);
 		}
 		crate::database::PutResult::Updated(new_etag, last_modified) => {
+			dbevent_sender.send(crate::http_server::DbEvent {
+				id: ulid::Ulid::new().to_string(),
+				method: crate::http_server::DbEventMethod::Put,
+				date: last_modified,
+				path: local_path.to_string(),
+				etag: new_etag.clone(),
+				user,
+				dbversion: String::from(env!("CARGO_PKG_VERSION")),
+			});
+
 			return crate::database::build_http_json_response(
 				origin,
 				request.method(),

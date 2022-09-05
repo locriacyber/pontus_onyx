@@ -8,6 +8,7 @@ pub fn setup_and_run_https_server(
 	users: Arc<Mutex<crate::http_server::Users>>,
 	program_state: Arc<Mutex<crate::http_server::ProgramState>>,
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
+	history_sender: Option<std::sync::mpsc::Sender<crate::http_server::DbEvent>>,
 ) {
 	let settings_for_setup = settings.lock().unwrap().clone();
 
@@ -69,7 +70,11 @@ pub fn setup_and_run_https_server(
 																	oauth_form_tokens.clone(),
 																	users.clone(),
 																	program_state_for_server.clone(),
-																	logger_for_server.clone()
+																	logger_for_server.clone(),
+																	match &history_sender {
+																		Some(history_sender) => Some(history_sender.clone()),
+																		None => None,
+																	}
 																)
 															)
 													})

@@ -22,6 +22,22 @@ const PASSWORD_HASH_ALPHABET: &str = "abcdefghijklmnopqrstuvwxyz-0123456789_ABCD
 const ACCESS_TOKEN_ALPHABET: &str =
 	"abcdefghijklmnopqrstuvwxyz-0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ!+*";
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct DbEvent {
+	id: String,
+	date: time::OffsetDateTime,
+	method: DbEventMethod,
+	path: String,
+	etag: crate::item::Etag,
+	user: String,
+	dbversion: String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+pub enum DbEventMethod {
+	Put,
+	Delete,
+}
+
 pub fn configure_server(
 	settings: Arc<Mutex<crate::http_server::Settings>>,
 	database: Arc<Mutex<crate::database::Database>>,
@@ -30,6 +46,7 @@ pub fn configure_server(
 	users: Arc<Mutex<crate::http_server::Users>>,
 	program_state: Arc<Mutex<ProgramState>>,
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
+	dbevent_sender: Option<std::sync::mpsc::Sender<DbEvent>>,
 ) -> impl FnOnce(&mut actix_web::web::ServiceConfig) {
 	return move |config: &mut actix_web::web::ServiceConfig| {
 		config
@@ -39,7 +56,13 @@ pub fn configure_server(
 			.app_data(actix_web::web::Data::new(users.clone()))
 			.app_data(actix_web::web::Data::new(settings.clone()))
 			.app_data(actix_web::web::Data::new(program_state.clone()))
-			.app_data(actix_web::web::Data::new(logger))
+			.app_data(actix_web::web::Data::new(logger));
+
+		if let Some(dbevent_sender) = dbevent_sender {
+			config.app_data(actix_web::web::Data::new(dbevent_sender.clone()));
+		}
+
+		config
 			.service(options_favicon)
 			.service(get_favicon)
 			.service(get_oauth)

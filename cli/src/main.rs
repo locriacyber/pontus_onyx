@@ -1,6 +1,7 @@
 #![allow(clippy::needless_return)]
 
 use std::convert::From;
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 /*
@@ -109,6 +110,24 @@ async fn main() -> std::io::Result<()> {
 		.unwrap()
 		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
+	let (history_sender, history_receiver) = std::sync::mpsc::channel::<pontus_onyx::http_server::DbEvent>();
+	std::thread::spawn(move || {
+		let mut event_file = std::fs::File::options()
+			.create(true)
+			.append(true)
+			.open(workspace_path.join("events.bin"))
+			.unwrap();
+
+		loop {
+			for event in &history_receiver {
+				let mut row = serde_json::to_string(&event).unwrap();
+				row += "\n";
+				event_file.write_all(row.as_bytes()).unwrap();
+				event_file.flush().unwrap();
+			}
+		}
+	});
+
 	pontus_onyx::http_server::setup_and_run_https_server(
 		settings.clone(),
 		database.clone(),
@@ -117,6 +136,7 @@ async fn main() -> std::io::Result<()> {
 		users.clone(),
 		program_state.clone(),
 		logger.clone(),
+		Some(history_sender.clone()),
 	);
 
 	if !program_state.lock().unwrap().https_mode {
@@ -172,7 +192,7 @@ async fn main() -> std::io::Result<()> {
 		for port in ports {
 			for user in &db_users {
 				handles += &format!(
-					"\n\t- {user}@{}:{port}",
+					"\n\t{user}@{}:{port}",
 					settings.domain.as_ref().unwrap_or_else(|| &localhost)
 				);
 			}
@@ -228,6 +248,7 @@ async fn main() -> std::io::Result<()> {
 				users.clone(),
 				program_state.clone(),
 				logger_for_server.clone(),
+				Some(history_sender.clone()),
 			))
 	})
 	.bind(format!("{domain}:{http_port}"));

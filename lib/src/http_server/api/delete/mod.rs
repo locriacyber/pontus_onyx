@@ -6,6 +6,10 @@ pub async fn delete_item(
 	request: actix_web::HttpRequest,
 	database: actix_web::web::Data<std::sync::Arc<std::sync::Mutex<crate::database::Database>>>,
 	logger: actix_web::web::Data<Arc<Mutex<charlie_buffalo::Logger>>>,
+	dbevent_sender: actix_web::web::Data<std::sync::mpsc::Sender<crate::http_server::DbEvent>>,
+	access_tokens: actix_web::web::Data<
+		std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>>,
+	>,
 ) -> impl actix_web::Responder {
 	// TODO : check security issue about this ?
 	let all_origins = actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
@@ -25,6 +29,39 @@ pub async fn delete_item(
 			.unwrap_or(&crate::item::Etag::from("")),
 	) {
 		Ok(etag) => {
+			let user = match request
+				.headers()
+				.get(actix_web::http::header::AUTHORIZATION)
+			{
+				Some(token) => {
+					let token = match token.to_str().unwrap_or_default().strip_prefix("Bearer ") {
+						Some(token) => token,
+						None => token.to_str().unwrap_or_default(),
+					};
+
+					match access_tokens
+						.lock()
+						.unwrap()
+						.iter()
+						.find(|bearer| bearer.get_name() == token)
+					{
+						Some(bearer) => String::from(bearer.get_username()),
+						None => String::from("Unknown"),
+					}
+				}
+				None => String::from("Unknown"),
+			};
+
+			dbevent_sender.send(crate::http_server::DbEvent {
+				id: ulid::Ulid::new().to_string(),
+				method: crate::http_server::DbEventMethod::Delete,
+				date: time::OffsetDateTime::now_utc(),
+				path: local_path.to_string(),
+				etag: etag.clone(),
+				user,
+				dbversion: String::from(env!("CARGO_PKG_VERSION")),
+			});
+
 			return crate::database::build_http_json_response(
 				origin,
 				request.method(),

@@ -147,6 +147,15 @@ impl Settings {
 			}
 		}
 
+		let data_path = workspace_path.join("data");
+		std::fs::create_dir_all(&data_path).unwrap();
+
+		let logfile_path = workspace_path.join("logs.msgpack");
+		std::fs::File::create(&logfile_path).unwrap();
+
+		let userfile_path = workspace_path.join("users.bin");
+		std::fs::File::create(&userfile_path).unwrap();
+
 		Self {
 			force_https: None,
 			domain,
@@ -154,9 +163,18 @@ impl Settings {
 			port: random_port_generation(),
 			admin_email: String::new(),
 			token_lifetime_seconds: Some(60 * 60),
-			logfile_path: workspace_path.join("logs.msgpack").display().to_string(),
-			userfile_path: workspace_path.join("users.bin").display().to_string(),
-			data_path: workspace_path.join("data").display().to_string(),
+			logfile_path: dunce::canonicalize(logfile_path)
+				.unwrap()
+				.display()
+				.to_string(),
+			userfile_path: dunce::canonicalize(userfile_path)
+				.unwrap()
+				.display()
+				.to_string(),
+			data_path: dunce::canonicalize(data_path)
+				.unwrap()
+				.display()
+				.to_string(),
 			https: Some(SettingsHTTPS::default()),
 			oauth_wait_seconds: Some(2),
 		}
