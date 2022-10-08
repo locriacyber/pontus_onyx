@@ -60,6 +60,31 @@ impl Scope {
 			],
 		}
 	}
+	pub fn is_allowed(
+		&self,
+		method: &actix_web::http::Method,
+		path: impl Into<String>,
+		username: impl Into<String>,
+	) -> bool {
+		if self
+			.allowed_methods()
+			.iter()
+			.any(|allowed_method| allowed_method == method)
+		{
+			let path = path.into();
+			let username = username.into();
+
+			if self.module == "*" {
+				path.starts_with("/storage/")
+			} else {
+				path.starts_with(&format!("/storage/{}/{}", username, self.module))
+					|| path.starts_with(&format!("/storage/public/{}/{}", username, self.module))
+					|| path.starts_with("/events/")
+			}
+		} else {
+			false
+		}
+	}
 }
 impl std::convert::TryFrom<&str> for Scope {
 	type Error = ScopeParsingError;

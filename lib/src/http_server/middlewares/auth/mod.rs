@@ -85,46 +85,20 @@ where
 
 				match tokens.iter().find(|e| e.get_name() == search_token) {
 					Some(token) => {
-						// TODO : check token validity with client_id
-						// TODO : test access in case of module = "*"
-						// TODO : test token expiration
-
-						if (std::time::Instant::now() - *token.get_emit_time())
-							< std::time::Duration::from_secs(
-								settings.token_lifetime_seconds.unwrap_or_else(|| {
-									crate::http_server::Settings::new(std::path::PathBuf::from("."))
-										.token_lifetime_seconds
-										.unwrap()
-								}),
-							) {
-							match token.get_scopes().iter().find(|scope| {
-								if scope
-									.allowed_methods()
-									.iter()
-									.any(|method| method == service_request.method())
-								{
-									if scope.module == "*" {
-										service_request.path().starts_with("/storage/")
-									} else {
-										service_request.path().starts_with(&format!(
-											"/storage/{}/{}",
-											token.get_username(),
-											scope.module
-										)) || service_request.path().starts_with(&format!(
-											"/storage/public/{}/{}",
-											token.get_username(),
-											scope.module
-										))
-									}
-								} else {
-									false
-								}
-							}) {
-								Some(_) => {
+						match token.is_allowed(
+							settings.token_lifetime_seconds.unwrap_or_else(|| {
+								crate::http_server::Settings::new(std::path::PathBuf::from("."))
+									.token_lifetime_seconds
+									.unwrap()
+							}),
+							service_request.method(),
+							service_request.path(),
+						) {
+							Ok(allowed) => {
+								if allowed {
 									let future = self.service.call(service_request);
 									Box::pin(async move { future.await })
-								}
-								None => {
+								} else {
 									self.logger.lock().unwrap().push(
 										vec![
 											(String::from("event"), String::from("auth")),
@@ -161,40 +135,42 @@ where
 									})
 								}
 							}
-						} else {
-							self.logger.lock().unwrap().push(
-								vec![
-									(String::from("event"), String::from("auth")),
-									(String::from("token"), String::from(search_token)),
-									(String::from("level"), String::from("DEBUG")),
-								],
-								Some("expirated token"),
-							);
+							Err(error) => {
+								self.logger.lock().unwrap().push(
+									vec![
+										(String::from("event"), String::from("auth")),
+										(String::from("token"), String::from(search_token)),
+										(String::from("level"), String::from("DEBUG")),
+									],
+									Some(&error),
+								);
 
-							Box::pin(async move {
-								// TODO : check security issue about this ?
-								let all_origins =
-									actix_web::http::header::HeaderValue::from_bytes(b"*").unwrap();
-								let headers = service_request.headers().clone();
-								let origin = headers
-									.get(actix_web::http::header::ORIGIN)
-									.unwrap_or(&all_origins)
-									.to_str()
-									.unwrap();
+								Box::pin(async move {
+									// TODO : check security issue about this ?
+									let all_origins =
+										actix_web::http::header::HeaderValue::from_bytes(b"*")
+											.unwrap();
+									let headers = service_request.headers().clone();
+									let origin = headers
+										.get(actix_web::http::header::ORIGIN)
+										.unwrap_or(&all_origins)
+										.to_str()
+										.unwrap();
 
-								Ok(actix_web::dev::ServiceResponse::new(
-									service_request.into_parts().0,
-									crate::database::build_http_json_response(
-										origin,
-										&request_method,
-										actix_web::http::StatusCode::FORBIDDEN,
-										None,
-										None,
-										None,
-										true,
-									),
-								))
-							})
+									Ok(actix_web::dev::ServiceResponse::new(
+										service_request.into_parts().0,
+										crate::database::build_http_json_response(
+											origin,
+											&request_method,
+											actix_web::http::StatusCode::FORBIDDEN,
+											None,
+											None,
+											None,
+											true,
+										),
+									))
+								})
+							}
 						}
 					}
 					None => {

@@ -33,10 +33,17 @@ async fn basics() {
 	);
 	let logger = std::sync::Arc::new(std::sync::Mutex::new(logger));
 
+	let access_tokens: std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>> =
+		std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+
+	let (events, _) = std::sync::mpsc::channel::<crate::http_server::DbEvent>();
+
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
 			.app_data(actix_web::web::Data::new(database))
 			.app_data(actix_web::web::Data::new(logger))
+			.app_data(actix_web::web::Data::new(access_tokens))
+			.app_data(actix_web::web::Data::new(events))
 			.service(crate::http_server::api::get_item)
 			.service(super::delete_item),
 	)
@@ -145,10 +152,17 @@ async fn if_match() {
 	);
 	let logger = std::sync::Arc::new(std::sync::Mutex::new(logger));
 
+	let access_tokens: std::sync::Arc<std::sync::Mutex<Vec<crate::http_server::AccessBearer>>> =
+		std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+
+	let (events, _) = std::sync::mpsc::channel::<crate::http_server::DbEvent>();
+
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
 			.app_data(actix_web::web::Data::new(database))
 			.app_data(actix_web::web::Data::new(logger))
+			.app_data(actix_web::web::Data::new(access_tokens))
+			.app_data(actix_web::web::Data::new(events))
 			.service(crate::http_server::api::get_item)
 			.service(super::delete_item),
 	)

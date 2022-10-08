@@ -82,9 +82,10 @@ fn pbw1cgzctiqe163() {
 	assert_eq!(
 		build_server_address(&settings, &state),
 		format!(
-			"{}://{}/{}",
+			"{}://{}:{}/{}",
 			"http",
-			format!("localhost:{}", settings.port),
+			settings.domain.unwrap_or_else(|| String::from("localhost")),
+			settings.port,
 			""
 		)
 	);
@@ -99,9 +100,10 @@ fn ykf0gcnr7z2ko4wtx8uub() {
 	assert_eq!(
 		build_server_address(&settings, &state),
 		format!(
-			"{}://{}/{}",
+			"{}://{}:{}/{}",
 			"http",
-			format!("localhost:{}", settings.port),
+			settings.domain.unwrap_or_else(|| String::from("localhost")),
+			settings.port,
 			"test/"
 		)
 	);
@@ -116,9 +118,10 @@ fn wxpy6tncuwbbavvxi() {
 	assert_eq!(
 		build_server_address(&settings, &state),
 		format!(
-			"{}://{}/{}",
+			"{}://{}:{}/{}",
 			"http",
-			format!("localhost:{}", settings.port),
+			settings.domain.unwrap_or_else(|| String::from("localhost")),
+			settings.port,
 			"test/"
 		)
 	);
@@ -127,14 +130,16 @@ fn wxpy6tncuwbbavvxi() {
 #[test]
 fn fpfxwrixa1jz7t() {
 	let settings = super::Settings::new(tempfile::tempdir().unwrap().into_path());
+
 	let state = super::ProgramState { https_mode: true };
 
 	assert_eq!(
 		build_server_address(&settings, &state),
 		format!(
-			"{}://{}/{}",
+			"{}://{}:{}/{}",
 			"https",
-			format!("localhost:{}", settings.https.unwrap().port),
+			settings.domain.unwrap_or_else(|| String::from("localhost")),
+			settings.https.unwrap().port,
 			""
 		)
 	);

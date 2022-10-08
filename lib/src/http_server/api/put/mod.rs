@@ -90,15 +90,17 @@ pub async fn put_item(
 			.collect::<Vec<&crate::item::Etag>>(),
 	) {
 		crate::database::PutResult::Created(new_etag, last_modified) => {
-			dbevent_sender.send(crate::http_server::DbEvent {
-				id: ulid::Ulid::new().to_string(),
-				method: crate::http_server::DbEventMethod::Put,
-				date: last_modified,
-				path: local_path.to_string(),
-				etag: new_etag.clone(),
-				user,
-				dbversion: String::from(env!("CARGO_PKG_VERSION")),
-			});
+			dbevent_sender
+				.send(crate::http_server::DbEvent {
+					id: ulid::Ulid::new().to_string(),
+					method: crate::http_server::DbEventMethod::Create,
+					date: last_modified,
+					path: String::from("/storage/") + &local_path.to_string(),
+					etag: new_etag.clone(),
+					user,
+					dbversion: String::from(env!("CARGO_PKG_VERSION")),
+				})
+				.ok();
 
 			return crate::database::build_http_json_response(
 				origin,
@@ -111,15 +113,17 @@ pub async fn put_item(
 			);
 		}
 		crate::database::PutResult::Updated(new_etag, last_modified) => {
-			dbevent_sender.send(crate::http_server::DbEvent {
-				id: ulid::Ulid::new().to_string(),
-				method: crate::http_server::DbEventMethod::Put,
-				date: last_modified,
-				path: local_path.to_string(),
-				etag: new_etag.clone(),
-				user,
-				dbversion: String::from(env!("CARGO_PKG_VERSION")),
-			});
+			dbevent_sender
+				.send(crate::http_server::DbEvent {
+					id: ulid::Ulid::new().to_string(),
+					method: crate::http_server::DbEventMethod::Update,
+					date: last_modified,
+					path: String::from("/storage/") + &local_path.to_string(),
+					etag: new_etag.clone(),
+					user,
+					dbversion: String::from(env!("CARGO_PKG_VERSION")),
+				})
+				.ok();
 
 			return crate::database::build_http_json_response(
 				origin,

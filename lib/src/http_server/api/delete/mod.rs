@@ -52,15 +52,17 @@ pub async fn delete_item(
 				None => String::from("Unknown"),
 			};
 
-			dbevent_sender.send(crate::http_server::DbEvent {
-				id: ulid::Ulid::new().to_string(),
-				method: crate::http_server::DbEventMethod::Delete,
-				date: time::OffsetDateTime::now_utc(),
-				path: local_path.to_string(),
-				etag: etag.clone(),
-				user,
-				dbversion: String::from(env!("CARGO_PKG_VERSION")),
-			});
+			dbevent_sender
+				.send(crate::http_server::DbEvent {
+					id: ulid::Ulid::new().to_string(),
+					method: crate::http_server::DbEventMethod::Delete,
+					date: time::OffsetDateTime::now_utc(),
+					path: String::from("/storage/") + &local_path.to_string(),
+					etag: etag.clone(),
+					user,
+					dbversion: String::from(env!("CARGO_PKG_VERSION")),
+				})
+				.ok();
 
 			return crate::database::build_http_json_response(
 				origin,

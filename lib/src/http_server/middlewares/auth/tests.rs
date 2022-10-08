@@ -1,5 +1,8 @@
 use actix_web::HttpMessage;
-use std::sync::{Arc, Mutex};
+use std::{
+	io::Write,
+	sync::{Arc, Mutex},
+};
 
 #[actix_rt::test]
 async fn hsv5femo2qgu80gbad0ov5() {
@@ -38,6 +41,7 @@ async fn hsv5femo2qgu80gbad0ov5() {
 		(100, "/favicon.ico", false),
 		(110, "/remotestorage.svg", false),
 		(120, "/", false),
+		(130, "/events/all", true),
 	];
 
 	for test in tests {
@@ -144,7 +148,11 @@ async fn kp6m20xdwvw6v4t3yxq() {
 		tempfile::tempdir().unwrap().into_path(),
 	)));
 
-	let mut logger = charlie_buffalo::Logger::new(
+	std::env::set_var("RUST_LOG", "debug");
+	std::env::set_var("RUST_BACKTRACE", "1");
+	env_logger::init();
+
+	let logger = charlie_buffalo::Logger::new(
 		charlie_buffalo::new_dispatcher(Box::from(move |log: charlie_buffalo::Log| {
 			println!("{:?} : {:?}", log.attributes, log.content);
 		})),
@@ -152,17 +160,43 @@ async fn kp6m20xdwvw6v4t3yxq() {
 	);
 	let logger = std::sync::Arc::new(std::sync::Mutex::new(logger));
 
+	let working_folder = tempfile::tempdir().unwrap().into_path();
+
+	let workspace_path_for_event_loop = working_folder.clone();
+	let (history_sender, history_receiver) =
+		std::sync::mpsc::channel::<crate::http_server::DbEvent>();
+
+	std::thread::spawn(move || {
+		let mut event_file = std::fs::File::options()
+			.create(true)
+			.append(true)
+			.open(workspace_path_for_event_loop.join("events.bin"))
+			.unwrap();
+
+		loop {
+			for event in &history_receiver {
+				let mut row = serde_json::to_string(&event).unwrap();
+				row += ",\n";
+				event_file.write_all(row.as_bytes()).unwrap();
+				event_file.flush().unwrap();
+			}
+		}
+	});
+
 	let mut app = actix_web::test::init_service(
 		actix_web::App::new()
 			.app_data(actix_web::web::Data::new(database.clone()))
 			.app_data(actix_web::web::Data::new(access_tokens.clone()))
 			.app_data(actix_web::web::Data::new(settings.clone()))
 			.app_data(actix_web::web::Data::new(logger.clone()))
+			.app_data(actix_web::web::Data::new(history_sender.clone()))
+			.app_data(actix_web::web::Data::new(working_folder.clone()))
 			.wrap(super::Auth {
 				logger: logger.clone(),
 			})
 			.service(crate::http_server::api::get_item)
-			.service(crate::http_server::api::put_item),
+			.service(crate::http_server::api::put_item)
+			.service(crate::http_server::server_events),
 	)
 	.await;
 
@@ -394,6 +428,31 @@ async fn kp6m20xdwvw6v4t3yxq() {
 					format!("Bearer {}", "RANDOM_BEARER"),
 				))
 				.set_json(&serde_json::json!({"value": "HELLO"})),
+			actix_web::http::StatusCode::UNAUTHORIZED,
+		),
+		(
+			210,
+			actix_web::test::TestRequest::get()
+				.uri("/events/all")
+				.insert_header((
+					actix_web::http::header::AUTHORIZATION,
+					format!("Bearer {}", token.get_name()),
+				)),
+			actix_web::http::StatusCode::OK,
+		),
+		(
+			220,
+			actix_web::test::TestRequest::get()
+				.uri("/events/all")
+				.insert_header((
+					actix_web::http::header::AUTHORIZATION,
+					format!("Bearer {}", "RANDOM_BEARER"),
+				)),
+			actix_web::http::StatusCode::UNAUTHORIZED,
+		),
+		(
+			230,
+			actix_web::test::TestRequest::get().uri("/events/all"),
 			actix_web::http::StatusCode::UNAUTHORIZED,
 		),
 	];

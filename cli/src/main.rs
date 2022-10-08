@@ -110,18 +110,21 @@ async fn main() -> std::io::Result<()> {
 		.unwrap()
 		.push(vec![], Some("*CONSOLE_WHITESPACE*"));
 
-	let (history_sender, history_receiver) = std::sync::mpsc::channel::<pontus_onyx::http_server::DbEvent>();
+	let workspace_path_for_event_loop = workspace_path.clone();
+	let (history_sender, history_receiver) =
+		std::sync::mpsc::channel::<pontus_onyx::http_server::DbEvent>();
+
 	std::thread::spawn(move || {
 		let mut event_file = std::fs::File::options()
 			.create(true)
 			.append(true)
-			.open(workspace_path.join("events.bin"))
+			.open(workspace_path_for_event_loop.join("events.bin"))
 			.unwrap();
 
 		loop {
 			for event in &history_receiver {
 				let mut row = serde_json::to_string(&event).unwrap();
-				row += "\n";
+				row += ",\n";
 				event_file.write_all(row.as_bytes()).unwrap();
 				event_file.flush().unwrap();
 			}
@@ -136,6 +139,7 @@ async fn main() -> std::io::Result<()> {
 		users.clone(),
 		program_state.clone(),
 		logger.clone(),
+		&workspace_path,
 		Some(history_sender.clone()),
 	);
 
@@ -248,6 +252,7 @@ async fn main() -> std::io::Result<()> {
 				users.clone(),
 				program_state.clone(),
 				logger_for_server.clone(),
+				&workspace_path,
 				Some(history_sender.clone()),
 			))
 	})

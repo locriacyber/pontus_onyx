@@ -51,6 +51,28 @@ impl AccessBearer {
 	pub fn get_emit_time(&self) -> &std::time::Instant {
 		&self.emit_time
 	}
+	#[cfg(feature = "server")]
+	pub fn is_allowed(
+		&self,
+		max_token_lifetime_seconds: u64,
+		method: &actix_web::http::Method,
+		path: impl Into<String>,
+	) -> Result<bool, String> {
+		// TODO : check token validity with client_id
+
+		if (std::time::Instant::now() - *self.get_emit_time())
+			< std::time::Duration::from_secs(max_token_lifetime_seconds)
+		{
+			let path = path.into();
+
+			Ok(self
+				.get_scopes()
+				.iter()
+				.any(|scope| scope.is_allowed(method, &path, self.get_username())))
+		} else {
+			Err(String::from("token lifetime expirated"))
+		}
+	}
 }
 
 #[cfg(test)]

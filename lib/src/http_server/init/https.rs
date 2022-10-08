@@ -8,6 +8,7 @@ pub fn setup_and_run_https_server(
 	users: Arc<Mutex<crate::http_server::Users>>,
 	program_state: Arc<Mutex<crate::http_server::ProgramState>>,
 	logger: Arc<Mutex<charlie_buffalo::Logger>>,
+	workspace_path: &std::path::Path,
 	history_sender: Option<std::sync::mpsc::Sender<crate::http_server::DbEvent>>,
 ) {
 	let settings_for_setup = settings.lock().unwrap().clone();
@@ -50,6 +51,8 @@ pub fn setup_and_run_https_server(
 
 													let program_state_for_server =
 														program_state.clone();
+													let workspace_path_for_server =
+														workspace_path.to_path_buf();
 													let logger_for_server = logger.clone();
 													match actix_web::HttpServer::new(move || {
 														actix_web::App::new()
@@ -71,6 +74,7 @@ pub fn setup_and_run_https_server(
 																	users.clone(),
 																	program_state_for_server.clone(),
 																	logger_for_server.clone(),
+																	&workspace_path_for_server,
 																	match &history_sender {
 																		Some(history_sender) => Some(history_sender.clone()),
 																		None => None,
