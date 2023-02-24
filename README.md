@@ -18,3 +18,16 @@ This workspace contains 3 crates :
     - this is a command-line server binary (to use the server library directly)
 - `pontus_onyx_gui`
     - this is a graphical server binary (to use the server library directly)
+
+## Usage
+
+```
+git clone <this repo>
+cd <this repo>
+
+cargo install --path cli
+pontus_onyx_cli path/to/data_dir
+
+# username: pick whatever
+# password: can be blank
+```
