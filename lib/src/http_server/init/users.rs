@@ -65,13 +65,7 @@ pub fn load_or_create_users(
 					}
 
 					admin_username = admin_username.trim().to_lowercase();
-
-					if crate::assets::EASY_TO_GUESS_USERS.contains(&admin_username.as_str()) {
-						println!("\t❌ This username is too easy to guess");
-						admin_username = String::new();
-					} else {
-						input_is_correct = true;
-					}
+					input_is_correct = true;
 				}
 
 				let mut admin_password = String::new();
@@ -90,23 +84,8 @@ pub fn load_or_create_users(
 							match rpassword::read_password() {
 								Ok(password2) => {
 									if password1 == password2 {
-										if password2.trim().chars().count() < 6 {
-											println!(
-												"\t❌ This password need at least 6 characters"
-											);
-										} else if String::from_utf8(
-											crate::assets::MOST_USED_PASSWORDS.to_vec(),
-										)
-										.unwrap()
-										.lines()
-										.any(|line| line == password2)
-										{
-											println!("\t❌ This password is too easy to guess");
-											admin_password = String::new();
-										} else {
-											admin_password = String::from(password2.trim());
-											input_is_correct = true;
-										}
+										admin_password = password2;
+										input_is_correct = true;
 									} else {
 										println!("\t❌ Passwords does not match, please try again");
 									}
