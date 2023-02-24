@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use rand::Rng;
 
 pub fn load_or_create_settings(
@@ -114,6 +116,8 @@ pub fn load_or_create_settings(
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Settings {
+	#[serde(skip)]
+	pub workspace_path: PathBuf,
 	pub force_https: Option<bool>,
 	pub domain: Option<String>,
 	pub domain_suffix: Option<String>,
@@ -121,23 +125,11 @@ pub struct Settings {
 	pub admin_email: String,
 	pub token_lifetime_seconds: Option<u64>,
 	pub oauth_wait_seconds: Option<u64>,
-	pub logfile_path: String,
-	pub userfile_path: String,
-	pub data_path: String,
 	pub https: Option<SettingsHTTPS>,
 }
 impl Settings {
 	pub fn new(workspace_path: std::path::PathBuf) -> Self {
 		let domain = Some(String::from("localhost"));
-
-		let data_path = workspace_path.join("data");
-		std::fs::create_dir_all(&data_path).unwrap();
-
-		let logfile_path = workspace_path.join("logs.msgpack");
-		std::fs::File::create(&logfile_path).unwrap();
-
-		let userfile_path = workspace_path.join("users.bin");
-		std::fs::File::create(&userfile_path).unwrap();
 
 		Self {
 			force_https: None,
@@ -146,21 +138,23 @@ impl Settings {
 			port: random_port_generation(),
 			admin_email: String::new(),
 			token_lifetime_seconds: Some(60 * 60),
-			logfile_path: dunce::canonicalize(logfile_path)
-				.unwrap()
-				.display()
-				.to_string(),
-			userfile_path: dunce::canonicalize(userfile_path)
-				.unwrap()
-				.display()
-				.to_string(),
-			data_path: dunce::canonicalize(data_path)
-				.unwrap()
-				.display()
-				.to_string(),
+			workspace_path,
 			https: Some(SettingsHTTPS::default()),
 			oauth_wait_seconds: Some(2),
 		}
+	}
+
+	pub fn data_path(&self) -> PathBuf {
+		self.workspace_path.join("data")
+		// std::fs::create_dir_all(&data_path).unwrap();
+	}
+	pub fn logfile_path(&self) -> PathBuf {
+		self.workspace_path.join("logs.msgpack")
+		// std::fs::File::create(&logfile_path).unwrap();
+	}
+	pub fn userfile_path(&self) -> PathBuf {
+		self.workspace_path.join("users.bin")
+		// std::fs::File::create(&userfile_path).unwrap();
 	}
 }
 

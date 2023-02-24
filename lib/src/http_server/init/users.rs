@@ -4,7 +4,7 @@ pub fn load_or_create_users(
 	settings: &super::Settings,
 	logger: std::sync::Arc<std::sync::Mutex<charlie_buffalo::Logger>>,
 ) -> crate::http_server::Users {
-	let users_path = std::path::PathBuf::from(settings.userfile_path.clone());
+	let users_path = settings.userfile_path();
 
 	let users = {
 		let userlist = match std::fs::read(&users_path) {

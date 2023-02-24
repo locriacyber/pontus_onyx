@@ -6,7 +6,7 @@ pub fn load_or_create_logger(
 	temp_logger: charlie_buffalo::Logger,
 	temp_logs: Arc<Mutex<Vec<charlie_buffalo::Log>>>,
 ) -> Arc<Mutex<charlie_buffalo::Logger>> {
-	let logfile_path = Arc::new(settings.logfile_path.clone());
+	let logfile_path = Arc::new(settings.logfile_path());
 
 	if let Some(parents) = std::path::PathBuf::from((*logfile_path).clone()).parent() {
 		if let Err(e) = std::fs::create_dir_all(parents) {
