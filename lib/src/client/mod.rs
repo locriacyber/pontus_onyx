@@ -26,6 +26,7 @@ TODO : disabled functionalities ?
 */
 
 use js_sys::Promise;
+use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 
 lazy_static::lazy_static! {
@@ -181,7 +182,7 @@ impl ClientRemote {
 			wasm_bindgen_futures::JsFuture::from(window.fetch_with_request(&request)).await?;
 		let resp: web_sys::Response = resp_value.dyn_into()?;
 		let json = wasm_bindgen_futures::JsFuture::from(resp.json()?).await?;
-		let response: WebfingerResponse = json.into_serde().unwrap();
+		let response: WebfingerResponse = from_value(json).unwrap();
 
 		Ok(response)
 	}
@@ -376,7 +377,7 @@ impl ClientRemote {
 										.unwrap();
 								}) as Box<dyn FnMut(JsValue)>);
 
-								window
+								_ = window
 									.fetch_with_request(&request)
 									.then(&process_callback)
 									.catch(&err_callback);
@@ -700,7 +701,7 @@ impl Client {
 					resolve
 						.call1(
 							&JsValue::NULL,
-							&JsValue::from_serde(&crate::item::Item::Document {
+							&to_value(&crate::item::Item::Document {
 								etag: etag.into(),
 								content: None,
 								content_type: content_type.into(),
@@ -728,7 +729,7 @@ impl Client {
 					.unwrap();
 			}) as Box<dyn FnMut(JsValue)>);
 
-			window
+			_ = window
 				.fetch_with_request(&request)
 				.then(&process_callback)
 				.catch(&err_callback);
@@ -859,7 +860,7 @@ impl Client {
 							resolve
 								.call1(
 									&JsValue::NULL,
-									&JsValue::from_serde(&crate::item::Item::Folder {
+									&to_value(&crate::item::Item::Folder {
 										etag: etag.into(),
 										content,
 									})
@@ -884,7 +885,7 @@ impl Client {
 							resolve
 								.call1(
 									&JsValue::NULL,
-									&JsValue::from_serde(&crate::item::Item::Document {
+									&to_value(&crate::item::Item::Document {
 										etag: etag.into(),
 										content: Some(buffer),
 										content_type: content_type.into(),
@@ -902,7 +903,7 @@ impl Client {
 							.unwrap();
 					}) as Box<dyn FnMut(JsValue)>);
 
-					resp.array_buffer()
+					_ = resp.array_buffer()
 						.unwrap()
 						.then(&body_process)
 						.catch(&body_err);
@@ -940,7 +941,7 @@ impl Client {
 					.unwrap();
 			}) as Box<dyn FnMut(JsValue)>);
 
-			window
+			_ = window
 				.fetch_with_request(&request)
 				.then(&process_callback)
 				.catch(&err_callback);
@@ -1065,7 +1066,7 @@ impl Client {
 							resolve
 								.call1(
 									&JsValue::NULL,
-									&JsValue::from_serde(&crate::item::Item::Document {
+									&to_value(&crate::item::Item::Document {
 										etag: etag.unwrap_or_default().into(),
 										content: None,
 										content_type: content_type.into(),
@@ -1094,7 +1095,7 @@ impl Client {
 							.unwrap();
 					}) as Box<dyn FnMut(JsValue)>);
 
-					window
+					_ = window
 						.fetch_with_request(&request)
 						.then(&process_callback)
 						.catch(&err_callback);
