@@ -8,7 +8,7 @@ async fn basics() {
 		}));
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
-	let mut logger = charlie_buffalo::Logger::new(
+	let logger = charlie_buffalo::Logger::new(
 		charlie_buffalo::new_dispatcher(Box::from(move |log: charlie_buffalo::Log| {
 			println!("{:?} : {:?}", log.attributes, log.content);
 		})),
@@ -129,7 +129,7 @@ async fn if_none_match() {
 		}));
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
-	let mut logger = charlie_buffalo::Logger::new(
+	let logger = charlie_buffalo::Logger::new(
 		charlie_buffalo::new_dispatcher(Box::from(move |log: charlie_buffalo::Log| {
 			println!("{:?} : {:?}", log.attributes, log.content);
 		})),
@@ -247,7 +247,7 @@ async fn if_match() {
 		}));
 	let database = std::sync::Arc::new(std::sync::Mutex::new(database));
 
-	let mut logger = charlie_buffalo::Logger::new(
+	let logger = charlie_buffalo::Logger::new(
 		charlie_buffalo::new_dispatcher(Box::from(move |log: charlie_buffalo::Log| {
 			println!("{:?} : {:?}", log.attributes, log.content);
 		})),

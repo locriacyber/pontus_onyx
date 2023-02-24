@@ -128,7 +128,7 @@ pub struct Settings {
 }
 impl Settings {
 	pub fn new(workspace_path: std::path::PathBuf) -> Self {
-		let mut domain = Some(String::from("localhost"));
+		let domain = Some(String::from("localhost"));
 
 		let data_path = workspace_path.join("data");
 		std::fs::create_dir_all(&data_path).unwrap();
