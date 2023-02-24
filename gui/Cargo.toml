@@ -23,8 +23,7 @@ custom-protocol = [ "tauri/custom-protocol" ]
 tauri-build = { version = "1.0.4", features = [] }
 
 [dependencies]
-pontus_onyx = { version = "0.16.9", features = ["server", "server_file_storage", "actix_server", "assets"] }
-# pontus_onyx = { path = "../lib", features = ["server", "server_file_storage", "actix_server", "assets"] }
+pontus_onyx = { path = "../lib", features = ["server", "server_file_storage", "actix_server", "assets"] }
 
 serde = { version = "1.0.143", features = ["derive"] }
 tauri = { version = "1.0.5", features = ["api-all"] }

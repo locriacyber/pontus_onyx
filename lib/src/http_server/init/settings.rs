@@ -129,23 +129,6 @@ pub struct Settings {
 impl Settings {
 	pub fn new(workspace_path: std::path::PathBuf) -> Self {
 		let mut domain = Some(String::from("localhost"));
-		for adapter in ipconfig::get_adapters().unwrap() {
-			if adapter.oper_status() == ipconfig::OperStatus::IfOperStatusUp
-				&& !adapter.friendly_name().to_lowercase().contains("loopback")
-			{
-				let address = adapter.ip_addresses().iter().find(|ip| ip.is_ipv4());
-				if address.is_some() {
-					domain = address.map(|address| address.to_string());
-					break;
-				} else {
-					domain = adapter
-						.ip_addresses()
-						.first()
-						.map(|address| address.to_string());
-					break;
-				}
-			}
-		}
 
 		let data_path = workspace_path.join("data");
 		std::fs::create_dir_all(&data_path).unwrap();

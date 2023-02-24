@@ -11,8 +11,7 @@ readme = "./README.md"
 repository = "https://github.com/Jimskapt/pontus_onyx"
 
 [dependencies]
-pontus_onyx = { version = "0.17.1", features = ["server", "server_file_storage", "actix_server", "assets"] }
-# pontus_onyx = { path = "../lib", features = ["server", "server_file_storage", "actix_server", "assets"] }
+pontus_onyx = { path = "../lib", features = ["server", "server_file_storage", "actix_server", "assets"] }
 
 serde = { version = "1.0.145", features = ["derive"] }
 ulid = { version = "1.0.0", features = ["serde"] }

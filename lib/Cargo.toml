@@ -12,45 +12,11 @@ repository = "https://github.com/Jimskapt/pontus_onyx"
 documentation = "https://docs.rs/pontus_onyx/"
 
 [features]
-client = [
-    "serde_json",
-    "lazy_static",
-    "http",
-    "js-sys",
-    "web-sys",
-    "wasm-bindgen",
-    "wasm-bindgen-futures",
-    "pct-str"
-]
-client_cookies = [
-    "client"
-]
-actix_server = [
-    "actix-web",
-    "serde_json",
-    "charlie_buffalo",
-    "rmp-serde",
-    "rand",
-    "hmac-sha512",
-    "futures",
-    "futures-util",
-    "zeroize",
-    "pct-str",
-    "rustls",
-    "rustls-pemfile",
-    "rpassword"
-]
-server = [
-    "bincode",
-    "toml",
-    "ipconfig"
-]
-server_local_storage = [
-    "web-sys",
-    "wasm-bindgen",
-    "base64",
-    "serde_json"
-]
+client = ["serde_json", "lazy_static", "http", "js-sys", "web-sys", "wasm-bindgen", "wasm-bindgen-futures", "pct-str"]
+client_cookies = ["client"]
+actix_server = ["actix-web", "serde_json", "charlie_buffalo", "rmp-serde", "rand", "hmac-sha512", "futures", "futures-util", "zeroize", "pct-str", "rustls", "rustls-pemfile", "rpassword"]
+server = ["bincode", "toml"]
+server_local_storage = ["web-sys", "wasm-bindgen", "base64", "serde_json"]
 server_file_storage = []
 assets = []
 
@@ -85,7 +51,6 @@ wasm-bindgen = { version = "0.2.83", features = ["serde-serialize"], optional = 
 wasm-bindgen-futures = { version = "0.4.33", optional = true }
 futures-util = { version = "0.3.24", optional = true }
 tauri = { version = "1.1.1", features = ["api-all"], optional = true }
-ipconfig = { version = "0.3.0", optional = true }
 
 [dependencies.web-sys]
 version = "0.3.60"
